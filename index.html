@@ -236,6 +236,10 @@ tr:hover td{background:var(--bg3);}
 
     <!-- Login cuadrilla -->
     <div id="login-cuadrilla-area">
+      <!-- Banner de estado de conexión -->
+      <div id="login-sync-banner" style="display:none;background:var(--amber-light);border:1px solid #f0d070;border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--amber-dark);margin-bottom:1rem;text-align:center;">
+        <span id="login-sync-msg">⏳ Conectando con base de datos...</span>
+      </div>
       <label class="login-label">Selecciona tu cuadrilla</label>
       <select class="login-select" id="login-cuadrilla-sel"></select>
       <label class="login-label">Contraseña de cuadrilla</label>
@@ -243,7 +247,10 @@ tr:hover td{background:var(--bg3);}
         <input class="login-input" type="password" id="login-cuad-pass" placeholder="••••••" style="margin-bottom:1rem">
         <button class="pass-toggle" onclick="togglePass('login-cuad-pass')">👁</button>
       </div>
-      <button class="login-btn" onclick="loginCuadrilla()">Ingresar</button>
+      <button class="login-btn" id="login-cuad-btn" onclick="loginCuadrilla()">Ingresar</button>
+      <div style="text-align:center;margin-top:10px;">
+        <button style="background:none;border:none;font-size:12px;color:var(--ink3);cursor:pointer;" onclick="loadFromSheets();toast('Actualizando cuadrillas...','info')">🔄 Actualizar cuadrillas</button>
+      </div>
       <div class="login-divider">o</div>
       <div class="admin-link"><a onclick="showAdminLogin()">Acceso Administrador</a></div>
     </div>
@@ -465,6 +472,8 @@ tr:hover td{background:var(--bg3);}
           <div class="btn-row">
             <button class="btn btn-accent" onclick="saveGsUrl()">Guardar y probar</button>
             <span id="gs-status" style="font-size:13px;color:var(--ink3);align-self:center;"></span>
+          </div>
+          <div id="gs-hardcode-instr" style="display:none;background:var(--amber-light);border:1px solid #f0d070;border-radius:var(--r);padding:12px 14px;font-size:12px;color:var(--amber-dark);margin-top:10px;line-height:1.8;">
           </div>
           <div class="divider"></div>
           <div class="card-title">Código para Google Apps Script (versión completa)</div>
@@ -694,7 +703,10 @@ function ok() {
 // ESTADO GLOBAL
 // ══════════════════════════════════════════════════════════
 var ADMIN_PASS = 'admin2024';
-var GS_URL = '';
+
+// ▼▼▼ PEGA AQUÍ TU URL DEL APPS SCRIPT ▼▼▼
+var GS_URL = 'https://script.google.com/macros/s/AKfycbwqGkP1ihphqwzDwNBXpUx3iSkOEqd_0rFc0O1muk5hdnLSDEqXd8tdklGD4F939YdUYA/exec';
+// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 var kardexTipo = 'ingreso';
 var kardexRows = []; // [{uid, matId, qty}]
 var asigRows = [];   // [{uid, matId, qty}]
@@ -1463,72 +1475,96 @@ function deleteCuadrilla(id) {
 // GOOGLE SHEETS — base de datos central
 // ══════════════════════════════════════════════════════════
 function saveGsUrl() {
-  GS_URL = document.getElementById('gs-url').value.trim(); save();
+  GS_URL = document.getElementById('gs-url').value.trim();
+  localStorage.setItem('bn2_gs', GS_URL);
+  save();
   var el = document.getElementById('gs-status');
   if (!GS_URL) { el.textContent = 'Sin URL'; return; }
   el.textContent = 'Probando conexión...'; el.style.color = 'var(--ink3)';
-  // Probar con GET
+
+  // Mostrar instrucción para hardcodear
+  var instrEl = document.getElementById('gs-hardcode-instr');
+  if (instrEl) {
+    instrEl.style.display = 'block';
+    instrEl.innerHTML = '<strong>⚠ Paso importante para que funcione en todos los dispositivos:</strong><br>'
+      + 'Abre el archivo <code>index.html</code> en GitHub → busca la línea:<br>'
+      + '<code>var GS_URL = localStorage.getItem(\'bn2_gs\') || \'\';</code><br>'
+      + 'Reemplázala por:<br>'
+      + '<code>var GS_URL = \'' + GS_URL + '\';</code><br>'
+      + 'Guarda el cambio en GitHub (Commit changes).';
+  }
+
   fetch(GS_URL + '?action=loadAll')
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d.ok) {
-        el.textContent = '✓ Conectado a Google Sheets'; el.style.color = 'var(--green)';
-        toast('Conexión exitosa. Cargando datos desde Sheets...', 'success');
+        el.textContent = '✓ Conectado'; el.style.color = 'var(--green)';
+        toast('Conexión exitosa con Google Sheets', 'success');
         loadFromSheets();
       }
     })
     .catch(function(){
-      // no-cors fallback
-      el.textContent = '✓ URL guardada (CORS bloqueado — normal en algunos navegadores)';
-      el.style.color = 'var(--amber)';
-      toast('URL guardada. Los cambios se sincronizarán al guardar.', 'info');
+      el.textContent = '✓ URL guardada'; el.style.color = 'var(--amber)';
+      toast('URL guardada. Sigue la instrucción de abajo para que funcione en todos los dispositivos.', 'info');
     });
 }
 
 // Cargar TODA la base de datos desde Sheets al iniciar
 function loadFromSheets() {
-  if (!GS_URL) return;
+  if (!GS_URL) {
+    showLoginBanner('⚠ Sin URL de Google Sheets configurada. Inicia sesión como Admin para configurarla.', 'warn');
+    return;
+  }
+  showLoginBanner('⏳ Conectando con base de datos...', 'load');
+
   fetch(GS_URL + '?action=loadAll')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (!d.ok) return;
+      if (!d.ok) { showLoginBanner('⚠ Error al leer datos. Usando datos locales.', 'warn'); return; }
+
       var changed = false;
-      // Cuadrillas
-      try {
-        var cuads = JSON.parse(d.cuadrillas);
-        if (Array.isArray(cuads) && cuads.length) { db.cuadrillas = cuads; changed = true; }
-      } catch(e){}
-      // Materiales
-      try {
-        var mats = JSON.parse(d.materiales);
-        if (Array.isArray(mats) && mats.length) { db.materiales = mats; changed = true; }
-      } catch(e){}
-      // Stocks
-      try {
-        var stks = JSON.parse(d.stocks);
-        if (stks && typeof stks === 'object') { db.stocks = stks; changed = true; }
-      } catch(e){}
-      // Kardex
-      try {
-        var kx = JSON.parse(d.kardex);
-        if (Array.isArray(kx) && kx.length) { db.kardex = kx; changed = true; }
-      } catch(e){}
-      // Asignaciones
-      try {
-        var asigs = JSON.parse(d.asignaciones);
-        if (Array.isArray(asigs) && asigs.length) { db.asignaciones = asigs; changed = true; }
-      } catch(e){}
+      try { var cuads=JSON.parse(d.cuadrillas); if(Array.isArray(cuads)&&cuads.length){db.cuadrillas=cuads;changed=true;} } catch(e){}
+      try { var mats=JSON.parse(d.materiales); if(Array.isArray(mats)&&mats.length){db.materiales=mats;changed=true;} } catch(e){}
+      try { var stks=JSON.parse(d.stocks); if(stks&&typeof stks==='object'&&Object.keys(stks).length){db.stocks=stks;changed=true;} } catch(e){}
+      try { var kx=JSON.parse(d.kardex); if(Array.isArray(kx)&&kx.length){db.kardex=kx;changed=true;} } catch(e){}
+      try { var asigs=JSON.parse(d.asignaciones); if(Array.isArray(asigs)&&asigs.length){db.asignaciones=asigs;changed=true;} } catch(e){}
 
       if (changed) {
-        save(); // actualizar localStorage con datos de Sheets
+        save();
         populateLoginSelect();
         updateAlertCount();
         if (currentUser) renderDashboard();
         setSheetStatus('online');
-        toast('Datos sincronizados desde Google Sheets ✓', 'success');
+      }
+      // Mostrar resultado en banner de login
+      var nCuads = db.cuadrillas.length;
+      if (nCuads > 0) {
+        showLoginBanner('✓ ' + nCuads + ' cuadrilla(s) disponible(s)', 'ok');
+      } else {
+        showLoginBanner('ℹ Sin cuadrillas aún. El admin debe crear las cuadrillas primero.', 'warn');
       }
     })
-    .catch(function(){ setSheetStatus('offline'); });
+    .catch(function(err){
+      // Intentar con no-cors como fallback (no devuelve datos pero confirma conexión)
+      showLoginBanner('⚠ Error de conexión. Usando datos locales (' + db.cuadrillas.length + ' cuadrillas).', 'warn');
+      setSheetStatus('offline');
+      populateLoginSelect(); // mostrar lo que haya en local
+    });
+}
+
+function showLoginBanner(msg, type) {
+  var banner = document.getElementById('login-sync-banner');
+  var msgEl = document.getElementById('login-sync-msg');
+  if (!banner || !msgEl) return;
+  banner.style.display = 'block';
+  msgEl.textContent = msg;
+  if (type === 'ok') {
+    banner.style.background = 'var(--green-light)'; banner.style.borderColor = '#a0d4b0'; banner.style.color = 'var(--green-dark)';
+  } else if (type === 'warn') {
+    banner.style.background = 'var(--amber-light)'; banner.style.borderColor = '#f0d070'; banner.style.color = 'var(--amber-dark)';
+  } else {
+    banner.style.background = 'var(--blue-light)'; banner.style.borderColor = '#b8d4f4'; banner.style.color = 'var(--blue)';
+  }
 }
 
 // Guardar TODA la base de datos en Sheets
@@ -1598,13 +1634,8 @@ document.querySelectorAll('.modal-overlay').forEach(function(ov){
 // ══════════════════════════════════════════════════════════
 load();
 populateLoginSelect();
-// Intentar cargar datos frescos desde Google Sheets
-if (GS_URL) {
-  loadFromSheets();
-  // Indicar que hay URL configurada en pantalla de login
-  var gsEl = document.getElementById('gs-status');
-  if (gsEl) { gsEl.textContent = 'Sincronizando...'; gsEl.style.color = 'var(--ink3)'; }
-}
+// SIEMPRE intentar cargar desde Google Sheets al arrancar
+loadFromSheets();
 </script>
 </body>
 </html>
