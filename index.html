@@ -477,73 +477,70 @@ tr:hover td{background:var(--bg3);}
           </div>
           <div class="divider"></div>
           <div class="card-title">Código para Google Apps Script (versión completa)</div>
-          <div class="code-block">// ── BodegaNet Apps Script — leer y escribir ──
-var SHEETS = ['Config','Cuadrillas','Materiales','Stocks','Kardex','Asignaciones'];
+          <div class="code-block">// ── BodegaNet Apps Script — con JSONP (soluciona CORS) ──
 
 function doPost(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var data = JSON.parse(e.postData.contents);
-  var action = data.action;
-
-  if (action === 'saveAll') {
-    // Guardar estado completo de la base de datos
-    saveSheet(ss, 'Cuadrillas', data.cuadrillas);
-    saveSheet(ss, 'Materiales', data.materiales);
-    saveSheet(ss, 'Stocks', data.stocks);
-    saveSheet(ss, 'Kardex', data.kardex);
-    saveSheet(ss, 'Asignaciones', data.asignaciones);
-    return ok();
-  }
-
-  if (action === 'appendRow') {
-    // Agregar una fila a una hoja (para movimientos en tiempo real)
-    var tab = ss.getSheetByName(data.tab);
-    if (!tab) { tab = ss.insertSheet(data.tab); tab.appendRow(data.headers); }
-    else if (tab.getLastRow() === 0) { tab.appendRow(data.headers); }
-    tab.appendRow(data.row);
-    return ok();
-  }
-
-  return ok();
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (data.action === 'saveAll') {
+      saveSheet(ss,'Cuadrillas',data.cuadrillas);
+      saveSheet(ss,'Materiales',data.materiales);
+      saveSheet(ss,'Stocks',data.stocks);
+      saveSheet(ss,'Kardex',data.kardex);
+      saveSheet(ss,'Asignaciones',data.asignaciones);
+      return buildRes({ok:true},null);
+    }
+    if (data.action === 'appendRow') {
+      var tab=ss.getSheetByName(data.tab);
+      if(!tab){tab=ss.insertSheet(data.tab);tab.appendRow(data.headers);}
+      else if(tab.getLastRow()===0){tab.appendRow(data.headers);}
+      tab.appendRow(data.row);
+      return buildRes({ok:true},null);
+    }
+    return buildRes({ok:false,msg:'Accion desconocida'},null);
+  } catch(err){return buildRes({ok:false,error:err.toString()},null);}
 }
 
 function doGet(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var action = e.parameter.action;
-
-  if (action === 'loadAll') {
-    // Devolver toda la base de datos
-    return ContentService.createTextOutput(JSON.stringify({
-      ok: true,
-      cuadrillas:  readSheet(ss, 'Cuadrillas'),
-      materiales:  readSheet(ss, 'Materiales'),
-      stocks:      readSheet(ss, 'Stocks'),
-      kardex:      readSheet(ss, 'Kardex'),
-      asignaciones:readSheet(ss, 'Asignaciones')
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  return ContentService.createTextOutput(JSON.stringify({ok:true,status:'BodegaNet online'}))
-    .setMimeType(ContentService.MimeType.JSON);
+  try {
+    var cb=e.parameter.callback||null;
+    var ss=SpreadsheetApp.getActiveSpreadsheet();
+    if(e.parameter.action==='loadAll'){
+      return buildRes({
+        ok:true,
+        cuadrillas:  readSheet(ss,'Cuadrillas'),
+        materiales:  readSheet(ss,'Materiales'),
+        stocks:      readSheet(ss,'Stocks'),
+        kardex:      readSheet(ss,'Kardex'),
+        asignaciones:readSheet(ss,'Asignaciones')
+      },cb);
+    }
+    return buildRes({ok:true,status:'BodegaNet online'},cb);
+  } catch(err){return buildRes({ok:false,error:err.toString()},e.parameter.callback||null);}
 }
 
-function saveSheet(ss, name, jsonStr) {
-  var tab = ss.getSheetByName(name);
-  if (!tab) tab = ss.insertSheet(name);
+function saveSheet(ss,name,jsonStr){
+  var tab=ss.getSheetByName(name);
+  if(!tab)tab=ss.insertSheet(name);
   tab.clearContents();
-  tab.appendRow(['__json__']);
-  tab.appendRow([jsonStr]);
+  tab.getRange(1,1).setValue('__json__');
+  tab.getRange(2,1).setValue(jsonStr||'[]');
 }
 
-function readSheet(ss, name) {
-  var tab = ss.getSheetByName(name);
-  if (!tab || tab.getLastRow() < 2) return '[]';
-  return tab.getRange(2, 1).getValue() || '[]';
+function readSheet(ss,name){
+  var tab=ss.getSheetByName(name);
+  if(!tab||tab.getLastRow()<2)return'[]';
+  return String(tab.getRange(2,1).getValue()||'[]');
 }
 
-function ok() {
-  return ContentService.createTextOutput(JSON.stringify({ok:true}))
-    .setMimeType(ContentService.MimeType.JSON);
+function buildRes(data,callback){
+  var json=JSON.stringify(data);
+  return callback
+    ? ContentService.createTextOutput(callback+'('+json+')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT)
+    : ContentService.createTextOutput(json)
+        .setMimeType(ContentService.MimeType.JSON);
 }</div>
           <div style="background:var(--amber-light);border:1px solid #f0d070;border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber-dark);margin-top:10px;line-height:1.6;">
             <strong>⚠ Importante al redesplegar:</strong> Cada vez que modifiques el código debes crear una <strong>nueva versión</strong> en Implementar → Administrar implementaciones → Editar → Nueva versión. Si no, los cambios no se aplican.
@@ -705,7 +702,7 @@ function ok() {
 var ADMIN_PASS = 'admin2024';
 
 // ▼▼▼ PEGA AQUÍ TU URL DEL APPS SCRIPT ▼▼▼
-var GS_URL = 'https://script.google.com/macros/s/AKfycbwJaI9oqvJMOFCF48vBvpJ-_j73MJR5JkHr8F64jX3KR9NjKZyXSzu7SugE_2Q3SvbV-g/exec';
+var GS_URL = localStorage.getItem('bn2_gs') || '';
 // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 var kardexTipo = 'ingreso';
 var kardexRows = []; // [{uid, matId, qty}]
@@ -1509,7 +1506,7 @@ function saveGsUrl() {
     });
 }
 
-// Cargar TODA la base de datos desde Sheets al iniciar
+// Cargar TODA la base de datos desde Sheets — usando JSONP (evita CORS)
 function loadFromSheets() {
   if (!GS_URL) {
     showLoginBanner('⚠ Sin URL de Google Sheets configurada. Inicia sesión como Admin para configurarla.', 'warn');
@@ -1517,39 +1514,61 @@ function loadFromSheets() {
   }
   showLoginBanner('⏳ Conectando con base de datos...', 'load');
 
-  fetch(GS_URL + '?action=loadAll')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!d.ok) { showLoginBanner('⚠ Error al leer datos. Usando datos locales.', 'warn'); return; }
+  // JSONP: inyecta un <script> tag — funciona sin restricciones CORS
+  var cbName = 'bn_cb_' + Date.now();
+  var timeout = setTimeout(function() {
+    window[cbName] = null;
+    var sc = document.getElementById('bn-jsonp-script');
+    if (sc) sc.remove();
+    // Fallback: usar datos locales
+    var nLocal = db.cuadrillas.length;
+    if (nLocal > 0) {
+      showLoginBanner('⚠ Sin conexión. Mostrando ' + nLocal + ' cuadrilla(s) del caché local.', 'warn');
+      populateLoginSelect();
+    } else {
+      showLoginBanner('⚠ Sin conexión y sin datos locales. Verifica tu internet.', 'warn');
+    }
+  }, 8000);
 
-      var changed = false;
-      try { var cuads=JSON.parse(d.cuadrillas); if(Array.isArray(cuads)&&cuads.length){db.cuadrillas=cuads;changed=true;} } catch(e){}
-      try { var mats=JSON.parse(d.materiales); if(Array.isArray(mats)&&mats.length){db.materiales=mats;changed=true;} } catch(e){}
-      try { var stks=JSON.parse(d.stocks); if(stks&&typeof stks==='object'&&Object.keys(stks).length){db.stocks=stks;changed=true;} } catch(e){}
-      try { var kx=JSON.parse(d.kardex); if(Array.isArray(kx)&&kx.length){db.kardex=kx;changed=true;} } catch(e){}
-      try { var asigs=JSON.parse(d.asignaciones); if(Array.isArray(asigs)&&asigs.length){db.asignaciones=asigs;changed=true;} } catch(e){}
+  window[cbName] = function(d) {
+    clearTimeout(timeout);
+    window[cbName] = null;
+    var sc = document.getElementById('bn-jsonp-script');
+    if (sc) sc.remove();
+    if (!d || !d.ok) { showLoginBanner('⚠ Error al leer datos de Sheets.', 'warn'); return; }
 
-      if (changed) {
-        save();
-        populateLoginSelect();
-        updateAlertCount();
-        if (currentUser) renderDashboard();
-        setSheetStatus('online');
-      }
-      // Mostrar resultado en banner de login
-      var nCuads = db.cuadrillas.length;
-      if (nCuads > 0) {
-        showLoginBanner('✓ ' + nCuads + ' cuadrilla(s) disponible(s)', 'ok');
-      } else {
-        showLoginBanner('ℹ Sin cuadrillas aún. El admin debe crear las cuadrillas primero.', 'warn');
-      }
-    })
-    .catch(function(err){
-      // Intentar con no-cors como fallback (no devuelve datos pero confirma conexión)
-      showLoginBanner('⚠ Error de conexión. Usando datos locales (' + db.cuadrillas.length + ' cuadrillas).', 'warn');
-      setSheetStatus('offline');
-      populateLoginSelect(); // mostrar lo que haya en local
-    });
+    var changed = false;
+    try { var cuads=JSON.parse(d.cuadrillas); if(Array.isArray(cuads)&&cuads.length){db.cuadrillas=cuads;changed=true;} } catch(e){}
+    try { var mats=JSON.parse(d.materiales); if(Array.isArray(mats)&&mats.length){db.materiales=mats;changed=true;} } catch(e){}
+    try { var stks=JSON.parse(d.stocks); if(stks&&typeof stks==='object'&&Object.keys(stks).length){db.stocks=stks;changed=true;} } catch(e){}
+    try { var kx=JSON.parse(d.kardex); if(Array.isArray(kx)&&kx.length){db.kardex=kx;changed=true;} } catch(e){}
+    try { var asigs=JSON.parse(d.asignaciones); if(Array.isArray(asigs)&&asigs.length){db.asignaciones=asigs;changed=true;} } catch(e){}
+
+    if (changed) {
+      save();
+      populateLoginSelect();
+      updateAlertCount();
+      if (currentUser) renderDashboard();
+      setSheetStatus('online');
+    }
+    var nCuads = db.cuadrillas.length;
+    if (nCuads > 0) {
+      showLoginBanner('✓ ' + nCuads + ' cuadrilla(s) disponible(s)', 'ok');
+    } else {
+      showLoginBanner('ℹ Conectado. Sin cuadrillas aún — el Admin debe crearlas.', 'warn');
+    }
+  };
+
+  var sc = document.createElement('script');
+  sc.id = 'bn-jsonp-script';
+  sc.src = GS_URL + '?action=loadAll&callback=' + cbName;
+  sc.onerror = function() {
+    clearTimeout(timeout);
+    window[cbName] = null;
+    showLoginBanner('⚠ Error al conectar con Sheets. Verifica la URL en configuración.', 'warn');
+    populateLoginSelect();
+  };
+  document.head.appendChild(sc);
 }
 
 function showLoginBanner(msg, type) {
@@ -1567,7 +1586,7 @@ function showLoginBanner(msg, type) {
   }
 }
 
-// Guardar TODA la base de datos en Sheets
+// Guardar TODA la base de datos en Sheets — no-cors (escritura)
 function saveAllToSheets() {
   if (!GS_URL) return;
   var payload = {
