@@ -6,8 +6,11 @@
 <title>BodegaNet — Control de Materiales ISP</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
-:root {
+:root{
   --bg:#f5f4f0;--bg2:#ffffff;--bg3:#eeede8;--bg4:#e5e4de;
   --border:#d8d6cf;--border2:#c8c6be;
   --ink:#1a1917;--ink2:#5a5854;--ink3:#9a9891;
@@ -24,8 +27,16 @@
 html,body{height:100%;overflow:hidden;}
 body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15px;}
 
-/* LOGIN */
-#login-screen{position:fixed;inset:0;background:var(--ink);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+/* ── LOADING SCREEN ── */
+#loading-screen{position:fixed;inset:0;background:var(--ink);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+#loading-screen h1{font-family:var(--display);font-size:32px;font-weight:700;color:#fff;}
+#loading-screen h1 span{color:var(--accent);}
+#loading-screen p{font-size:14px;color:#888;}
+.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:var(--ink);z-index:9999;display:none;align-items:center;justify-content:center;padding:1.5rem;}
 .login-box{background:var(--bg2);border-radius:var(--r-xl);padding:2.5rem 2rem;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;}
 .login-logo{text-align:center;margin-bottom:1.75rem;}
 .login-logo h1{font-family:var(--display);font-size:28px;font-weight:700;}
@@ -43,27 +54,30 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 .login-divider::before{left:0;}.login-divider::after{right:0;}
 .admin-link{text-align:center;font-size:13px;color:var(--ink3);}
 .admin-link a{color:var(--accent);cursor:pointer;font-weight:500;}
+.login-banner{border-radius:var(--r);padding:10px 14px;font-size:13px;margin-bottom:1rem;text-align:center;line-height:1.5;}
+.lb-ok{background:var(--green-light);border:1px solid #a0d4b0;color:var(--green-dark);}
+.lb-warn{background:var(--amber-light);border:1px solid #f0d070;color:var(--amber-dark);}
+.lb-info{background:var(--blue-light);border:1px solid #b8d4f4;color:var(--blue);}
+.pass-field{position:relative;}
+.pass-toggle{position:absolute;right:10px;top:38%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink3);font-size:13px;}
 
-/* TOPBAR */
+/* ── APP ── */
 #app{display:none;height:100vh;flex-direction:column;}
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;height:54px;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:100;}
 .topbar-logo{font-family:var(--display);font-size:17px;font-weight:700;}
 .topbar-logo span{color:var(--accent);}
 .topbar-cuadrilla{background:var(--accent-light);color:var(--accent-dark);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;flex-shrink:0;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.topbar-sync{font-size:11px;font-family:monospace;padding:4px 8px;border-radius:6px;}
+.sync-ok{background:var(--green-light);color:var(--green);}
+.sync-off{background:var(--amber-light);color:var(--amber);}
 .alert-bell{position:relative;background:none;border:1.5px solid var(--border);border-radius:var(--r);padding:6px 10px;cursor:pointer;color:var(--ink2);display:flex;align-items:center;gap:5px;font-size:13px;transition:all .15s;}
 .alert-bell:hover{border-color:var(--amber);color:var(--amber);}
 .alert-count{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;}
 .logout-btn{background:none;border:1.5px solid var(--border);border-radius:var(--r);padding:6px 12px;font-size:13px;cursor:pointer;color:var(--ink2);transition:all .15s;}
 .logout-btn:hover{border-color:var(--red);color:var(--red);}
 
-/* BOTTOM NAV */
-.bottom-nav{display:none;background:var(--bg2);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:99;height:60px;}
-.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;color:var(--ink3);font-size:10px;font-family:var(--sans);transition:color .15s;}
-.bn-item.active{color:var(--accent);}
-.bn-item svg{width:20px;height:20px;}
-
-/* LAYOUT */
+/* ── LAYOUT ── */
 .layout{display:flex;flex:1;overflow:hidden;}
 .sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;padding:1rem 0;}
 .nav-group{margin-bottom:1.5rem;}
@@ -73,18 +87,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 .nav-item.active{background:var(--accent-light);color:var(--accent);border-left-color:var(--accent);font-weight:500;}
 .nav-item svg{width:16px;height:16px;flex-shrink:0;}
 .nav-badge{margin-left:auto;background:var(--red);color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;font-weight:700;}
-
-/* MAIN */
 .main-content{flex:1;overflow-y:auto;padding:1.5rem;padding-bottom:80px;}
 .section{display:none;}
 .section.active{display:block;}
 
-/* PAGE HEADER */
+/* ── BOTTOM NAV ── */
+.bottom-nav{display:none;background:var(--bg2);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:99;height:60px;}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;color:var(--ink3);font-size:10px;font-family:var(--sans);transition:color .15s;}
+.bn-item.active{color:var(--accent);}
+.bn-item svg{width:20px;height:20px;}
+
+/* ── COMPONENTS ── */
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:12px;}
 .page-header h2{font-family:var(--display);font-size:22px;font-weight:700;}
 .page-header p{font-size:13px;color:var(--ink3);margin-top:2px;}
-
-/* KPI */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.5rem;}
 .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:1rem 1.25rem;box-shadow:var(--shadow);}
 .kpi label{font-size:11px;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px;}
@@ -94,14 +110,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 .kpi.c-green .val{color:var(--green);}
 .kpi.c-amber .val{color:var(--amber);}
 .kpi.c-red .val{color:var(--red);}
-
-/* CARDS */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem;margin-bottom:1rem;box-shadow:var(--shadow);}
 .card-title{font-size:12px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem;}
 .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
 .card-header h3{font-family:var(--display);font-size:16px;font-weight:600;}
-
-/* FORMS */
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
 .form-grid.g3{grid-template-columns:1fr 1fr 1fr;}
 .form-grid.g1{grid-template-columns:1fr;}
@@ -111,31 +123,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 .field input,.field select,.field textarea{padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:14px;background:var(--bg);color:var(--ink);outline:none;transition:border-color .15s;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);}
 .field textarea{resize:vertical;min-height:70px;}
-
-/* BUTTONS */
 .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;font-family:var(--sans);font-size:13.5px;transition:all .13s;background:var(--bg2);color:var(--ink2);}
 .btn:hover{background:var(--bg3);color:var(--ink);}
-.btn svg{width:15px;height:15px;}
 .btn-accent{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
-.btn-accent:hover{background:var(--accent-dark);border-color:var(--accent-dark);color:#fff;}
+.btn-accent:hover{background:var(--accent-dark);color:#fff;}
 .btn-green{background:var(--green);color:#fff;border-color:var(--green);font-weight:600;}
 .btn-green:hover{background:var(--green-dark);color:#fff;}
 .btn-ghost{background:transparent;}
-.btn-ghost:hover{background:var(--bg3);}
 .btn-red{color:var(--red);border-color:var(--red);}
 .btn-red:hover{background:var(--red-light);}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:1rem;}
 .btn-sm{padding:6px 12px;font-size:12px;}
-
-/* TABLE */
 .table-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;border-bottom:1.5px solid var(--border);white-space:nowrap;}
 td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--ink);vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:var(--bg3);}
-
-/* BADGES */
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
 .badge-green{background:var(--green-light);color:var(--green);}
 .badge-amber{background:var(--amber-light);color:var(--amber);}
@@ -143,42 +147,28 @@ tr:hover td{background:var(--bg3);}
 .badge-blue{background:var(--blue-light);color:var(--blue);}
 .badge-gray{background:var(--bg3);color:var(--ink2);}
 .badge-accent{background:var(--accent-light);color:var(--accent);}
-
-/* STOCK BAR */
 .stock-bar{width:70px;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:6px;}
 .stock-fill{height:100%;border-radius:3px;}
-
-/* ALERTS */
 .alert-item{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:12px 16px;border-radius:var(--r);margin-bottom:8px;}
 .alert-item.danger{background:var(--red-light);border:1px solid #f5c5c5;}
 .alert-item.warning{background:var(--amber-light);border:1px solid #f5dfa0;}
-
-/* TABS */
 .tabs{display:flex;gap:2px;margin-bottom:1.25rem;background:var(--bg3);border-radius:var(--r);padding:4px;}
 .tab-btn{flex:1;padding:8px 14px;border:none;border-radius:8px;background:transparent;font-family:var(--sans);font-size:13px;cursor:pointer;color:var(--ink3);transition:all .15s;}
 .tab-btn.active{background:var(--bg2);color:var(--ink);font-weight:500;box-shadow:0 1px 4px rgba(0,0,0,.08);}
-
-/* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem;}
 .modal-overlay.open{display:flex;}
 .modal{background:var(--bg2);border-radius:var(--r-xl);padding:1.75rem;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
 .modal h3{font-family:var(--display);font-size:18px;font-weight:700;margin-bottom:1.25rem;}
 .modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink3);margin-top:-4px;}
-
-/* EMPTY */
 .empty-state{text-align:center;padding:2.5rem 1rem;color:var(--ink3);}
 .empty-state svg{width:40px;height:40px;margin-bottom:.75rem;opacity:.25;}
 .empty-state p{font-size:14px;}
-
-/* TOAST */
 .toast-wrap{position:fixed;bottom:74px;right:1rem;z-index:600;display:flex;flex-direction:column;gap:8px;}
 .toast{background:var(--ink);color:#fff;border-radius:var(--r);padding:11px 16px;font-size:13px;display:flex;align-items:center;gap:10px;min-width:240px;animation:toastIn .25s ease;box-shadow:0 4px 16px rgba(0,0,0,.25);}
 .toast.t-success{border-left:4px solid var(--green);}
 .toast.t-error{border-left:4px solid var(--red);}
 .toast.t-info{border-left:4px solid var(--accent);}
 @keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-
-/* KARDEX TIPO */
 .kardex-tipo{display:flex;gap:8px;margin-bottom:1rem;}
 .kardex-opt{flex:1;padding:12px;border:2px solid var(--border);border-radius:var(--r);text-align:center;cursor:pointer;transition:all .15s;}
 .kardex-opt.ingreso.sel{border-color:var(--green);background:var(--green-light);}
@@ -188,29 +178,17 @@ tr:hover td{background:var(--bg3);}
 .kardex-opt .ko-sub{font-size:11px;color:var(--ink3);}
 .kardex-opt.ingreso.sel .ko-label{color:var(--green);}
 .kardex-opt.egreso.sel .ko-label{color:var(--accent);}
-
-/* MULTI-MATERIAL ROWS */
 .mat-row{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;padding:8px 10px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px;}
 .mat-row select{padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:13px;background:var(--bg2);color:var(--ink);outline:none;min-width:0;}
 .mat-row select:focus{border-color:var(--accent);}
-.mat-row input[type=number]{width:75px;padding:7px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--sans);font-size:13px;background:var(--bg2);color:var(--ink);outline:none;text-align:center;}
+.mat-row input[type=number]{width:75px;padding:7px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--ink);outline:none;text-align:center;}
 .mat-row input:focus{border-color:var(--accent);}
 .stock-label{font-size:11px;color:var(--ink3);white-space:nowrap;min-width:60px;text-align:center;}
 .remove-row-btn{background:none;border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;cursor:pointer;color:var(--red);font-size:14px;line-height:1;transition:all .12s;}
 .remove-row-btn:hover{background:var(--red-light);border-color:var(--red);}
 .add-row-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg3);border:1.5px dashed var(--border2);border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--ink3);transition:all .15s;width:100%;justify-content:center;margin-top:4px;}
-.add-row-btn:hover{background:var(--bg4);color:var(--ink2);border-color:var(--ink3);}
-
-/* GS CONFIG */
-.gs-banner{background:var(--blue-light);border:1px solid #b8d4f4;border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--blue);margin-bottom:1rem;line-height:1.6;}
-.code-block{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:12px;font-family:monospace;font-size:11px;color:var(--ink2);white-space:pre;overflow-x:auto;line-height:1.7;}
+.add-row-btn:hover{background:var(--bg4);color:var(--ink2);}
 .divider{height:1px;background:var(--border);margin:1.25rem 0;}
-
-/* PASSWORD FIELD */
-.pass-field{position:relative;}
-.pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink3);font-size:13px;}
-
-/* RESPONSIVE */
 @media(max-width:768px){
   .sidebar{display:none;}
   .main-content{padding:1rem;padding-bottom:72px;}
@@ -219,62 +197,63 @@ tr:hover td{background:var(--bg3);}
   .page-header{flex-direction:column;}
   .mat-row{grid-template-columns:1fr auto auto;}
   .stock-label{display:none;}
+  .bottom-nav{display:flex;}
 }
-@media(min-width:769px){.bottom-nav{display:none;}.app{display:flex;flex-direction:column;}}
-@media(max-width:768px){.bottom-nav{display:flex;}}
+@media(min-width:769px){.bottom-nav{display:none;}}
 </style>
 </head>
 <body>
 
-<!-- ══════════════════ LOGIN ══════════════════ -->
+<!-- LOADING -->
+<div id="loading-screen">
+  <h1>Bodega<span>Net</span></h1>
+  <div class="spinner"></div>
+  <p id="loading-msg">Conectando con Firebase...</p>
+</div>
+
+<!-- LOGIN -->
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
       <h1>Bodega<span>Net</span></h1>
       <p>Control de Materiales ISP</p>
     </div>
-
-    <!-- Login cuadrilla -->
     <div id="login-cuadrilla-area">
-      <!-- Banner de estado de conexión -->
-      <div id="login-sync-banner" style="display:none;background:var(--amber-light);border:1px solid #f0d070;border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--amber-dark);margin-bottom:1rem;text-align:center;">
-        <span id="login-sync-msg">⏳ Conectando con base de datos...</span>
-      </div>
+      <div id="login-banner" class="login-banner lb-info" style="display:none"></div>
       <label class="login-label">Selecciona tu cuadrilla</label>
       <select class="login-select" id="login-cuadrilla-sel"></select>
       <label class="login-label">Contraseña de cuadrilla</label>
       <div class="pass-field">
-        <input class="login-input" type="password" id="login-cuad-pass" placeholder="••••••" style="margin-bottom:1rem">
-        <button class="pass-toggle" onclick="togglePass('login-cuad-pass')">👁</button>
+        <input class="login-input" type="password" id="login-cuad-pass" placeholder="••••••" style="padding-right:40px">
+        <button class="pass-toggle" onclick="togglePass('login-cuad-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
-      <button class="login-btn" id="login-cuad-btn" onclick="loginCuadrilla()">Ingresar</button>
+      <button class="login-btn" onclick="loginCuadrilla()">Ingresar</button>
       <div style="text-align:center;margin-top:10px;">
-        <button style="background:none;border:none;font-size:12px;color:var(--ink3);cursor:pointer;" onclick="loadFromSheets();toast('Actualizando cuadrillas...','info')">🔄 Actualizar cuadrillas</button>
+        <button style="background:none;border:none;font-size:12px;color:var(--ink3);cursor:pointer;" onclick="refreshLogin()">🔄 Actualizar cuadrillas</button>
       </div>
       <div class="login-divider">o</div>
       <div class="admin-link"><a onclick="showAdminLogin()">Acceso Administrador</a></div>
     </div>
-
-    <!-- Login admin (oculto) -->
     <div id="login-admin-area" style="display:none">
       <label class="login-label">Clave de administrador</label>
       <div class="pass-field">
-        <input class="login-input" type="password" id="admin-pass" placeholder="••••••">
-        <button class="pass-toggle" onclick="togglePass('admin-pass')">👁</button>
+        <input class="login-input" type="password" id="admin-pass" placeholder="••••••" style="padding-right:40px">
+        <button class="pass-toggle" onclick="togglePass('admin-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
       <button class="login-btn dark" onclick="loginAdmin()">Entrar como Administrador</button>
       <div class="login-divider">o</div>
-      <div class="admin-link"><a onclick="showCuadrillaLogin()">← Volver al login de cuadrilla</a></div>
+      <div class="admin-link"><a onclick="showCuadrillaLogin()">← Volver</a></div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════ APP ══════════════════ -->
+<!-- APP -->
 <div id="app">
   <header class="topbar">
     <span class="topbar-logo">Bodega<span>Net</span></span>
     <span class="topbar-cuadrilla" id="topbar-cuadrilla">—</span>
     <div class="topbar-right">
+      <span class="topbar-sync sync-ok" id="sync-indicator">● En línea</span>
       <button class="alert-bell" onclick="showSection('alertas')">
         <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>
         <span class="alert-count" id="alert-count" style="display:none">0</span>
@@ -282,62 +261,48 @@ tr:hover td{background:var(--bg3);}
       <button class="logout-btn" onclick="logout()">Salir</button>
     </div>
   </header>
-
   <div class="layout">
     <aside class="sidebar">
       <div class="nav-group">
         <div class="nav-group-label">Principal</div>
         <button class="nav-item active" onclick="showSection('dashboard')">
-          <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
-          Dashboard
+          <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Dashboard
         </button>
         <button class="nav-item" onclick="showSection('kardex')">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Kardex / Bodega
+          <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex / Bodega
         </button>
         <button class="nav-item" onclick="showSection('asignar')">
-          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Asignar a cliente
+          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar a cliente
         </button>
       </div>
       <div class="nav-group">
         <div class="nav-group-label">Inventario</div>
         <button class="nav-item" onclick="showSection('inventario')">
-          <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16M7 8v9" stroke="currentColor" stroke-width="1.3"/></svg>
-          Ver inventario
+          <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16M7 8v9" stroke="currentColor" stroke-width="1.3"/></svg>Ver inventario
         </button>
         <button class="nav-item" onclick="showSection('alertas')">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>
-          Alertas
+          <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas
           <span class="nav-badge" id="nav-alert-count" style="display:none">0</span>
         </button>
         <button class="nav-item" onclick="showSection('historial')">
-          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Historial
+          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Historial
         </button>
       </div>
       <div class="nav-group" id="admin-nav" style="display:none">
         <div class="nav-group-label">Administrador</div>
         <button class="nav-item" onclick="showSection('admin-materiales')">
-          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Gestionar materiales
+          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Gestionar materiales
         </button>
         <button class="nav-item" onclick="showSection('admin-cuadrillas')">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM4 16c0-2.8 2.7-5 6-5s6 2.2 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Gestionar cuadrillas
-        </button>
-        <button class="nav-item" onclick="showSection('admin-sheets')">
-          <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 8h14M8 8v9" stroke="currentColor" stroke-width="1.3"/></svg>
-          Google Sheets
+          <svg viewBox="0 0 20 20" fill="none"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM4 16c0-2.8 2.7-5 6-5s6 2.2 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Gestionar cuadrillas
         </button>
       </div>
     </aside>
-
     <main class="main-content" id="main-scroll">
 
       <!-- DASHBOARD -->
       <section class="section active" id="sec-dashboard">
-        <div class="page-header"><div><h2>Dashboard</h2><p id="dash-subtitle">Cargando...</p></div></div>
+        <div class="page-header"><div><h2>Dashboard</h2><p id="dash-subtitle">—</p></div></div>
         <div class="kpi-grid" id="kpi-grid"></div>
         <div class="card"><div class="card-title">Últimas asignaciones</div><div id="dash-recent"></div></div>
         <div class="card"><div class="card-title">Estado del inventario</div><div id="dash-inv-status"></div></div>
@@ -346,7 +311,7 @@ tr:hover td{background:var(--bg3);}
       <!-- KARDEX -->
       <section class="section" id="sec-kardex">
         <div class="page-header">
-          <div><h2>Kardex de Bodega</h2><p>Entradas y salidas — hasta 15 materiales simultáneos</p></div>
+          <div><h2>Kardex de Bodega</h2><p>Hasta 15 materiales por movimiento</p></div>
           <button class="btn btn-accent" onclick="openKardexModal()">+ Registrar movimiento</button>
         </div>
         <div class="card">
@@ -362,9 +327,9 @@ tr:hover td{background:var(--bg3);}
         </div>
       </section>
 
-      <!-- ASIGNAR A CLIENTE -->
+      <!-- ASIGNAR -->
       <section class="section" id="sec-asignar">
-        <div class="page-header"><div><h2>Asignar materiales a cliente</h2><p>Hasta 15 materiales por asignación</p></div></div>
+        <div class="page-header"><div><h2>Asignar materiales a cliente</h2><p>Hasta 15 materiales por asignación — genera PDF automático</p></div></div>
         <div class="card">
           <div class="card-title">Datos del cliente</div>
           <div class="form-grid">
@@ -380,23 +345,17 @@ tr:hover td{background:var(--bg3);}
             <div class="field"><label>Tipo de trabajo</label>
               <select id="cli-tipo"><option>Instalación nueva</option><option>Reparación</option><option>Ampliación</option><option>Otro</option></select>
             </div>
-            <div class="field"><label>Técnico responsable</label><input type="text" id="cli-tecnico" placeholder="Nombre del técnico"></div>
+            <div class="field"><label>Técnico responsable</label><input type="text" id="cli-tecnico"></div>
           </div>
-          <div class="field"><label>Observaciones</label><textarea id="cli-obs" placeholder="Notas adicionales..."></textarea></div>
+          <div class="field"><label>Observaciones</label><textarea id="cli-obs" placeholder="Notas..."></textarea></div>
         </div>
         <div class="card">
-          <div class="card-header"><h3>Materiales utilizados</h3><span id="asig-counter" style="font-size:12px;color:var(--ink3)">0 / 15</span></div>
+          <div class="card-header"><h3>Materiales utilizados</h3><span id="asig-counter" style="font-size:12px;color:var(--ink3)">0/15</span></div>
           <div id="asig-rows-container"></div>
-          <button class="add-row-btn" id="asig-add-btn" onclick="addAsigRow()">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Agregar material (máx. 15)
-          </button>
+          <button class="add-row-btn" id="asig-add-btn" onclick="addAsigRow()">+ Agregar material</button>
         </div>
         <div class="btn-row">
-          <button class="btn btn-green" onclick="registrarAsignacion()">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-7 14V10H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-            Registrar y generar PDF
-          </button>
+          <button class="btn btn-green" onclick="registrarAsignacion()">Registrar y generar PDF</button>
           <button class="btn btn-ghost" onclick="limpiarAsignacion()">Limpiar</button>
         </div>
       </section>
@@ -405,7 +364,7 @@ tr:hover td{background:var(--bg3);}
       <section class="section" id="sec-inventario">
         <div class="page-header"><div><h2>Inventario</h2><p id="inv-subtitle">Stock disponible</p></div></div>
         <div class="card">
-          <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
+          <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;">
             <input type="text" id="inv-search" placeholder="Buscar material..." style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;outline:none;flex:1;min-width:140px;" oninput="renderInventario()">
             <select id="inv-cat-filter" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;outline:none;" onchange="renderInventario()">
               <option value="">Todas las categorías</option>
@@ -420,7 +379,7 @@ tr:hover td{background:var(--bg3);}
 
       <!-- ALERTAS -->
       <section class="section" id="sec-alertas">
-        <div class="page-header"><div><h2>Alertas de stock</h2><p>Materiales con nivel bajo o agotados</p></div></div>
+        <div class="page-header"><div><h2>Alertas de stock</h2><p>Materiales bajos o agotados</p></div></div>
         <div id="alertas-container"></div>
       </section>
 
@@ -428,18 +387,18 @@ tr:hover td{background:var(--bg3);}
       <section class="section" id="sec-historial">
         <div class="page-header">
           <div><h2>Historial</h2><p>Movimientos y asignaciones</p></div>
-          <button class="btn" onclick="exportHistorialCSV()">Exportar CSV</button>
+          <button class="btn" onclick="exportCSV()">Exportar CSV</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>Fecha/Hora</th><th>Tipo</th><th>Material/Descripción</th><th>Cant.</th><th>Cliente/Ref.</th><th>Técnico</th><th>PDF</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Material/Desc.</th><th>Cant.</th><th>Cliente/Ref.</th><th>Técnico</th><th>PDF</th></tr></thead>
           <tbody id="hist-tbody"></tbody>
         </table></div></div>
       </section>
 
-      <!-- ADMIN: MATERIALES -->
+      <!-- ADMIN MATERIALES -->
       <section class="section" id="sec-admin-materiales">
         <div class="page-header">
-          <div><h2>Gestionar materiales</h2><p>Catálogo global — asigna stock por cuadrilla</p></div>
+          <div><h2>Gestionar materiales</h2><p>Catálogo global — las cantidades se cargan desde Kardex</p></div>
           <button class="btn btn-accent" onclick="openMatModal()">+ Nuevo material</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
@@ -448,10 +407,10 @@ tr:hover td{background:var(--bg3);}
         </table></div></div>
       </section>
 
-      <!-- ADMIN: CUADRILLAS -->
+      <!-- ADMIN CUADRILLAS -->
       <section class="section" id="sec-admin-cuadrillas">
         <div class="page-header">
-          <div><h2>Gestionar cuadrillas</h2><p>Hasta 30 cuadrillas — con contraseña propia</p></div>
+          <div><h2>Gestionar cuadrillas</h2><p>Hasta 30 cuadrillas con contraseña propia</p></div>
           <button class="btn btn-accent" onclick="openCuadrillaModal()">+ Nueva cuadrilla</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
@@ -460,170 +419,43 @@ tr:hover td{background:var(--bg3);}
         </table></div></div>
       </section>
 
-      <!-- ADMIN: GOOGLE SHEETS -->
-      <section class="section" id="sec-admin-sheets">
-        <div class="page-header"><div><h2>Google Sheets</h2><p>Base de datos en tiempo real</p></div></div>
-        <div class="gs-banner">Los datos se sincronizan automáticamente con Google Sheets cada vez que se registra un movimiento.</div>
-        <div class="card">
-          <div class="card-title">URL del Web App</div>
-          <div class="form-grid g1"><div class="field"><label>Google Apps Script Web App URL</label>
-            <input type="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec">
-          </div></div>
-          <div class="btn-row">
-            <button class="btn btn-accent" onclick="saveGsUrl()">Guardar y probar</button>
-            <span id="gs-status" style="font-size:13px;color:var(--ink3);align-self:center;"></span>
-          </div>
-          <div id="gs-hardcode-instr" style="display:none;background:var(--amber-light);border:1px solid #f0d070;border-radius:var(--r);padding:12px 14px;font-size:12px;color:var(--amber-dark);margin-top:10px;line-height:1.8;">
-          </div>
-          <div class="divider"></div>
-          <div class="card-title">Código para Google Apps Script (versión completa)</div>
-          <div class="code-block">// ── BodegaNet Apps Script — con JSONP (soluciona CORS) ──
-
-function doPost(e) {
-  try {
-    var data = JSON.parse(e.postData.contents);
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (data.action === 'saveAll') {
-      saveSheet(ss,'Cuadrillas',data.cuadrillas);
-      saveSheet(ss,'Materiales',data.materiales);
-      saveSheet(ss,'Stocks',data.stocks);
-      saveSheet(ss,'Kardex',data.kardex);
-      saveSheet(ss,'Asignaciones',data.asignaciones);
-      return buildRes({ok:true},null);
-    }
-    if (data.action === 'appendRow') {
-      var tab=ss.getSheetByName(data.tab);
-      if(!tab){tab=ss.insertSheet(data.tab);tab.appendRow(data.headers);}
-      else if(tab.getLastRow()===0){tab.appendRow(data.headers);}
-      tab.appendRow(data.row);
-      return buildRes({ok:true},null);
-    }
-    return buildRes({ok:false,msg:'Accion desconocida'},null);
-  } catch(err){return buildRes({ok:false,error:err.toString()},null);}
-}
-
-function doGet(e) {
-  try {
-    var cb=e.parameter.callback||null;
-    var ss=SpreadsheetApp.getActiveSpreadsheet();
-    if(e.parameter.action==='loadAll'){
-      return buildRes({
-        ok:true,
-        cuadrillas:  readSheet(ss,'Cuadrillas'),
-        materiales:  readSheet(ss,'Materiales'),
-        stocks:      readSheet(ss,'Stocks'),
-        kardex:      readSheet(ss,'Kardex'),
-        asignaciones:readSheet(ss,'Asignaciones')
-      },cb);
-    }
-    return buildRes({ok:true,status:'BodegaNet online'},cb);
-  } catch(err){return buildRes({ok:false,error:err.toString()},e.parameter.callback||null);}
-}
-
-function saveSheet(ss,name,jsonStr){
-  var tab=ss.getSheetByName(name);
-  if(!tab)tab=ss.insertSheet(name);
-  tab.clearContents();
-  tab.getRange(1,1).setValue('__json__');
-  tab.getRange(2,1).setValue(jsonStr||'[]');
-}
-
-function readSheet(ss,name){
-  var tab=ss.getSheetByName(name);
-  if(!tab||tab.getLastRow()<2)return'[]';
-  return String(tab.getRange(2,1).getValue()||'[]');
-}
-
-function buildRes(data,callback){
-  var json=JSON.stringify(data);
-  return callback
-    ? ContentService.createTextOutput(callback+'('+json+')')
-        .setMimeType(ContentService.MimeType.JAVASCRIPT)
-    : ContentService.createTextOutput(json)
-        .setMimeType(ContentService.MimeType.JSON);
-}</div>
-          <div style="background:var(--amber-light);border:1px solid #f0d070;border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber-dark);margin-top:10px;line-height:1.6;">
-            <strong>⚠ Importante al redesplegar:</strong> Cada vez que modifiques el código debes crear una <strong>nueva versión</strong> en Implementar → Administrar implementaciones → Editar → Nueva versión. Si no, los cambios no se aplican.
-          </div>
-          <p style="font-size:12px;color:var(--ink3);margin-top:10px;line-height:1.7;">
-            1. Ve a <strong>script.google.com</strong> → Nuevo proyecto → pega el código → Guardar<br>
-            2. <strong>Implementar</strong> → Nueva implementación → Tipo: <strong>App web</strong><br>
-            3. Ejecutar como: <strong>Yo</strong> — Quién tiene acceso: <strong>Cualquier persona</strong><br>
-            4. Clic en <strong>Implementar</strong> → Autorizar → Copiar URL → Pegarla arriba y guardar
-          </p>
-        </div>
-      </section>
-
     </main>
   </div>
-
   <nav class="bottom-nav">
-    <button class="bn-item active" onclick="showSection('dashboard')">
-      <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
-      Inicio
-    </button>
-    <button class="bn-item" onclick="showSection('kardex')">
-      <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      Kardex
-    </button>
-    <button class="bn-item" onclick="showSection('asignar')">
-      <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      Asignar
-    </button>
-    <button class="bn-item" onclick="showSection('inventario')">
-      <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16M7 8v9" stroke="currentColor" stroke-width="1.3"/></svg>
-      Stock
-    </button>
-    <button class="bn-item" onclick="showSection('alertas')">
-      <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>
-      Alertas
-    </button>
+    <button class="bn-item active" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
+    <button class="bn-item" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
+    <button class="bn-item" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
+    <button class="bn-item" onclick="showSection('inventario')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16M7 8v9" stroke="currentColor" stroke-width="1.3"/></svg>Stock</button>
+    <button class="bn-item" onclick="showSection('alertas')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas</button>
   </nav>
 </div>
 
-<!-- ══════════ MODALES ══════════ -->
-
-<!-- Modal Kardex — hasta 15 materiales simultáneos -->
+<!-- MODALES -->
 <div class="modal-overlay" id="modal-kardex">
   <div class="modal" style="max-width:640px;">
     <button class="modal-close" onclick="closeModal('modal-kardex')">✕</button>
     <h3>Registrar movimiento</h3>
     <div class="kardex-tipo">
-      <div class="kardex-opt ingreso sel" id="kopt-ingreso" onclick="selectKardexTipo('ingreso')">
-        <div class="ko-icon">📦</div><div class="ko-label">Ingreso</div><div class="ko-sub">Entrada a bodega</div>
-      </div>
-      <div class="kardex-opt egreso" id="kopt-egreso" onclick="selectKardexTipo('egreso')">
-        <div class="ko-icon">🚚</div><div class="ko-label">Egreso</div><div class="ko-sub">Salida de bodega</div>
-      </div>
+      <div class="kardex-opt ingreso sel" id="kopt-ingreso" onclick="selectKardexTipo('ingreso')"><div class="ko-icon">📦</div><div class="ko-label">Ingreso</div><div class="ko-sub">Entrada a bodega</div></div>
+      <div class="kardex-opt egreso" id="kopt-egreso" onclick="selectKardexTipo('egreso')"><div class="ko-icon">🚚</div><div class="ko-label">Egreso</div><div class="ko-sub">Salida de bodega</div></div>
     </div>
-
-    <!-- Materiales múltiples -->
-    <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <label style="font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">Materiales</label>
-      <span id="km-counter" style="font-size:11px;color:var(--ink3)">1 / 15</span>
+      <span id="km-counter" style="font-size:11px;color:var(--ink3)">1/15</span>
     </div>
     <div id="km-rows-container"></div>
-    <button class="add-row-btn" id="km-add-btn" onclick="addKardexRow()">
-      <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      Agregar otro material
-    </button>
-
+    <button class="add-row-btn" id="km-add-btn" onclick="addKardexRow()">+ Agregar otro material</button>
     <div style="height:12px;"></div>
-    <!-- Selector de cuadrilla — visible solo para admin -->
-    <div class="field" id="km-cuadrilla-field" style="margin-bottom:12px;display:none;">
-      <label>Cuadrilla destino / origen</label>
-      <select id="km-cuadrilla-sel">
-        <option value="">— Seleccionar cuadrilla —</option>
-      </select>
+    <div class="field" id="km-cuadrilla-field" style="display:none;margin-bottom:12px;">
+      <label>Cuadrilla destino</label>
+      <select id="km-cuadrilla-sel"></select>
     </div>
     <div class="form-grid">
       <div class="field"><label>Fecha</label><input type="date" id="km-fecha"></div>
       <div class="field"><label>Responsable</label><input type="text" id="km-resp" placeholder="Nombre"></div>
     </div>
-    <div class="form-grid g1">
-      <div class="field"><label>Referencia / N° remisión</label><input type="text" id="km-ref" placeholder="REF-001"></div>
-    </div>
-    <div class="field" style="margin-bottom:1rem"><label>Observaciones</label><textarea id="km-obs" placeholder="Notas opcionales..." style="min-height:60px;"></textarea></div>
+    <div class="field" style="margin-bottom:12px;"><label>Referencia / N° remisión</label><input type="text" id="km-ref" placeholder="REF-001"></div>
+    <div class="field" style="margin-bottom:1rem;"><label>Observaciones</label><textarea id="km-obs" style="min-height:60px;" placeholder="Notas opcionales..."></textarea></div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal('modal-kardex')">Cancelar</button>
       <button class="btn btn-accent" onclick="registrarKardex()">Registrar movimiento</button>
@@ -631,7 +463,6 @@ function buildRes(data,callback){
   </div>
 </div>
 
-<!-- Modal Material (Admin) — con selector de cuadrilla -->
 <div class="modal-overlay" id="modal-material">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-material')">✕</button>
@@ -640,22 +471,15 @@ function buildRes(data,callback){
     <div class="form-grid g1"><div class="field"><label>Nombre del material *</label><input type="text" id="mat-nombre" placeholder="Nombre descriptivo"></div></div>
     <div class="form-grid">
       <div class="field"><label>Categoría</label>
-        <select id="mat-cat">
-          <option>Fibra Óptica</option><option>Cable Coaxial</option><option>Wireless / Radio</option>
-          <option>Conectores</option><option>Equipos Activos</option><option>Herramientas</option><option>Accesorios</option><option>Otro</option>
-        </select>
+        <select id="mat-cat"><option>Fibra Óptica</option><option>Cable Coaxial</option><option>Wireless / Radio</option><option>Conectores</option><option>Equipos Activos</option><option>Herramientas</option><option>Accesorios</option><option>Otro</option></select>
       </div>
-      <div class="field"><label>Unidad de medida</label>
-        <select id="mat-unidad">
-          <option>unidades</option><option>metros</option><option>rollos</option><option>cajas</option><option>pares</option><option>piezas</option>
-        </select>
+      <div class="field"><label>Unidad</label>
+        <select id="mat-unidad"><option>unidades</option><option>metros</option><option>rollos</option><option>cajas</option><option>pares</option><option>piezas</option></select>
       </div>
     </div>
-    <div class="form-grid g1">
-      <div class="field"><label>Stock mínimo de alerta</label><input type="number" id="mat-min" min="0" value="5">
-        <span style="font-size:11px;color:var(--ink3);margin-top:3px;">Las cantidades se agregan desde Kardex → Ingreso</span>
-      </div>
-    </div>
+    <div class="form-grid g1"><div class="field"><label>Stock mínimo de alerta</label><input type="number" id="mat-min" min="0" value="5">
+      <span style="font-size:11px;color:var(--ink3);margin-top:3px;">Las cantidades se cargan desde Kardex → Ingreso</span>
+    </div></div>
     <input type="hidden" id="mat-edit-id">
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal('modal-material')">Cancelar</button>
@@ -664,27 +488,23 @@ function buildRes(data,callback){
   </div>
 </div>
 
-<!-- Modal Cuadrilla (Admin) — con contraseña -->
 <div class="modal-overlay" id="modal-cuadrilla">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-cuadrilla')">✕</button>
     <h3 id="cuad-modal-title">Nueva cuadrilla</h3>
-    <div class="form-grid g1"><div class="field"><label>Nombre de la cuadrilla *</label><input type="text" id="cuad-nombre" placeholder="Ej: Cuadrilla Norte"></div></div>
+    <div class="form-grid g1"><div class="field"><label>Nombre *</label><input type="text" id="cuad-nombre" placeholder="Ej: Cuadrilla Norte"></div></div>
     <div class="form-grid">
       <div class="field"><label>Responsable</label><input type="text" id="cuad-resp" placeholder="Jefe de cuadrilla"></div>
       <div class="field"><label>Zona / Sector</label><input type="text" id="cuad-zona" placeholder="Zona Norte..."></div>
     </div>
-    <!-- NUEVO: contraseña por cuadrilla -->
-    <div class="form-grid g1">
-      <div class="field">
-        <label>Contraseña de acceso *</label>
-        <div class="pass-field">
-          <input type="password" id="cuad-pass" placeholder="Mínimo 4 caracteres" style="padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);width:100%;font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-          <button class="pass-toggle" onclick="togglePass('cuad-pass')">👁</button>
-        </div>
-        <span style="font-size:11px;color:var(--ink3);margin-top:3px;">Esta contraseña la usará la cuadrilla para iniciar sesión</span>
+    <div class="form-grid g1"><div class="field">
+      <label>Contraseña de acceso *</label>
+      <div class="pass-field">
+        <input type="password" id="cuad-pass" placeholder="Mínimo 4 caracteres" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+        <button class="pass-toggle" onclick="togglePass('cuad-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
-    </div>
+      <span style="font-size:11px;color:var(--ink3);margin-top:3px;">Esta contraseña la usará la cuadrilla para ingresar</span>
+    </div></div>
     <input type="hidden" id="cuad-edit-id">
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal('modal-cuadrilla')">Cancelar</button>
@@ -696,80 +516,124 @@ function buildRes(data,callback){
 <div class="toast-wrap" id="toasts"></div>
 
 <script>
-// ══════════════════════════════════════════════════════════
-// ESTADO GLOBAL
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// FIREBASE CONFIG
+// ══════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDhC0FBoR2qT7ZvhsoPTzvTT2_xkibxiOw",
+  authDomain: "bodeganet-41a58.firebaseapp.com",
+  databaseURL: "https://bodeganet-41a58-default-rtdb.firebaseio.com",
+  projectId: "bodeganet-41a58",
+  storageBucket: "bodeganet-41a58.firebasestorage.app",
+  messagingSenderId: "1076544719277",
+  appId: "1:1076544719277:web:dab5a75b7fa5359c247924"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ══════════════════════════════════════════════════════
+// ESTADO LOCAL (caché en memoria)
+// ══════════════════════════════════════════════════════
 var ADMIN_PASS = 'admin2024';
-
-// ▼▼▼ PEGA AQUÍ TU URL DEL APPS SCRIPT ▼▼▼
-var GS_URL = 'https://script.google.com/macros/s/AKfycbxru-jWakTpRrEt_2fk0lwYBZ8llGqmPMx68YzqRnd6tv2uD0FZZksRPhs5B794BiRmwA/exec';
-// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+var currentUser = null;
 var kardexTipo = 'ingreso';
-var kardexRows = []; // [{uid, matId, qty}]
-var asigRows = [];   // [{uid, matId, qty}]
-var kardexTabFilter = 'todos';
-var currentUser = null; // {tipo:'cuadrilla'|'admin', cuadrillaId}
+var kardexRows = [];
+var asigRows = [];
+var kardexFilter = 'todos';
 
-var db = {
-  cuadrillas: [],  // [{id, nombre, responsable, zona, pass}]
-  materiales: [],  // [{id, codigo, nombre, cat, unidad, min}]
-  stocks: {},      // {cuadrillaId: {materialId: cantidad}}
-  kardex: [],      // [{id, fecha, tipo, matId, qty, ref, resp, obs, cuadrillaId, saldo}]
-  asignaciones: [] // [{id, fecha, cliente, tel, dir, municipio, ot, tipo, tecnico, obs, materiales:[{matId,qty}], cuadrillaId}]
+// Caché local sincronizado con Firebase
+var cache = {
+  cuadrillas: {},   // {id: {nombre, responsable, zona, pass}}
+  materiales: {},   // {id: {codigo, nombre, cat, unidad, min}}
+  stocks: {},       // {cuadrillaId: {materialId: cantidad}}
+  kardex: {},       // {id: {fecha, tipo, matId, qty, ref, resp, obs, cuadrillaId, saldo}}
+  asignaciones: {}  // {id: {fecha, cliente, tel, dir, municipio, ot, tipo, tecnico, obs, materiales, cuadrillaId}}
 };
 
-// ── Persistencia ──
-function save() {
-  try {
-    localStorage.setItem('bn2_db', JSON.stringify(db));
-    localStorage.setItem('bn2_gs', GS_URL);
-    localStorage.setItem('bn2_ap', ADMIN_PASS);
-  } catch(e){}
-}
-function load() {
-  try {
-    var d = localStorage.getItem('bn2_db');
-    if (d) db = JSON.parse(d);
-    GS_URL = localStorage.getItem('bn2_gs') || '';
-    var ap = localStorage.getItem('bn2_ap');
-    if (ap) ADMIN_PASS = ap;
-  } catch(e){}
-  db.cuadrillas  = db.cuadrillas  || [];
-  db.materiales  = db.materiales  || [];
-  db.stocks      = db.stocks      || {};
-  db.kardex      = db.kardex      || [];
-  db.asignaciones= db.asignaciones|| [];
-}
-
 // ── Helpers ──
-function getStock(cid, mid) { return (db.stocks[cid] || {})[mid] || 0; }
-function addStock(cid, mid, qty) {
-  if (!db.stocks[cid]) db.stocks[cid] = {};
-  db.stocks[cid][mid] = (db.stocks[cid][mid] || 0) + qty;
-  if (db.stocks[cid][mid] < 0) db.stocks[cid][mid] = 0;
+function uid() { return db.ref().push().key; }
+function getCuad(id) { return cache.cuadrillas[id]; }
+function getMat(id) { return cache.materiales[id]; }
+function getStock(cid, mid) { return (cache.stocks[cid] || {})[mid] || 0; }
+function setStock(cid, mid, val) {
+  if (!cache.stocks[cid]) cache.stocks[cid] = {};
+  cache.stocks[cid][mid] = Math.max(0, val);
 }
-function getMat(id) { return db.materiales.find(function(m){return m.id===id;}); }
-function getCuad(id) { return db.cuadrillas.find(function(c){return c.id===id;}); }
-function uid() { return Date.now() + Math.random(); }
+function cuadrillasList() { return Object.entries(cache.cuadrillas).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
+function materialesList() { return Object.entries(cache.materiales).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
+function kardexList() { return Object.entries(cache.kardex).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
+function asigList() { return Object.entries(cache.asignaciones).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
 function fmtDate(d) { return new Date(d).toLocaleDateString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric'}); }
 function fmtDT(d) { return new Date(d).toLocaleString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
 function nowISO() { return new Date().toISOString(); }
-function togglePass(id) {
-  var el = document.getElementById(id);
-  el.type = el.type === 'password' ? 'text' : 'password';
+function togglePass(id) { var e=document.getElementById(id); e.type=e.type==='password'?'text':'password'; }
+
+// ══════════════════════════════════════════════════════
+// FIREBASE — LISTENERS EN TIEMPO REAL
+// ══════════════════════════════════════════════════════
+function initFirebaseListeners() {
+  db.ref('cuadrillas').on('value', function(snap) {
+    cache.cuadrillas = snap.val() || {};
+    populateLoginSelect();
+    if (currentUser) { updateAlertCount(); renderCurrentSection(); }
+  });
+  db.ref('materiales').on('value', function(snap) {
+    cache.materiales = snap.val() || {};
+    if (currentUser) { updateAlertCount(); renderCurrentSection(); }
+  });
+  db.ref('stocks').on('value', function(snap) {
+    cache.stocks = snap.val() || {};
+    if (currentUser) { updateAlertCount(); renderCurrentSection(); }
+  });
+  db.ref('kardex').on('value', function(snap) {
+    cache.kardex = snap.val() || {};
+    if (currentUser) renderCurrentSection();
+  });
+  db.ref('asignaciones').on('value', function(snap) {
+    cache.asignaciones = snap.val() || {};
+    if (currentUser) renderCurrentSection();
+  });
+  db.ref('config/adminPass').on('value', function(snap) {
+    if (snap.val()) ADMIN_PASS = snap.val();
+  });
 }
 
-// ══════════════════════════════════════════════════════════
-// LOGIN — con contraseña por cuadrilla
-// ══════════════════════════════════════════════════════════
+var currentSection = 'dashboard';
+function renderCurrentSection() {
+  var renders = {
+    dashboard: renderDashboard, kardex: renderKardex,
+    inventario: renderInventario, alertas: renderAlertas,
+    historial: renderHistorial, 'admin-materiales': renderAdminMateriales,
+    'admin-cuadrillas': renderAdminCuadrillas
+  };
+  if (renders[currentSection]) renders[currentSection]();
+}
+
+// ══════════════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════════════
 function populateLoginSelect() {
   var sel = document.getElementById('login-cuadrilla-sel');
+  var cuads = cuadrillasList();
   sel.innerHTML = '<option value="">— Seleccionar cuadrilla —</option>';
-  db.cuadrillas.forEach(function(c) {
-    var o = document.createElement('option');
-    o.value = c.id; o.textContent = c.nombre;
-    sel.appendChild(o);
+  cuads.forEach(function(c) {
+    var o = document.createElement('option'); o.value = c.id; o.textContent = c.nombre; sel.appendChild(o);
   });
+  var banner = document.getElementById('login-banner');
+  if (cuads.length > 0) {
+    banner.className = 'login-banner lb-ok'; banner.style.display = 'block';
+    banner.textContent = '✓ ' + cuads.length + ' cuadrilla(s) disponibles';
+  } else {
+    banner.className = 'login-banner lb-warn'; banner.style.display = 'block';
+    banner.textContent = 'Sin cuadrillas aún. El admin debe crearlas primero.';
+  }
+}
+
+function refreshLogin() {
+  var banner = document.getElementById('login-banner');
+  banner.className = 'login-banner lb-info'; banner.style.display = 'block';
+  banner.textContent = '⏳ Actualizando...';
+  setTimeout(function(){ populateLoginSelect(); }, 1000);
 }
 
 function showAdminLogin() {
@@ -782,21 +646,21 @@ function showCuadrillaLogin() {
 }
 
 function loginCuadrilla() {
-  var id = parseInt(document.getElementById('login-cuadrilla-sel').value);
+  var id = document.getElementById('login-cuadrilla-sel').value;
   var pass = document.getElementById('login-cuad-pass').value;
   if (!id) { toast('Selecciona una cuadrilla', 'error'); return; }
-  var cuad = getCuad(id);
-  if (!cuad) { toast('Cuadrilla no encontrada', 'error'); return; }
-  if (!cuad.pass) { toast('Esta cuadrilla no tiene contraseña configurada. Contacta al administrador.', 'error'); return; }
-  if (pass !== cuad.pass) { toast('Contraseña incorrecta', 'error'); return; }
-  currentUser = { tipo:'cuadrilla', cuadrillaId: id };
+  var c = getCuad(id);
+  if (!c) { toast('Cuadrilla no encontrada', 'error'); return; }
+  if (!c.pass) { toast('Esta cuadrilla no tiene contraseña. Contacta al administrador.', 'error'); return; }
+  if (pass !== c.pass) { toast('Contraseña incorrecta', 'error'); return; }
+  currentUser = { tipo: 'cuadrilla', cuadrillaId: id };
   startApp();
 }
 
 function loginAdmin() {
   var pass = document.getElementById('admin-pass').value;
-  if (pass !== ADMIN_PASS) { toast('Clave de administrador incorrecta', 'error'); return; }
-  currentUser = { tipo:'admin', cuadrillaId: null };
+  if (pass !== ADMIN_PASS) { toast('Clave incorrecta', 'error'); return; }
+  currentUser = { tipo: 'admin', cuadrillaId: null };
   startApp();
 }
 
@@ -806,8 +670,7 @@ function startApp() {
   app.style.display = 'flex';
   var tc = document.getElementById('topbar-cuadrilla');
   if (currentUser.tipo === 'admin') {
-    tc.textContent = '★ Administrador';
-    tc.style.background = 'var(--ink)'; tc.style.color = '#fff';
+    tc.textContent = '★ Administrador'; tc.style.background = 'var(--ink)'; tc.style.color = '#fff';
     document.getElementById('admin-nav').style.display = 'block';
   } else {
     var c = getCuad(currentUser.cuadrillaId);
@@ -815,9 +678,8 @@ function startApp() {
     document.getElementById('admin-nav').style.display = 'none';
   }
   document.getElementById('inv-subtitle').textContent =
-    currentUser.tipo === 'admin' ? 'Stock global (todas las cuadrillas)' :
-    'Stock asignado a tu bodega';
-  renderDashboard();
+    currentUser.tipo==='admin' ? 'Stock global (todas las cuadrillas)' : 'Stock asignado a tu bodega';
+  showSection('dashboard');
   updateAlertCount();
 }
 
@@ -828,445 +690,341 @@ function logout() {
   showCuadrillaLogin();
   document.getElementById('login-cuad-pass').value = '';
   document.getElementById('admin-pass').value = '';
-  populateLoginSelect();
 }
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // NAVEGACIÓN
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 function showSection(id) {
+  currentSection = id;
   document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
   document.querySelectorAll('.nav-item,.bn-item').forEach(function(b){b.classList.remove('active');});
   var sec = document.getElementById('sec-'+id);
   if (sec) sec.classList.add('active');
   document.querySelectorAll('[onclick*="showSection(\''+id+'\'"]').forEach(function(b){b.classList.add('active');});
   document.getElementById('main-scroll').scrollTop = 0;
-  ({
-    dashboard:          renderDashboard,
-    kardex:             renderKardex,
-    inventario:         renderInventario,
-    alertas:            renderAlertas,
-    historial:          renderHistorial,
-    'admin-materiales': renderAdminMateriales,
-    'admin-cuadrillas': renderAdminCuadrillas,
-    'admin-sheets':     function(){ if(GS_URL) document.getElementById('gs-url').value=GS_URL; }
-  }[id] || function(){})();
-  if (id === 'asignar') initAsignar();
+  renderCurrentSection();
+  if (id==='asignar') initAsignar();
 }
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // DASHBOARD
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 function renderDashboard() {
   var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
   var today = fmtDate(new Date());
   document.getElementById('dash-subtitle').textContent =
     new Date().toLocaleDateString('es-HN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-
-  var mats = db.materiales;
-  var bajo = mats.filter(function(m){
-    var s = cid ? getStock(cid,m.id) : Object.values(db.stocks).reduce(function(a,c){return a+(c[m.id]||0);},0);
-    return s < m.min;
-  }).length;
-  var asigHoy = db.asignaciones.filter(function(a){return fmtDate(a.fecha)===today&&(cid===null||a.cuadrillaId===cid);}).length;
-  var movHoy  = db.kardex.filter(function(k){return fmtDate(k.fecha)===today&&(cid===null||k.cuadrillaId===cid);}).length;
-
+  var mats = materialesList();
+  var bajo = mats.filter(function(m){ var s=getStockVis(cid,m.id); return s<m.min; }).length;
+  var asigHoy = asigList().filter(function(a){ return fmtDate(a.fecha)===today&&(cid===null||a.cuadrillaId===cid); }).length;
+  var movHoy = kardexList().filter(function(k){ return fmtDate(k.fecha)===today&&(cid===null||k.cuadrillaId===cid); }).length;
   document.getElementById('kpi-grid').innerHTML =
-    kpi('Total materiales', mats.length, 'en catálogo', 'c-accent') +
-    kpi('Asignaciones hoy', asigHoy, 'clientes atendidos', 'c-green') +
-    kpi('Movimientos hoy', movHoy, 'en kardex', '') +
-    kpi('Stock bajo', bajo, 'requieren reposición', bajo>0?'c-red':'c-green');
-
-  var recientes = db.asignaciones.filter(function(a){return cid===null||a.cuadrillaId===cid;}).slice(-5).reverse();
-  var el = document.getElementById('dash-recent');
-  if (!recientes.length) { el.innerHTML = empty('Sin asignaciones aún'); return; }
-  el.innerHTML = recientes.map(function(a){
-    var cuad = getCuad(a.cuadrillaId);
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:10px 0;border-bottom:1px solid var(--border)">'
-      +'<div><strong style="font-size:14px">'+(a.cliente||'—')+'</strong>'
-      +'<p style="font-size:12px;color:var(--ink3)">'+(cuad&&currentUser.tipo==='admin'?cuad.nombre+' · ':'')+fmtDate(a.fecha)+' · OT: '+(a.ot||'—')+'</p>'
-      +'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'
-      +a.materiales.map(function(m){var mt=getMat(m.matId);return mt?'<span class="badge badge-blue">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>':'';}).join('')
-      +'</div></div><button class="btn btn-sm" onclick="rePDF('+a.id+')">PDF</button></div>';
-  }).join('');
-
-  var bajos = mats.filter(function(m){var s=cid?getStock(cid,m.id):0;return s<m.min;});
+    kpi('Total materiales',mats.length,'en catálogo','c-accent')+
+    kpi('Asignaciones hoy',asigHoy,'clientes atendidos','c-green')+
+    kpi('Movimientos hoy',movHoy,'en kardex','')+
+    kpi('Stock bajo',bajo,'requieren reposición',bajo>0?'c-red':'c-green');
+  var recientes = asigList().filter(function(a){return cid===null||a.cuadrillaId===cid;})
+    .sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);}).slice(0,5);
+  var recEl = document.getElementById('dash-recent');
+  if (!recientes.length) { recEl.innerHTML = empty('Sin asignaciones aún'); }
+  else {
+    recEl.innerHTML = recientes.map(function(a){
+      var cuad=getCuad(a.cuadrillaId);
+      var mlist=(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?'<span class="badge badge-blue">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>':'';}).join('');
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:10px 0;border-bottom:1px solid var(--border)">'
+        +'<div><strong style="font-size:14px">'+(a.cliente||'—')+'</strong>'
+        +'<p style="font-size:12px;color:var(--ink3)">'+(cuad&&currentUser.tipo==='admin'?cuad.nombre+' · ':'')+fmtDate(a.fecha)+' · OT:'+(a.ot||'—')+'</p>'
+        +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">'+mlist+'</div></div>'
+        +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button></div>';
+    }).join('');
+  }
+  var bajos = mats.filter(function(m){return getStockVis(cid,m.id)<m.min;});
   var ie = document.getElementById('dash-inv-status');
   ie.innerHTML = !bajos.length ? '<p style="color:var(--green);font-size:13px;font-weight:500">✓ Todo el inventario en niveles óptimos</p>'
-    : bajos.map(function(m){
-        var s=cid?getStock(cid,m.id):0;
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
-          +'<span style="font-size:13px">'+m.nombre+'</span>'
-          +'<span class="badge '+(s===0?'badge-red':'badge-amber')+'">'+(s===0?'Agotado':s+' '+m.unidad)+'</span></div>';
-      }).join('');
+    : bajos.map(function(m){var s=getStockVis(cid,m.id);return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px">'+m.nombre+'</span><span class="badge '+(s===0?'badge-red':'badge-amber')+'">'+(s===0?'Agotado':s+' '+m.unidad)+'</span></div>';}).join('');
+}
+
+function getStockVis(cid, mid) {
+  if (cid) return getStock(cid, mid);
+  return Object.values(cache.stocks).reduce(function(s,c){return s+((c||{})[mid]||0);},0);
 }
 function kpi(l,v,s,c){return '<div class="kpi '+c+'"><label>'+l+'</label><div class="val">'+v+'</div><div class="sub">'+s+'</div></div>';}
 function empty(m){return '<div class="empty-state"><svg viewBox="0 0 48 48" fill="none"><rect x="8" y="8" width="32" height="32" rx="4" stroke="currentColor" stroke-width="2"/><path d="M16 24h16M16 32h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><p>'+m+'</p></div>';}
 
-// ══════════════════════════════════════════════════════════
-// KARDEX — hasta 15 materiales simultáneos
-// ══════════════════════════════════════════════════════════
-function initKardexRows() {
-  kardexRows = [{ uid: uid(), matId: '', qty: 1 }];
-  renderKardexRows();
-}
+// ══════════════════════════════════════════════════════
+// KARDEX
+// ══════════════════════════════════════════════════════
+function initKardexRows(){kardexRows=[{uid:uid(),matId:'',qty:1}];renderKardexRows();}
+function addKardexRow(){if(kardexRows.length>=15){toast('Máximo 15','info');return;}kardexRows.push({uid:uid(),matId:'',qty:1});renderKardexRows();}
+function removeKardexRow(u){if(kardexRows.length<=1)return;kardexRows=kardexRows.filter(function(r){return r.uid!==u;});renderKardexRows();}
 
-function addKardexRow() {
-  if (kardexRows.length >= 15) { toast('Máximo 15 materiales por movimiento', 'info'); return; }
-  kardexRows.push({ uid: uid(), matId: '', qty: 1 });
-  renderKardexRows();
-}
-
-function removeKardexRow(u) {
-  if (kardexRows.length <= 1) { toast('Debe haber al menos un material', 'info'); return; }
-  kardexRows = kardexRows.filter(function(r){return r.uid !== u;});
-  renderKardexRows();
-}
-
-function renderKardexRows() {
-  var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
-  var container = document.getElementById('km-rows-container');
-  document.getElementById('km-counter').textContent = kardexRows.length + ' / 15';
-  document.getElementById('km-add-btn').style.display = kardexRows.length >= 15 ? 'none' : 'flex';
-
-  container.innerHTML = kardexRows.map(function(row) {
-    var opts = db.materiales.map(function(m){
-      var stk = cid ? getStock(cid, m.id) : '—';
-      return '<option value="'+m.id+'" '+(row.matId==m.id?'selected':'')+'>'+m.nombre+'</option>';
-    }).join('');
-    var stk = row.matId ? (cid ? getStock(cid, parseInt(row.matId)) : '—') : '—';
-    var stkColor = (typeof stk === 'number' && stk === 0) ? 'var(--red)' : (typeof stk === 'number' && stk < 10) ? 'var(--amber)' : 'var(--ink3)';
-    return '<div class="mat-row" data-uid="'+row.uid+'">'
-      +'<select onchange="setKardexMat(\''+row.uid+'\',this.value)">'
-        +'<option value="">— Material —</option>'+opts
-      +'</select>'
-      +'<span class="stock-label" style="color:'+stkColor+'">Stock: '+stk+'</span>'
-      +'<input type="number" min="1" value="'+row.qty+'" onchange="setKardexQty(\''+row.uid+'\',this.value)">'
+function renderKardexRows(){
+  var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  document.getElementById('km-counter').textContent=kardexRows.length+'/15';
+  document.getElementById('km-add-btn').style.display=kardexRows.length>=15?'none':'flex';
+  var opts=materialesList().map(function(m){return '<option value="'+m.id+'">'+m.nombre+'</option>';}).join('');
+  document.getElementById('km-rows-container').innerHTML=kardexRows.map(function(row){
+    var stk=row.matId?(cid?getStock(cid,row.matId):'—'):'—';
+    var sc=(typeof stk==='number'&&stk===0)?'var(--red)':(typeof stk==='number'&&stk<10)?'var(--amber)':'var(--ink3)';
+    return '<div class="mat-row">'
+      +'<select onchange="setKRM(\''+row.uid+'\',this.value)"><option value="">— Material —</option>'+opts.replace('value="'+row.matId+'"','value="'+row.matId+'" selected')+'</select>'
+      +'<span class="stock-label" style="color:'+sc+'">Stock:'+stk+'</span>'
+      +'<input type="number" min="1" value="'+row.qty+'" onchange="setKRQ(\''+row.uid+'\',this.value)">'
       +'<button class="remove-row-btn" onclick="removeKardexRow(\''+row.uid+'\')">✕</button>'
       +'</div>';
   }).join('');
 }
+function setKRM(u,v){var r=kardexRows.find(function(x){return x.uid===u;});if(r){r.matId=v;renderKardexRows();}}
+function setKRQ(u,v){var r=kardexRows.find(function(x){return x.uid===u;});if(r)r.qty=parseInt(v)||1;}
 
-function setKardexMat(u, v) { var r=kardexRows.find(function(x){return x.uid==u;}); if(r){r.matId=v;renderKardexRows();} }
-function setKardexQty(u, v) { var r=kardexRows.find(function(x){return x.uid==u;}); if(r) r.qty=parseInt(v)||1; }
-
-function openKardexModal() {
+function openKardexModal(){
   initKardexRows();
-  document.getElementById('km-fecha').value = new Date().toISOString().slice(0,10);
-  document.getElementById('km-ref').value = '';
-  document.getElementById('km-resp').value = '';
-  document.getElementById('km-obs').value = '';
-  // Mostrar selector de cuadrilla solo si es admin
-  var cuadField = document.getElementById('km-cuadrilla-field');
-  if (currentUser.tipo === 'admin') {
-    cuadField.style.display = 'block';
-    var sel = document.getElementById('km-cuadrilla-sel');
-    sel.innerHTML = '<option value="">— Seleccionar cuadrilla —</option>';
-    db.cuadrillas.forEach(function(c){
-      var o = document.createElement('option'); o.value = c.id; o.textContent = c.nombre; sel.appendChild(o);
-    });
-  } else {
-    cuadField.style.display = 'none';
-  }
+  document.getElementById('km-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('km-ref').value=''; document.getElementById('km-resp').value=''; document.getElementById('km-obs').value='';
+  var cf=document.getElementById('km-cuadrilla-field');
+  if(currentUser.tipo==='admin'){
+    cf.style.display='block';
+    var sel=document.getElementById('km-cuadrilla-sel');
+    sel.innerHTML='<option value="">— Seleccionar cuadrilla —</option>';
+    cuadrillasList().forEach(function(c){var o=document.createElement('option');o.value=c.id;o.textContent=c.nombre;sel.appendChild(o);});
+  } else { cf.style.display='none'; }
   selectKardexTipo('ingreso');
   openModal('modal-kardex');
 }
 
-function selectKardexTipo(t) {
-  kardexTipo = t;
-  document.getElementById('kopt-ingreso').className = 'kardex-opt ingreso' + (t==='ingreso'?' sel':'');
-  document.getElementById('kopt-egreso').className  = 'kardex-opt egreso'  + (t==='egreso'?' sel':'');
+function selectKardexTipo(t){
+  kardexTipo=t;
+  document.getElementById('kopt-ingreso').className='kardex-opt ingreso'+(t==='ingreso'?' sel':'');
+  document.getElementById('kopt-egreso').className='kardex-opt egreso'+(t==='egreso'?' sel':'');
   renderKardexRows();
 }
 
-function registrarKardex() {
-  // Determinar cuadrilla: admin elige, cuadrilla usa la propia
-  var cid;
-  if (currentUser.tipo === 'admin') {
-    cid = parseInt(document.getElementById('km-cuadrilla-sel').value);
-    if (!cid) { toast('Selecciona la cuadrilla destino', 'error'); return; }
-  } else {
-    cid = currentUser.cuadrillaId;
+function registrarKardex(){
+  var cid=currentUser.tipo==='admin'?document.getElementById('km-cuadrilla-sel').value:currentUser.cuadrillaId;
+  if(currentUser.tipo==='admin'&&!cid){toast('Selecciona la cuadrilla destino','error');return;}
+  var validos=kardexRows.filter(function(r){return r.matId&&r.qty>0;});
+  if(!validos.length){toast('Selecciona al menos un material','error');return;}
+  var fecha=document.getElementById('km-fecha').value;
+  var ref=document.getElementById('km-ref').value;
+  var resp=document.getElementById('km-resp').value;
+  var obs=document.getElementById('km-obs').value;
+  // Validar stock para egresos
+  if(kardexTipo==='egreso'){
+    var errs=[];
+    validos.forEach(function(r){var s=getStock(cid,r.matId),m=getMat(r.matId);if(s<r.qty)errs.push((m?m.nombre:'?')+' (disp:'+s+')');});
+    if(errs.length){toast('Stock insuficiente: '+errs.join(', '),'error');return;}
   }
-  var fecha = document.getElementById('km-fecha').value;
-  var ref   = document.getElementById('km-ref').value;
-  var resp  = document.getElementById('km-resp').value;
-  var obs   = document.getElementById('km-obs').value;
-
-  var validos = kardexRows.filter(function(r){return r.matId && r.qty > 0;});
-  if (!validos.length) { toast('Selecciona al menos un material', 'error'); return; }
-
-  var errores = [];
-  if (kardexTipo === 'egreso') {
-    validos.forEach(function(r) {
-      var stk = getStock(cid, parseInt(r.matId));
-      var mat = getMat(parseInt(r.matId));
-      if (stk < r.qty) errores.push((mat?mat.nombre:'Material')+': disponible '+stk);
-    });
-  }
-  if (errores.length) { toast('Stock insuficiente — '+errores.join(', '), 'error'); return; }
-
-  validos.forEach(function(r) {
-    var matId = parseInt(r.matId);
-    var mat = getMat(matId);
-    if (kardexTipo === 'egreso') addStock(cid, matId, -r.qty);
-    else addStock(cid, matId, r.qty);
-    var saldo = getStock(cid, matId);
-    var entry = { id: uid(), fecha: fecha+'T'+new Date().toTimeString().slice(0,8),
-      tipo: kardexTipo, matId: matId, qty: r.qty, ref: ref, resp: resp, obs: obs,
-      cuadrillaId: cid, saldo: saldo };
-    db.kardex.push(entry);
-    syncRow('Kardex_Log',
-      ['ID','Fecha','Tipo','Material','Cantidad','Unidad','Saldo','Referencia','Responsable','Cuadrilla'],
-      [entry.id, fmtDT(entry.fecha), kardexTipo, mat?mat.nombre:'—', r.qty, mat?mat.unidad:'', saldo, ref, resp, getCuad(cid)?getCuad(cid).nombre:'']
-    );
+  // Registrar cada material
+  var updates={};
+  validos.forEach(function(r){
+    var mid=r.matId, mat=getMat(mid);
+    var curStock=getStock(cid,mid);
+    var nuevoStock=kardexTipo==='ingreso'?curStock+r.qty:Math.max(0,curStock-r.qty);
+    updates['stocks/'+cid+'/'+mid]=nuevoStock;
+    var kid=uid();
+    updates['kardex/'+kid]={fecha:fecha+'T'+new Date().toTimeString().slice(0,8),tipo:kardexTipo,
+      matId:mid,qty:r.qty,ref:ref||'',resp:resp||'',obs:obs||'',cuadrillaId:cid,saldo:nuevoStock};
   });
-
-  saveAndSync(); updateAlertCount(); closeModal('modal-kardex');
-  toast(validos.length+' material(es) registrado(s) como '+kardexTipo, 'success');
-  renderKardex();
+  db.ref().update(updates).then(function(){
+    toast(validos.length+' material(es) registrado(s) como '+kardexTipo,'success');
+    closeModal('modal-kardex');
+  }).catch(function(e){toast('Error: '+e.message,'error');});
 }
 
-function switchKardexTab(t, btn) {
-  kardexTabFilter = t;
+function switchKardexTab(t,btn){
+  kardexFilter=t;
   document.querySelectorAll('#sec-kardex .tab-btn').forEach(function(b){b.classList.remove('active');});
-  if(btn) btn.classList.add('active');
+  if(btn)btn.classList.add('active');
   renderKardex();
 }
 
-function renderKardex() {
-  var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
-  var rows = db.kardex.filter(function(k){
-    return (cid===null||k.cuadrillaId===cid) &&
-      (kardexTabFilter==='todos'||(kardexTabFilter==='ingreso'&&k.tipo==='ingreso')||(kardexTabFilter==='egreso'&&k.tipo==='egreso'));
-  }).slice().reverse();
-  var tbody = document.getElementById('kardex-tbody');
-  if (!rows.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos registrados')+'</td></tr>'; return; }
-  tbody.innerHTML = rows.map(function(k){
-    var mat=getMat(k.matId), cuad=getCuad(k.cuadrillaId);
-    return '<tr>'
-      +'<td style="font-size:11px;white-space:nowrap">'+fmtDT(k.fecha)+'</td>'
+function renderKardex(){
+  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var rows=kardexList().filter(function(k){
+    return(cid===null||k.cuadrillaId===cid)&&(kardexFilter==='todos'||k.tipo===kardexFilter);
+  }).sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
+  var tbody=document.getElementById('kardex-tbody');
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos')+'</td></tr>';return;}
+  tbody.innerHTML=rows.map(function(k){
+    var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
+    return '<tr><td style="font-size:11px;white-space:nowrap">'+fmtDT(k.fecha)+'</td>'
       +'<td><span class="badge '+(k.tipo==='ingreso'?'badge-green':'badge-accent')+'">'+k.tipo+'</span></td>'
       +'<td>'+(mat?mat.nombre:'—')+'</td>'
       +'<td style="font-weight:600;color:'+(k.tipo==='ingreso'?'var(--green)':'var(--accent)')+'">'+
         (k.tipo==='ingreso'?'+':'-')+k.qty+' '+(mat?mat.unidad:'')+'</td>'
       +'<td style="font-size:12px">'+(k.ref||'—')+(cuad&&currentUser.tipo==='admin'?' <span class="badge badge-gray">'+cuad.nombre+'</span>':'')+'</td>'
       +'<td style="font-size:12px">'+(k.resp||'—')+'</td>'
-      +'<td style="font-weight:600">'+(k.saldo||0)+'</td>'
-      +'</tr>';
+      +'<td style="font-weight:600">'+(k.saldo||0)+'</td></tr>';
   }).join('');
 }
 
-// ══════════════════════════════════════════════════════════
-// ASIGNAR A CLIENTE — hasta 15 materiales
-// ══════════════════════════════════════════════════════════
-function initAsignar() {
-  if (!asigRows.length) asigRows = [{ uid: uid(), matId: '', qty: 1 }];
-  renderAsigRows();
-}
+// ══════════════════════════════════════════════════════
+// ASIGNAR A CLIENTE
+// ══════════════════════════════════════════════════════
+function initAsignar(){if(!asigRows.length)asigRows=[{uid:uid(),matId:'',qty:1}];renderAsigRows();}
+function addAsigRow(){if(asigRows.length>=15){toast('Máximo 15','info');return;}asigRows.push({uid:uid(),matId:'',qty:1});renderAsigRows();}
+function removeAsigRow(u){if(asigRows.length<=1)return;asigRows=asigRows.filter(function(r){return r.uid!==u;});renderAsigRows();}
 
-function addAsigRow() {
-  if (asigRows.length >= 15) { toast('Máximo 15 materiales por asignación', 'info'); return; }
-  asigRows.push({ uid: uid(), matId: '', qty: 1 });
-  renderAsigRows();
-}
-
-function removeAsigRow(u) {
-  if (asigRows.length <= 1) { toast('Debe haber al menos un material', 'info'); return; }
-  asigRows = asigRows.filter(function(r){return r.uid != u;});
-  renderAsigRows();
-}
-
-function renderAsigRows() {
-  var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
-  document.getElementById('asig-counter').textContent = asigRows.length + ' / 15';
-  document.getElementById('asig-add-btn').style.display = asigRows.length >= 15 ? 'none' : 'flex';
-  var container = document.getElementById('asig-rows-container');
-  container.innerHTML = asigRows.map(function(row) {
-    var opts = db.materiales.map(function(m){
-      var stk = cid ? getStock(cid, m.id) : 0;
-      return '<option value="'+m.id+'" '+(row.matId==m.id?'selected':'')+'>'+m.nombre+' ('+stk+' '+m.unidad+')</option>';
-    }).join('');
-    var stk = row.matId ? (cid ? getStock(cid, parseInt(row.matId)) : '—') : '—';
-    var stkColor = (typeof stk==='number'&&stk===0)?'var(--red)':(typeof stk==='number'&&stk<10)?'var(--amber)':'var(--ink3)';
-    return '<div class="mat-row" data-uid="'+row.uid+'">'
-      +'<select onchange="setAsigMat(\''+row.uid+'\',this.value)">'
-        +'<option value="">— Seleccionar material —</option>'+opts
-      +'</select>'
-      +'<span class="stock-label" style="color:'+stkColor+'">Disp: '+stk+'</span>'
-      +'<input type="number" min="1" value="'+row.qty+'" onchange="setAsigQty(\''+row.uid+'\',this.value)">'
+function renderAsigRows(){
+  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  document.getElementById('asig-counter').textContent=asigRows.length+'/15';
+  document.getElementById('asig-add-btn').style.display=asigRows.length>=15?'none':'flex';
+  var opts=materialesList().map(function(m){
+    var s=cid?getStock(cid,m.id):0;
+    return '<option value="'+m.id+'">'+m.nombre+' ('+s+' '+m.unidad+')</option>';
+  }).join('');
+  document.getElementById('asig-rows-container').innerHTML=asigRows.map(function(row){
+    var stk=row.matId?(cid?getStock(cid,row.matId):0):'—';
+    var sc=(typeof stk==='number'&&stk===0)?'var(--red)':(typeof stk==='number'&&stk<10)?'var(--amber)':'var(--ink3)';
+    return '<div class="mat-row">'
+      +'<select onchange="setARM(\''+row.uid+'\',this.value)"><option value="">— Seleccionar —</option>'+opts.replace('value="'+row.matId+'"','value="'+row.matId+'" selected')+'</select>'
+      +'<span class="stock-label" style="color:'+sc+'">Disp:'+stk+'</span>'
+      +'<input type="number" min="1" value="'+row.qty+'" onchange="setARQ(\''+row.uid+'\',this.value)">'
       +'<button class="remove-row-btn" onclick="removeAsigRow(\''+row.uid+'\')">✕</button>'
       +'</div>';
   }).join('');
 }
+function setARM(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r){r.matId=v;renderAsigRows();}}
+function setARQ(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r)r.qty=parseInt(v)||1;}
 
-function setAsigMat(u,v){ var r=asigRows.find(function(x){return x.uid==u;}); if(r){r.matId=v;renderAsigRows();} }
-function setAsigQty(u,v){ var r=asigRows.find(function(x){return x.uid==u;}); if(r) r.qty=parseInt(v)||1; }
+function registrarAsignacion(){
+  var nombre=document.getElementById('cli-nombre').value.trim();
+  if(!nombre){toast('Ingresa el nombre del cliente','error');return;}
+  var cid=currentUser.tipo==='admin'?(cuadrillasList()[0]&&cuadrillasList()[0].id):currentUser.cuadrillaId;
+  var validos=asigRows.filter(function(r){return r.matId&&r.qty>0;});
+  if(!validos.length){toast('Agrega al menos un material','error');return;}
+  var errs=[];
+  validos.forEach(function(r){var s=getStock(cid,r.matId),m=getMat(r.matId);if(s<r.qty)errs.push((m?m.nombre:'?')+' (disp:'+s+')');});
+  if(errs.length){toast('Stock insuficiente: '+errs.join(', '),'error');return;}
 
-function registrarAsignacion() {
-  var nombre = document.getElementById('cli-nombre').value.trim();
-  if (!nombre) { toast('Ingresa el nombre del cliente', 'error'); return; }
-  var cid = currentUser.tipo==='admin' ? (db.cuadrillas[0]&&db.cuadrillas[0].id) : currentUser.cuadrillaId;
-  var validos = asigRows.filter(function(r){return r.matId && r.qty > 0;});
-  if (!validos.length) { toast('Agrega al menos un material', 'error'); return; }
-
-  var errores = [];
-  validos.forEach(function(r){
-    var stk=getStock(cid,parseInt(r.matId)), mat=getMat(parseInt(r.matId));
-    if(stk<r.qty) errores.push((mat?mat.nombre:'Material')+' (disp: '+stk+')');
-  });
-  if (errores.length) { toast('Stock insuficiente: '+errores.join(', '), 'error'); return; }
-
-  var matsData = validos.map(function(r){
-    var mid=parseInt(r.matId), mat=getMat(mid);
-    addStock(cid,mid,-r.qty);
-    var saldo=getStock(cid,mid);
-    db.kardex.push({id:uid(),fecha:nowISO(),tipo:'egreso',matId:mid,qty:r.qty,
-      ref:'CLIENTE:'+nombre,resp:document.getElementById('cli-tecnico').value,obs:'Asignación',cuadrillaId:cid,saldo:saldo});
+  var updates={};
+  var matsData=validos.map(function(r){
+    var mid=r.matId,cur=getStock(cid,mid),nuevo=Math.max(0,cur-r.qty);
+    updates['stocks/'+cid+'/'+mid]=nuevo;
+    var kid=uid();
+    updates['kardex/'+kid]={fecha:nowISO(),tipo:'egreso',matId:mid,qty:r.qty,
+      ref:'CLIENTE:'+nombre,resp:document.getElementById('cli-tecnico').value,
+      obs:'Asignación',cuadrillaId:cid,saldo:nuevo};
     return {matId:mid,qty:r.qty};
   });
 
-  var asig = {
-    id:uid(), fecha:nowISO(),
-    cliente:nombre, tel:document.getElementById('cli-tel').value,
-    dir:document.getElementById('cli-dir').value, municipio:document.getElementById('cli-municipio').value,
-    ot:document.getElementById('cli-ot').value, tipo:document.getElementById('cli-tipo').value,
-    tecnico:document.getElementById('cli-tecnico').value, obs:document.getElementById('cli-obs').value,
-    materiales:matsData, cuadrillaId:cid
-  };
-  db.asignaciones.push(asig);
-  syncRow('Asignaciones_Log',
-    ['ID','Fecha','Cliente','Teléfono','Dirección','Municipio','OT','Tipo','Técnico','Materiales','Cuadrilla'],
-    [asig.id,fmtDT(asig.fecha),nombre,asig.tel,asig.dir,asig.municipio,asig.ot,asig.tipo,asig.tecnico,
-      matsData.map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';}).join(' | '),
-      getCuad(cid)?getCuad(cid).nombre:'']
-  );
-  saveAndSync();
-  updateAlertCount();
-  toast('Asignación registrada. Generando PDF...','success');
-  generarPDF(asig);
-  limpiarAsignacion();
-  showSection('dashboard');
+  var aid=uid();
+  var asig={id:aid,fecha:nowISO(),cliente:nombre,
+    tel:document.getElementById('cli-tel').value,
+    dir:document.getElementById('cli-dir').value,
+    municipio:document.getElementById('cli-municipio').value,
+    ot:document.getElementById('cli-ot').value,
+    tipo:document.getElementById('cli-tipo').value,
+    tecnico:document.getElementById('cli-tecnico').value,
+    obs:document.getElementById('cli-obs').value,
+    materiales:matsData,cuadrillaId:cid};
+  updates['asignaciones/'+aid]=asig;
+
+  db.ref().update(updates).then(function(){
+    toast('Asignación registrada. Generando PDF...','success');
+    generarPDF(asig);
+    limpiarAsignacion();
+    showSection('dashboard');
+  }).catch(function(e){toast('Error: '+e.message,'error');});
 }
 
-function limpiarAsignacion() {
+function limpiarAsignacion(){
   ['cli-nombre','cli-tel','cli-dir','cli-municipio','cli-ot','cli-tecnico','cli-obs'].forEach(function(id){document.getElementById(id).value='';});
-  asigRows = [{ uid: uid(), matId: '', qty: 1 }];
+  asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
 }
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // PDF
-// ══════════════════════════════════════════════════════════
-function generarPDF(asig) {
-  var { jsPDF } = window.jspdf;
-  var doc = new jsPDF({unit:'mm',format:'a4'});
-  var L=20, R=190, y=20;
-  doc.setFillColor(232,68,10); doc.rect(0,0,210,28,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(18);
-  doc.text('BodegaNet — Reporte de Materiales', L, 14);
-  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.text('Control de Materiales ISP', L, 21);
+// ══════════════════════════════════════════════════════
+function generarPDF(asig){
+  var {jsPDF}=window.jspdf;
+  var doc=new jsPDF({unit:'mm',format:'a4'});
+  var L=20,R=190,y=20;
+  doc.setFillColor(232,68,10);doc.rect(0,0,210,28,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(18);
+  doc.text('BodegaNet — Reporte de Materiales',L,14);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Control de Materiales ISP',L,21);
   y=38;
   var cuad=getCuad(asig.cuadrillaId);
-  function section(t){
-    doc.setFillColor(245,244,240); doc.rect(L,y,170,8,'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(30,30,30);
-    doc.text(t,L+4,y+5.5); y+=12;
-  }
-  function row2(a,b,c,d){
-    doc.setFont('helvetica','bold');doc.text(a,L,y);doc.setFont('helvetica','normal');doc.text(b,L+32,y);
-    if(c){doc.setFont('helvetica','bold');doc.text(c,120,y);}if(d){doc.setFont('helvetica','normal');doc.text(d,142,y);}y+=7;
-  }
-  section('INFORMACIÓN GENERAL');
-  row2('Cuadrilla:',cuad?cuad.nombre:'—','Fecha:',fmtDate(asig.fecha));
-  row2('Técnico:',asig.tecnico||'—','OT:',asig.ot||'—');
-  row2('Tipo:',asig.tipo||'—','',''); y+=4;
-  section('DATOS DEL CLIENTE');
-  [['Cliente:',asig.cliente],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—'],['Municipio:',asig.municipio||'—']].forEach(function(r){row2(r[0],r[1]);});
-  y+=4;
-  section('MATERIALES UTILIZADOS');
-  doc.setFillColor(26,26,25); doc.rect(L,y,170,7,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text('Código',L+2,y+4.8); doc.text('Material',L+25,y+4.8); doc.text('Unidad',L+115,y+4.8); doc.text('Cantidad',L+143,y+4.8);
-  y+=7;
-  asig.materiales.forEach(function(m,i){
-    var mat=getMat(m.matId); if(!mat)return;
-    doc.setTextColor(30,30,30); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  function sec(t){doc.setFillColor(245,244,240);doc.rect(L,y,170,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(30,30,30);doc.text(t,L+4,y+5.5);y+=12;}
+  function r2(a,b,c,d){doc.setFont('helvetica','bold');doc.text(a,L,y);doc.setFont('helvetica','normal');doc.text(b,L+32,y);if(c){doc.setFont('helvetica','bold');doc.text(c,120,y);}if(d){doc.setFont('helvetica','normal');doc.text(d,142,y);}y+=7;}
+  sec('INFORMACIÓN GENERAL');
+  r2('Cuadrilla:',cuad?cuad.nombre:'—','Fecha:',fmtDate(asig.fecha));
+  r2('Técnico:',asig.tecnico||'—','OT:',asig.ot||'—');
+  r2('Tipo:',asig.tipo||'—','','');y+=4;
+  sec('DATOS DEL CLIENTE');
+  [['Cliente:',asig.cliente],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—'],['Municipio:',asig.municipio||'—']].forEach(function(r){r2(r[0],r[1]);});
+  y+=4;sec('MATERIALES UTILIZADOS');
+  doc.setFillColor(26,26,25);doc.rect(L,y,170,7,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
+  doc.text('Código',L+2,y+4.8);doc.text('Material',L+25,y+4.8);doc.text('Unidad',L+115,y+4.8);doc.text('Cantidad',L+143,y+4.8);y+=7;
+  (asig.materiales||[]).forEach(function(m,i){
+    var mat=getMat(m.matId);if(!mat)return;
+    doc.setTextColor(30,30,30);doc.setFont('helvetica','normal');doc.setFontSize(9);
     if(i%2===0){doc.setFillColor(249,248,245);doc.rect(L,y,170,6.5,'F');}
-    doc.text(mat.codigo||'—',L+2,y+4.5); doc.text(mat.nombre,L+25,y+4.5);
-    doc.text(mat.unidad,L+115,y+4.5); doc.setFont('helvetica','bold'); doc.text(String(m.qty),L+150,y+4.5);
-    y+=6.5;
+    doc.text(mat.codigo||'—',L+2,y+4.5);doc.text(mat.nombre,L+25,y+4.5);
+    doc.text(mat.unidad,L+115,y+4.5);doc.setFont('helvetica','bold');doc.text(String(m.qty),L+150,y+4.5);y+=6.5;
   });
-  y+=4;
-  doc.setFillColor(232,68,10); doc.rect(L,y,170,7,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text('Total líneas: '+asig.materiales.length,L+4,y+4.8); y+=14;
-  if(asig.obs){
-    doc.setTextColor(30,30,30);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observaciones:',L,y);y+=6;
-    doc.setFont('helvetica','normal');doc.splitTextToSize(asig.obs,160).forEach(function(l){doc.text(l,L,y);y+=5;});y+=4;
-  }
+  y+=4;doc.setFillColor(232,68,10);doc.rect(L,y,170,7,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
+  doc.text('Total: '+(asig.materiales||[]).length+' líneas',L+4,y+4.8);y+=14;
+  if(asig.obs){doc.setTextColor(30,30,30);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observaciones:',L,y);y+=6;doc.setFont('helvetica','normal');doc.splitTextToSize(asig.obs,160).forEach(function(l){doc.text(l,L,y);y+=5;});y+=4;}
   y=Math.max(y,240);
-  doc.setDrawColor(200,200,200);doc.setLineWidth(.3);
-  doc.line(L,y,L+60,y);doc.line(130,y,R,y);
+  doc.setDrawColor(200,200,200);doc.setLineWidth(.3);doc.line(L,y,L+60,y);doc.line(130,y,R,y);
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(120,120,120);
   doc.text('Firma del técnico',L+8,y+5);doc.text('Firma del cliente',133,y+5);
   doc.setFillColor(30,30,30);doc.rect(0,282,210,15,'F');
   doc.setTextColor(160,160,160);doc.setFontSize(8);
-  doc.text('BodegaNet  |  Generado: '+fmtDT(nowISO())+'  |  ID: '+asig.id,L,291);
+  doc.text('BodegaNet  |  '+fmtDT(nowISO())+'  |  ID:'+asig.id,L,291);
   doc.save('asignacion_'+(asig.cliente||'cliente').replace(/\s/g,'_')+'_'+(asig.ot||'SN')+'.pdf');
 }
-function rePDF(id){ var a=db.asignaciones.find(function(x){return x.id===id;}); if(a)generarPDF(a); }
+function rePDF(id){
+  var a=cache.asignaciones[id];
+  if(a)generarPDF(Object.assign({id:id},a));
+}
 
-// ══════════════════════════════════════════════════════════
-// INVENTARIO — cuadrilla solo ve su bodega
-// ══════════════════════════════════════════════════════════
-function renderInventario() {
-  var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
-  var q = (document.getElementById('inv-search').value||'').toLowerCase();
-  var catF = document.getElementById('inv-cat-filter').value;
-  var cats = [...new Set(db.materiales.map(function(m){return m.cat;}))];
-  var sel = document.getElementById('inv-cat-filter');
-  sel.innerHTML = '<option value="">Todas las categorías</option>'+cats.map(function(c){return '<option value="'+c+'" '+(catF===c?'selected':'')+'>'+c+'</option>';}).join('');
-
-  var mats = db.materiales.filter(function(m){
-    return (!q||m.nombre.toLowerCase().includes(q)||(m.codigo||'').toLowerCase().includes(q))&&(!catF||m.cat===catF);
-  });
-  var tbody = document.getElementById('inv-tbody');
-  if (!mats.length){ tbody.innerHTML='<tr><td colspan="7">'+empty('Sin materiales')+'</td></tr>'; return; }
-  var catBadge={'Fibra Óptica':'badge-blue','Cable Coaxial':'badge-amber','Wireless / Radio':'badge-green'};
-  tbody.innerHTML = mats.map(function(m){
-    // CUADRILLA: solo ve su propio stock. ADMIN: ve el total global
-    var stk = cid ? getStock(cid,m.id) : Object.values(db.stocks).reduce(function(a,c){return a+(c[m.id]||0);},0);
+// ══════════════════════════════════════════════════════
+// INVENTARIO
+// ══════════════════════════════════════════════════════
+function renderInventario(){
+  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var q=(document.getElementById('inv-search').value||'').toLowerCase();
+  var catF=document.getElementById('inv-cat-filter').value;
+  var mats=materialesList();
+  var cats=[...new Set(mats.map(function(m){return m.cat;}))];
+  var sel=document.getElementById('inv-cat-filter');
+  sel.innerHTML='<option value="">Todas las categorías</option>'+cats.map(function(c){return'<option value="'+c+'" '+(catF===c?'selected':'')+'>'+c+'</option>';}).join('');
+  mats=mats.filter(function(m){return(!q||m.nombre.toLowerCase().includes(q)||(m.codigo||'').toLowerCase().includes(q))&&(!catF||m.cat===catF);});
+  var tbody=document.getElementById('inv-tbody');
+  if(!mats.length){tbody.innerHTML='<tr><td colspan="7">'+empty('Sin materiales')+'</td></tr>';return;}
+  tbody.innerHTML=mats.map(function(m){
+    var stk=getStockVis(cid,m.id);
     var pct=Math.min(100,Math.round(stk/Math.max(m.min*2,1)*100));
     var color=stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
     var badge=stk===0?'badge-red':stk<m.min?'badge-amber':'badge-green';
-    var label=stk===0?'Agotado':stk<m.min?'Stock bajo':'Disponible';
-    return '<tr>'
-      +'<td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
+    return '<tr><td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
       +'<td><strong>'+m.nombre+'</strong></td>'
-      +'<td><span class="badge '+(catBadge[m.cat]||'badge-gray')+'">'+m.cat+'</span></td>'
+      +'<td><span class="badge badge-gray">'+m.cat+'</span></td>'
       +'<td style="font-size:12px">'+m.unidad+'</td>'
       +'<td><strong style="color:'+color+'">'+stk+'</strong>'
       +'<div class="stock-bar"><div class="stock-fill" style="width:'+pct+'%;background:'+color+'"></div></div></td>'
       +'<td style="color:var(--ink3)">'+m.min+'</td>'
-      +'<td><span class="badge '+badge+'">'+label+'</span></td>'
-      +'</tr>';
+      +'<td><span class="badge '+badge+'">'+(stk===0?'Agotado':stk<m.min?'Stock bajo':'Disponible')+'</span></td></tr>';
   }).join('');
 }
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // ALERTAS
-// ══════════════════════════════════════════════════════════
-function renderAlertas() {
-  var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  var bajos = db.materiales.filter(function(m){
-    var s=cid?getStock(cid,m.id):Object.values(db.stocks).reduce(function(a,c){return a+(c[m.id]||0);},0);
-    return s<m.min;
-  });
+// ══════════════════════════════════════════════════════
+function renderAlertas(){
+  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var bajos=materialesList().filter(function(m){return getStockVis(cid,m.id)<m.min;});
   var el=document.getElementById('alertas-container');
-  if (!bajos.length){ el.innerHTML='<div class="card">'+empty('¡Sin alertas! Todo el stock en nivel óptimo')+'</div>'; return; }
+  if(!bajos.length){el.innerHTML='<div class="card">'+empty('Sin alertas — todo el stock en nivel óptimo')+'</div>';return;}
   el.innerHTML=bajos.map(function(m){
-    var s=cid?getStock(cid,m.id):0, d=s===0;
+    var s=getStockVis(cid,m.id),d=s===0;
     return '<div class="alert-item '+(d?'danger':'warning')+'">'
       +'<div><strong style="font-size:14px">'+m.nombre+'</strong> <span class="badge badge-gray">'+m.cat+'</span>'
       +'<p style="font-size:12px;margin-top:3px;color:var(--ink2)">Stock: <strong>'+s+' '+m.unidad+'</strong> — Mínimo: '+m.min+' '+m.unidad+'</p></div>'
@@ -1274,97 +1032,91 @@ function renderAlertas() {
   }).join('');
 }
 
-function updateAlertCount() {
-  if (!currentUser) return;
+function updateAlertCount(){
+  if(!currentUser)return;
   var cid=currentUser.tipo!=='admin'?currentUser.cuadrillaId:null;
-  var n=db.materiales.filter(function(m){
-    var s=cid?getStock(cid,m.id):Object.values(db.stocks).reduce(function(a,c){return a+(c[m.id]||0);},0);
-    return s<m.min;
-  }).length;
+  var n=materialesList().filter(function(m){return getStockVis(cid,m.id)<m.min;}).length;
   ['alert-count','nav-alert-count'].forEach(function(id){
     var e=document.getElementById(id);
     if(n>0){e.style.display='flex';e.textContent=n;}else{e.style.display='none';}
   });
 }
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // HISTORIAL
-// ══════════════════════════════════════════════════════════
-function renderHistorial() {
+// ══════════════════════════════════════════════════════
+function renderHistorial(){
   var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
   var rows=[];
-  db.kardex.filter(function(k){return cid===null||k.cuadrillaId===cid;}).forEach(function(k){
+  kardexList().filter(function(k){return cid===null||k.cuadrillaId===cid;}).forEach(function(k){
     var mat=getMat(k.matId);
     rows.push({fecha:k.fecha,tipo:k.tipo==='ingreso'?'Ingreso bodega':'Egreso bodega',
       mat:mat?mat.nombre:'—',qty:k.qty+(mat?' '+mat.unidad:''),ref:k.ref||'—',resp:k.resp||'—',asigId:null});
   });
-  db.asignaciones.filter(function(a){return cid===null||a.cuadrillaId===cid;}).forEach(function(a){
+  asigList().filter(function(a){return cid===null||a.cuadrillaId===cid;}).forEach(function(a){
     rows.push({fecha:a.fecha,tipo:'Asignación cliente',
-      mat:a.materiales.map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';}).join(', '),
+      mat:(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';}).join(', '),
       qty:'',ref:a.cliente+(a.ot?' / OT:'+a.ot:''),resp:a.tecnico||'—',asigId:a.id});
   });
   rows.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
   var tbody=document.getElementById('hist-tbody');
-  if (!rows.length){ tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos')+'</td></tr>'; return; }
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos')+'</td></tr>';return;}
   tbody.innerHTML=rows.map(function(r){
     var bc=r.tipo==='Ingreso bodega'?'badge-green':r.tipo==='Egreso bodega'?'badge-accent':'badge-blue';
-    return '<tr>'
-      +'<td style="font-size:11px;white-space:nowrap">'+fmtDT(r.fecha)+'</td>'
+    return '<tr><td style="font-size:11px;white-space:nowrap">'+fmtDT(r.fecha)+'</td>'
       +'<td><span class="badge '+bc+'">'+r.tipo+'</span></td>'
       +'<td style="font-size:13px">'+r.mat+'</td>'
       +'<td style="font-size:12px">'+r.qty+'</td>'
       +'<td style="font-size:12px">'+r.ref+'</td>'
       +'<td style="font-size:12px">'+r.resp+'</td>'
-      +'<td>'+(r.asigId?'<button class="btn btn-sm" onclick="rePDF('+r.asigId+')">PDF</button>':'—')+'</td>'
-      +'</tr>';
+      +'<td>'+(r.asigId?'<button class="btn btn-sm" onclick="rePDF(\''+r.asigId+'\')">PDF</button>':'—')+'</td></tr>';
   }).join('');
 }
 
-function exportHistorialCSV() {
+function exportCSV(){
   var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  var rows=[['Fecha','Tipo','Material','Cantidad','Referencia/Cliente','Responsable','Cuadrilla']];
-  db.kardex.filter(function(k){return cid===null||k.cuadrillaId===cid;}).forEach(function(k){
+  var rows=[['Fecha','Tipo','Material','Cantidad','Referencia','Responsable','Cuadrilla']];
+  kardexList().filter(function(k){return cid===null||k.cuadrillaId===cid;}).forEach(function(k){
     var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
     rows.push([fmtDT(k.fecha),k.tipo,mat?mat.nombre:'—',k.qty,k.ref||'',k.resp||'',cuad?cuad.nombre:'']);
   });
-  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var csv=rows.map(function(r){return r.map(function(c){return'"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='historial.csv';a.click();
 }
 
-// ══════════════════════════════════════════════════════════
-// ADMIN — MATERIALES (con selector de cuadrilla)
-// ══════════════════════════════════════════════════════════
-function renderAdminMateriales() {
+// ══════════════════════════════════════════════════════
+// ADMIN — MATERIALES
+// ══════════════════════════════════════════════════════
+function renderAdminMateriales(){
   var tbody=document.getElementById('admin-mat-tbody');
-  if (!db.materiales.length){ tbody.innerHTML='<tr><td colspan="6">'+empty('Sin materiales. Agrega el primero.')+'</td></tr>'; return; }
-  tbody.innerHTML=db.materiales.map(function(m){
-    return '<tr>'
-      +'<td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
+  var mats=materialesList();
+  if(!mats.length){tbody.innerHTML='<tr><td colspan="6">'+empty('Sin materiales. Agrega el primero.')+'</td></tr>';return;}
+  tbody.innerHTML=mats.map(function(m){
+    return '<tr><td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
       +'<td><strong>'+m.nombre+'</strong></td>'
       +'<td><span class="badge badge-gray">'+m.cat+'</span></td>'
-      +'<td>'+m.unidad+'</td>'
-      +'<td>'+m.min+'</td>'
+      +'<td>'+m.unidad+'</td><td>'+m.min+'</td>'
       +'<td style="display:flex;gap:6px">'
-      +'<button class="btn btn-sm" onclick="editMat('+m.id+')">Editar</button>'
-      +'<button class="btn btn-sm btn-red" onclick="deleteMat('+m.id+')">Eliminar</button>'
+      +'<button class="btn btn-sm" onclick="editMat(\''+m.id+'\')">Editar</button>'
+      +'<button class="btn btn-sm btn-red" onclick="deleteMat(\''+m.id+'\')">Eliminar</button>'
       +'</td></tr>';
   }).join('');
 }
 
-function openMatModal(editId) {
+function openMatModal(editId){
   document.getElementById('mat-edit-id').value=editId||'';
   document.getElementById('mat-modal-title').textContent=editId?'Editar material':'Nuevo material';
-  if (!editId) {
-    document.getElementById('mat-codigo').value='MAT-'+String(db.materiales.length+1).padStart(3,'0');
-    document.getElementById('mat-nombre').value='';
-    document.getElementById('mat-min').value='5';
+  if(!editId){
+    var n=materialesList().length+1;
+    document.getElementById('mat-codigo').value='MAT-'+String(n).padStart(3,'0');
+    document.getElementById('mat-nombre').value='';document.getElementById('mat-min').value='5';
   }
   openModal('modal-material');
 }
 
-function editMat(id) {
-  var m=getMat(id); if(!m)return;
-  document.getElementById('mat-codigo').value=m.codigo;
+function editMat(id){
+  var m=getMat(id);if(!m)return;
+  document.getElementById('mat-codigo').value=m.codigo||'';
   document.getElementById('mat-nombre').value=m.nombre;
   document.getElementById('mat-cat').value=m.cat;
   document.getElementById('mat-unidad').value=m.unidad;
@@ -1372,289 +1124,144 @@ function editMat(id) {
   openMatModal(id);
 }
 
-function guardarMaterial() {
+function guardarMaterial(){
   var nombre=document.getElementById('mat-nombre').value.trim();
-  if (!nombre){ toast('Ingresa el nombre del material','error'); return; }
-  var editId=parseInt(document.getElementById('mat-edit-id').value)||0;
-  var mat={
-    id:editId||Date.now(), codigo:document.getElementById('mat-codigo').value.trim(),
-    nombre:nombre, cat:document.getElementById('mat-cat').value,
-    unidad:document.getElementById('mat-unidad').value, min:parseInt(document.getElementById('mat-min').value)||5
-  };
-  if (editId) {
-    var idx=db.materiales.findIndex(function(m){return m.id===editId;});
-    if (idx>=0) db.materiales[idx]=Object.assign(db.materiales[idx],mat);
-    toast('Material actualizado','success');
-  } else {
-    db.materiales.push(mat);
-    toast('Material "'+nombre+'" agregado al catálogo. Usa Kardex → Ingreso para cargar cantidades.','success');
-  }
-  saveAndSync(); closeModal('modal-material'); renderAdminMateriales();
+  if(!nombre){toast('Ingresa el nombre','error');return;}
+  var editId=document.getElementById('mat-edit-id').value;
+  var mat={codigo:document.getElementById('mat-codigo').value.trim(),nombre:nombre,
+    cat:document.getElementById('mat-cat').value,unidad:document.getElementById('mat-unidad').value,
+    min:parseInt(document.getElementById('mat-min').value)||5};
+  var ref=editId?db.ref('materiales/'+editId):db.ref('materiales').push();
+  ref.set(mat).then(function(){
+    toast(editId?'Material actualizado':'Material "'+nombre+'" agregado','success');
+    closeModal('modal-material');
+  }).catch(function(e){toast('Error: '+e.message,'error');});
 }
 
-function deleteMat(id) {
-  if (!confirm('¿Eliminar este material?')) return;
-  db.materiales=db.materiales.filter(function(m){return m.id!==id;});
-  saveAndSync(); renderAdminMateriales(); toast('Material eliminado','success');
+function deleteMat(id){
+  if(!confirm('¿Eliminar este material?'))return;
+  db.ref('materiales/'+id).remove().then(function(){toast('Material eliminado','success');});
 }
 
-// ══════════════════════════════════════════════════════════
-// ADMIN — CUADRILLAS (con contraseña)
-// ══════════════════════════════════════════════════════════
-function renderAdminCuadrillas() {
+// ══════════════════════════════════════════════════════
+// ADMIN — CUADRILLAS
+// ══════════════════════════════════════════════════════
+function renderAdminCuadrillas(){
   var tbody=document.getElementById('admin-cuad-tbody');
-  if (!db.cuadrillas.length){ tbody.innerHTML='<tr><td colspan="7">'+empty('Sin cuadrillas. Agrega la primera.')+'</td></tr>'; return; }
-  tbody.innerHTML=db.cuadrillas.map(function(c,i){
-    return '<tr>'
-      +'<td style="font-family:monospace;font-size:12px">#'+String(i+1).padStart(2,'0')+'</td>'
+  var cuads=cuadrillasList();
+  if(!cuads.length){tbody.innerHTML='<tr><td colspan="7">'+empty('Sin cuadrillas. Agrega la primera.')+'</td></tr>';return;}
+  tbody.innerHTML=cuads.map(function(c,i){
+    return '<tr><td style="font-family:monospace;font-size:12px">#'+String(i+1).padStart(2,'0')+'</td>'
       +'<td><strong>'+c.nombre+'</strong></td>'
       +'<td>'+(c.responsable||'—')+'</td>'
       +'<td>'+(c.zona?'<span class="badge badge-blue">'+c.zona+'</span>':'—')+'</td>'
       +'<td><span style="font-family:monospace;font-size:12px;background:var(--bg3);padding:3px 8px;border-radius:6px;">'
-        +(c.pass?'••••••'+' <span style="font-size:10px;color:var(--green)">✓</span>':'<span style="color:var(--red);font-size:12px">Sin contraseña</span>')+'</span>'
-        +' <button class="btn btn-sm" style="padding:3px 8px;font-size:11px;" onclick="editCuadPass('+c.id+')">Cambiar</button></td>'
+        +(c.pass?'•••••• <span style="font-size:10px;color:var(--green)">✓</span>':'<span style="color:var(--red)">Sin contraseña</span>')+'</span>'
+        +' <button class="btn btn-sm" style="padding:3px 8px;font-size:11px;" onclick="editCuad(\''+c.id+'\')">Editar</button></td>'
       +'<td><span class="badge badge-green">Activa</span></td>'
-      +'<td style="display:flex;gap:6px">'
-      +'<button class="btn btn-sm btn-red" onclick="deleteCuadrilla('+c.id+')">Eliminar</button>'
-      +'</td></tr>';
+      +'<td><button class="btn btn-sm btn-red" onclick="deleteCuadrilla(\''+c.id+'\')">Eliminar</button></td></tr>';
   }).join('');
 }
 
-function openCuadrillaModal() {
-  document.getElementById('cuad-nombre').value='';
-  document.getElementById('cuad-resp').value='';
-  document.getElementById('cuad-zona').value='';
-  document.getElementById('cuad-pass').value='';
+function openCuadrillaModal(){
+  document.getElementById('cuad-nombre').value='';document.getElementById('cuad-resp').value='';
+  document.getElementById('cuad-zona').value='';document.getElementById('cuad-pass').value='';
   document.getElementById('cuad-edit-id').value='';
   document.getElementById('cuad-modal-title').textContent='Nueva cuadrilla';
   openModal('modal-cuadrilla');
 }
 
-function editCuadPass(id) {
-  var c=getCuad(id); if(!c)return;
-  document.getElementById('cuad-nombre').value=c.nombre;
-  document.getElementById('cuad-resp').value=c.responsable||'';
-  document.getElementById('cuad-zona').value=c.zona||'';
-  document.getElementById('cuad-pass').value=c.pass||'';
+function editCuad(id){
+  var c=getCuad(id);if(!c)return;
+  document.getElementById('cuad-nombre').value=c.nombre;document.getElementById('cuad-resp').value=c.responsable||'';
+  document.getElementById('cuad-zona').value=c.zona||'';document.getElementById('cuad-pass').value=c.pass||'';
   document.getElementById('cuad-edit-id').value=id;
   document.getElementById('cuad-modal-title').textContent='Editar cuadrilla';
   openModal('modal-cuadrilla');
 }
 
-function guardarCuadrilla() {
+function guardarCuadrilla(){
   var nombre=document.getElementById('cuad-nombre').value.trim();
   var pass=document.getElementById('cuad-pass').value;
-  var editId=parseInt(document.getElementById('cuad-edit-id').value)||0;
-  if (!nombre){ toast('Ingresa el nombre','error'); return; }
-  if (!pass||pass.length<4){ toast('La contraseña debe tener al menos 4 caracteres','error'); return; }
-  if (!editId && db.cuadrillas.length>=30){ toast('Máximo 30 cuadrillas','error'); return; }
-  if (editId) {
-    var idx=db.cuadrillas.findIndex(function(c){return c.id===editId;});
-    if (idx>=0) db.cuadrillas[idx]=Object.assign(db.cuadrillas[idx],{nombre:nombre,responsable:document.getElementById('cuad-resp').value,zona:document.getElementById('cuad-zona').value,pass:pass});
-    toast('Cuadrilla actualizada','success');
-  } else {
-    db.cuadrillas.push({id:Date.now(),nombre:nombre,responsable:document.getElementById('cuad-resp').value,zona:document.getElementById('cuad-zona').value,pass:pass});
-    toast('Cuadrilla "'+nombre+'" creada','success');
-  }
-  saveAndSync(); closeModal('modal-cuadrilla'); renderAdminCuadrillas(); populateLoginSelect();
+  var editId=document.getElementById('cuad-edit-id').value;
+  if(!nombre){toast('Ingresa el nombre','error');return;}
+  if(!pass||pass.length<4){toast('La contraseña debe tener al menos 4 caracteres','error');return;}
+  if(!editId&&cuadrillasList().length>=30){toast('Máximo 30 cuadrillas','error');return;}
+  var cuad={nombre:nombre,responsable:document.getElementById('cuad-resp').value,zona:document.getElementById('cuad-zona').value,pass:pass};
+  var ref=editId?db.ref('cuadrillas/'+editId):db.ref('cuadrillas').push();
+  ref.set(cuad).then(function(){
+    toast(editId?'Cuadrilla actualizada':'"'+nombre+'" creada','success');
+    closeModal('modal-cuadrilla');
+  }).catch(function(e){toast('Error: '+e.message,'error');});
 }
 
-function deleteCuadrilla(id) {
-  if (!confirm('¿Eliminar esta cuadrilla y todos sus datos?')) return;
-  db.cuadrillas=db.cuadrillas.filter(function(c){return c.id!==id;});
-  delete db.stocks[id];
-  db.kardex=db.kardex.filter(function(k){return k.cuadrillaId!==id;});
-  db.asignaciones=db.asignaciones.filter(function(a){return a.cuadrillaId!==id;});
-  saveAndSync(); renderAdminCuadrillas(); populateLoginSelect(); toast('Cuadrilla eliminada','success');
+function deleteCuadrilla(id){
+  if(!confirm('¿Eliminar esta cuadrilla y todos sus datos?'))return;
+  var updates={};
+  updates['cuadrillas/'+id]=null;
+  updates['stocks/'+id]=null;
+  // Limpiar kardex y asignaciones de esta cuadrilla
+  kardexList().filter(function(k){return k.cuadrillaId===id;}).forEach(function(k){updates['kardex/'+k.id]=null;});
+  asigList().filter(function(a){return a.cuadrillaId===id;}).forEach(function(a){updates['asignaciones/'+a.id]=null;});
+  db.ref().update(updates).then(function(){toast('Cuadrilla eliminada','success');});
 }
 
-// ══════════════════════════════════════════════════════════
-// GOOGLE SHEETS — base de datos central
-// ══════════════════════════════════════════════════════════
-function saveGsUrl() {
-  GS_URL = document.getElementById('gs-url').value.trim();
-  localStorage.setItem('bn2_gs', GS_URL);
-  save();
-  var el = document.getElementById('gs-status');
-  if (!GS_URL) { el.textContent = 'Sin URL'; return; }
-  el.textContent = 'Probando conexión...'; el.style.color = 'var(--ink3)';
-
-  // Mostrar instrucción para hardcodear
-  var instrEl = document.getElementById('gs-hardcode-instr');
-  if (instrEl) {
-    instrEl.style.display = 'block';
-    instrEl.innerHTML = '<strong>⚠ Paso importante para que funcione en todos los dispositivos:</strong><br>'
-      + 'Abre el archivo <code>index.html</code> en GitHub → busca la línea:<br>'
-      + '<code>var GS_URL = localStorage.getItem(\'bn2_gs\') || \'\';</code><br>'
-      + 'Reemplázala por:<br>'
-      + '<code>var GS_URL = \'' + GS_URL + '\';</code><br>'
-      + 'Guarda el cambio en GitHub (Commit changes).';
-  }
-
-  fetch(GS_URL + '?action=loadAll')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (d.ok) {
-        el.textContent = '✓ Conectado'; el.style.color = 'var(--green)';
-        toast('Conexión exitosa con Google Sheets', 'success');
-        loadFromSheets();
-      }
-    })
-    .catch(function(){
-      el.textContent = '✓ URL guardada'; el.style.color = 'var(--amber)';
-      toast('URL guardada. Sigue la instrucción de abajo para que funcione en todos los dispositivos.', 'info');
-    });
-}
-
-// Cargar TODA la base de datos desde Sheets — usando JSONP (evita CORS)
-function loadFromSheets() {
-  if (!GS_URL) {
-    showLoginBanner('⚠ Sin URL de Google Sheets configurada. Inicia sesión como Admin para configurarla.', 'warn');
-    return;
-  }
-  showLoginBanner('⏳ Conectando con base de datos...', 'load');
-
-  // JSONP: inyecta un <script> tag — funciona sin restricciones CORS
-  var cbName = 'bn_cb_' + Date.now();
-  var timeout = setTimeout(function() {
-    window[cbName] = null;
-    var sc = document.getElementById('bn-jsonp-script');
-    if (sc) sc.remove();
-    // Fallback: usar datos locales
-    var nLocal = db.cuadrillas.length;
-    if (nLocal > 0) {
-      showLoginBanner('⚠ Sin conexión. Mostrando ' + nLocal + ' cuadrilla(s) del caché local.', 'warn');
-      populateLoginSelect();
-    } else {
-      showLoginBanner('⚠ Sin conexión y sin datos locales. Verifica tu internet.', 'warn');
-    }
-  }, 8000);
-
-  window[cbName] = function(d) {
-    clearTimeout(timeout);
-    window[cbName] = null;
-    var sc = document.getElementById('bn-jsonp-script');
-    if (sc) sc.remove();
-    if (!d || !d.ok) { showLoginBanner('⚠ Error al leer datos de Sheets.', 'warn'); return; }
-
-    var changed = false;
-    try { var cuads=JSON.parse(d.cuadrillas); if(Array.isArray(cuads)&&cuads.length){db.cuadrillas=cuads;changed=true;} } catch(e){}
-    try { var mats=JSON.parse(d.materiales); if(Array.isArray(mats)&&mats.length){db.materiales=mats;changed=true;} } catch(e){}
-    try { var stks=JSON.parse(d.stocks); if(stks&&typeof stks==='object'&&Object.keys(stks).length){db.stocks=stks;changed=true;} } catch(e){}
-    try { var kx=JSON.parse(d.kardex); if(Array.isArray(kx)&&kx.length){db.kardex=kx;changed=true;} } catch(e){}
-    try { var asigs=JSON.parse(d.asignaciones); if(Array.isArray(asigs)&&asigs.length){db.asignaciones=asigs;changed=true;} } catch(e){}
-
-    if (changed) {
-      save();
-      populateLoginSelect();
-      updateAlertCount();
-      if (currentUser) renderDashboard();
-      setSheetStatus('online');
-    }
-    var nCuads = db.cuadrillas.length;
-    if (nCuads > 0) {
-      showLoginBanner('✓ ' + nCuads + ' cuadrilla(s) disponible(s)', 'ok');
-    } else {
-      showLoginBanner('ℹ Conectado. Sin cuadrillas aún — el Admin debe crearlas.', 'warn');
-    }
-  };
-
-  var sc = document.createElement('script');
-  sc.id = 'bn-jsonp-script';
-  sc.src = GS_URL + '?action=loadAll&callback=' + cbName;
-  sc.onerror = function() {
-    clearTimeout(timeout);
-    window[cbName] = null;
-    showLoginBanner('⚠ Error al conectar con Sheets. Verifica la URL en configuración.', 'warn');
-    populateLoginSelect();
-  };
-  document.head.appendChild(sc);
-}
-
-function showLoginBanner(msg, type) {
-  var banner = document.getElementById('login-sync-banner');
-  var msgEl = document.getElementById('login-sync-msg');
-  if (!banner || !msgEl) return;
-  banner.style.display = 'block';
-  msgEl.textContent = msg;
-  if (type === 'ok') {
-    banner.style.background = 'var(--green-light)'; banner.style.borderColor = '#a0d4b0'; banner.style.color = 'var(--green-dark)';
-  } else if (type === 'warn') {
-    banner.style.background = 'var(--amber-light)'; banner.style.borderColor = '#f0d070'; banner.style.color = 'var(--amber-dark)';
-  } else {
-    banner.style.background = 'var(--blue-light)'; banner.style.borderColor = '#b8d4f4'; banner.style.color = 'var(--blue)';
-  }
-}
-
-// Guardar TODA la base de datos en Sheets — no-cors (escritura)
-function saveAllToSheets() {
-  if (!GS_URL) return;
-  var payload = {
-    action: 'saveAll',
-    cuadrillas:   JSON.stringify(db.cuadrillas),
-    materiales:   JSON.stringify(db.materiales),
-    stocks:       JSON.stringify(db.stocks),
-    kardex:       JSON.stringify(db.kardex),
-    asignaciones: JSON.stringify(db.asignaciones)
-  };
-  fetch(GS_URL, { method: 'POST', body: JSON.stringify(payload) })
-    .then(function(r){ return r.json(); })
-    .then(function(d){ if(d.ok) setSheetStatus('online'); })
-    .catch(function(){
-      // fallback no-cors
-      fetch(GS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
-        .catch(function(){});
-    });
-}
-
-// Agregar fila a log (Kardex / Asignaciones visibles en Sheets)
-function syncRow(tab, headers, row) {
-  if (!GS_URL) return;
-  fetch(GS_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'appendRow', tab: tab, headers: headers, row: row })
-  }).catch(function(){
-    fetch(GS_URL, { method:'POST', mode:'no-cors',
-      body: JSON.stringify({ action:'appendRow', tab:tab, headers:headers, row:row })
-    }).catch(function(){});
-  });
-}
-
-function setSheetStatus(state) {
-  var el = document.getElementById('gs-status');
-  if (!el) return;
-  if (state === 'online') { el.textContent = '✓ Sincronizado'; el.style.color = 'var(--green)'; }
-  else { el.textContent = '⚠ Sin conexión (datos en local)'; el.style.color = 'var(--amber)'; }
-}
-
-// Llamada combinada: guarda local + sincroniza Sheets
-function saveAndSync() {
-  save();
-  saveAllToSheets();
-}
-
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 // UI HELPERS
-// ══════════════════════════════════════════════════════════
-function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+// ══════════════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toast(msg,type){
   var c=document.getElementById('toasts'),icons={success:'✓',error:'✕',info:'i'};
-  var el=document.createElement('div'); el.className='toast t-'+(type||'info');
+  var el=document.createElement('div');el.className='toast t-'+(type||'info');
   el.innerHTML='<span style="font-weight:700;font-size:14px">'+(icons[type]||'i')+'</span><span>'+msg+'</span>';
-  c.appendChild(el); setTimeout(function(){el.remove();},3500);
+  c.appendChild(el);setTimeout(function(){el.remove();},3500);
 }
 document.querySelectorAll('.modal-overlay').forEach(function(ov){
   ov.addEventListener('click',function(e){if(e.target===ov)ov.classList.remove('open');});
 });
 
-// ══════════════════════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════════════════════
-load();
-populateLoginSelect();
-// SIEMPRE intentar cargar desde Google Sheets al arrancar
-loadFromSheets();
+// ══════════════════════════════════════════════════════
+// INIT — conectar Firebase y mostrar login
+// ══════════════════════════════════════════════════════
+var loadMsg = document.getElementById('loading-msg');
+loadMsg.textContent = 'Conectando con Firebase...';
+
+// Esperar primera carga de datos antes de mostrar login
+var initialLoadDone = false;
+db.ref('.info/connected').on('value', function(snap) {
+  var connected = snap.val();
+  var ind = document.getElementById('sync-indicator');
+  if (ind) {
+    if (connected) { ind.className='topbar-sync sync-ok'; ind.textContent='● En línea'; }
+    else { ind.className='topbar-sync sync-off'; ind.textContent='● Sin conexión'; }
+  }
+});
+
+// Carga inicial: esperar cuadrillas y materiales
+Promise.all([
+  db.ref('cuadrillas').once('value'),
+  db.ref('materiales').once('value'),
+  db.ref('stocks').once('value'),
+  db.ref('kardex').once('value'),
+  db.ref('asignaciones').once('value'),
+  db.ref('config/adminPass').once('value')
+]).then(function(snaps) {
+  cache.cuadrillas = snaps[0].val() || {};
+  cache.materiales = snaps[1].val() || {};
+  cache.stocks     = snaps[2].val() || {};
+  cache.kardex     = snaps[3].val() || {};
+  cache.asignaciones = snaps[4].val() || {};
+  if (snaps[5].val()) ADMIN_PASS = snaps[5].val();
+  // Ocultar loading, mostrar login
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  populateLoginSelect();
+  // Activar listeners en tiempo real
+  initFirebaseListeners();
+}).catch(function(err) {
+  loadMsg.textContent = 'Error: ' + err.message + ' — Verifica tu conexión.';
+});
 </script>
 </body>
 </html>
