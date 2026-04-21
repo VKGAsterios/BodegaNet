@@ -311,6 +311,9 @@ tr:hover td{background:var(--bg3);}
         <button class="nav-item" onclick="showSection('admin-logs')">
           <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Registro de accesos
         </button>
+        <button class="nav-item" onclick="showSection('admin-config')">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.5"/><path d="M17.7 8.5l-1.4-.8a6 6 0 000-1.4l1.4-.8-1-1.7-1.4.8a6 6 0 00-1.2-.7V2.5h-2v1.4a6 6 0 00-1.2.7l-1.4-.8-1 1.7 1.4.8a6 6 0 000 1.4l-1.4.8 1 1.7 1.4-.8a6 6 0 001.2.7v1.4h2v-1.4a6 6 0 001.2-.7l1.4.8z" stroke="currentColor" stroke-width="1.3"/></svg>Configuración
+        </button>
       </div>
     </aside>
     <main class="main-content" id="main-scroll">
@@ -417,11 +420,11 @@ tr:hover td{background:var(--bg3);}
       <!-- HISTORIAL -->
       <section class="section" id="sec-historial">
         <div class="page-header">
-          <div><h2>Historial</h2><p>Movimientos y asignaciones</p></div>
-          <button class="btn" onclick="exportCSV()">Exportar CSV</button>
+          <div><h2 id="hist-titulo">Historial</h2><p id="hist-subtitulo">Movimientos y asignaciones</p></div>
+          <button class="btn" onclick="exportCSV()" id="hist-export-btn">Exportar CSV</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>Fecha</th><th>Tipo</th><th>Material/Desc.</th><th>Cant.</th><th>Cliente/Ref.</th><th>Técnico</th><th>PDF</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Material/Desc.</th><th>Cant.</th><th>Cliente/Ref.</th><th>Técnico</th><th>Acciones</th></tr></thead>
           <tbody id="hist-tbody"></tbody>
         </table></div></div>
       </section>
@@ -456,13 +459,13 @@ tr:hover td{background:var(--bg3);}
           <div><h2>Reportes y exportación</h2><p>Descarga registros de asignaciones en Excel/CSV</p></div>
         </div>
         <div class="card">
-          <div class="card-title">Filtros de exportación</div>
+          <div class="card-title">Filtros</div>
           <div class="form-grid">
             <div class="field"><label>Cuadrilla</label>
-              <select id="rep-cuadrilla"><option value="">Todas las cuadrillas</option></select>
+              <select id="rep-cuadrilla" onchange="renderResumenMateriales()"><option value="">Todas las cuadrillas</option></select>
             </div>
             <div class="field"><label>Período</label>
-              <select id="rep-periodo" onchange="toggleRepFechas()">
+              <select id="rep-periodo" onchange="toggleRepFechas();renderResumenMateriales()">
                 <option value="hoy">Hoy</option>
                 <option value="semana">Esta semana</option>
                 <option value="mes" selected>Este mes</option>
@@ -471,8 +474,8 @@ tr:hover td{background:var(--bg3);}
             </div>
           </div>
           <div class="form-grid" id="rep-fechas-custom" style="display:none;">
-            <div class="field"><label>Fecha inicio</label><input type="date" id="rep-fecha-ini"></div>
-            <div class="field"><label>Fecha fin</label><input type="date" id="rep-fecha-fin"></div>
+            <div class="field"><label>Fecha inicio</label><input type="date" id="rep-fecha-ini" onchange="renderResumenMateriales()"></div>
+            <div class="field"><label>Fecha fin</label><input type="date" id="rep-fecha-fin" onchange="renderResumenMateriales()"></div>
           </div>
           <div class="form-grid">
             <div class="field"><label>Tipo de datos</label>
@@ -486,10 +489,15 @@ tr:hover td{background:var(--bg3);}
           <div class="btn-row">
             <button class="btn btn-accent" onclick="previsualizarReporte()">Vista previa</button>
             <button class="btn btn-green" onclick="exportarExcel()">
-              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4" stroke="currentColor" stroke-width="1.5"/><path d="M7 11l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
               Descargar Excel/CSV
             </button>
           </div>
+        </div>
+        <!-- 10. Resumen de materiales utilizados -->
+        <div class="card">
+          <div class="card-title">Materiales utilizados en el período</div>
+          <div id="rep-resumen-mats"><p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Selecciona un período para ver el resumen</p></div>
         </div>
         <div class="card" id="rep-preview-card" style="display:none;">
           <div class="card-header">
@@ -512,13 +520,42 @@ tr:hover td{background:var(--bg3);}
         </table></div></div>
       </section>
 
+      <!-- ADMIN CONFIG -->
+      <section class="section" id="sec-admin-config">
+        <div class="page-header"><div><h2>Configuración de administrador</h2><p>Contraseña y sesiones activas</p></div></div>
+        <!-- 6. Cambio de contraseña -->
+        <div class="card">
+          <div class="card-title">Cambiar contraseña de administrador</div>
+          <div class="form-grid g1">
+            <div class="field"><label>Contraseña actual</label>
+              <div class="pass-field"><input type="password" id="chpass-actual" class="field-input" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <button class="pass-toggle" onclick="togglePass('chpass-actual')">👁</button></div>
+            </div>
+            <div class="field"><label>Nueva contraseña</label>
+              <div class="pass-field"><input type="password" id="chpass-nueva" class="field-input" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <button class="pass-toggle" onclick="togglePass('chpass-nueva')">👁</button></div>
+            </div>
+            <div class="field"><label>Confirmar nueva contraseña</label>
+              <div class="pass-field"><input type="password" id="chpass-confirmar" class="field-input" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <button class="pass-toggle" onclick="togglePass('chpass-confirmar')">👁</button></div>
+            </div>
+          </div>
+          <button class="btn btn-accent" onclick="cambiarPassAdmin()">Actualizar contraseña</button>
+        </div>
+        <!-- 7. Sesiones activas -->
+        <div class="card">
+          <div class="card-header"><h3>Sesiones activas</h3><button class="btn btn-sm" onclick="renderSesionesActivas()">🔄 Actualizar</button></div>
+          <div id="sesiones-lista"><p style="color:var(--ink3);font-size:13px;">Cargando...</p></div>
+        </div>
+      </section>
+
     </main>
   </div>
-  <nav class="bottom-nav">
-    <button class="bn-item active" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
-    <button class="bn-item" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="bn-item" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
+    <button class="bn-item active" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
     <button class="bn-item" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
-    <button class="bn-item" onclick="showSection('inventario')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16M7 8v9" stroke="currentColor" stroke-width="1.3"/></svg>Stock</button>
+    <button class="bn-item" onclick="showSection('historial')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mi día</button>
     <button class="bn-item" onclick="showSection('alertas')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas</button>
   </nav>
 </div>
@@ -723,9 +760,20 @@ function renderCurrentSection() {
     historial: renderHistorial, 'admin-materiales': renderAdminMateriales,
     'admin-cuadrillas': renderAdminCuadrillas,
     'admin-reportes': renderAdminReportes,
-    'admin-logs': renderAdminLogs
+    'admin-logs': renderAdminLogs,
+    'admin-config': function(){ renderSesionesActivas(); }
   };
   if (renders[currentSection]) renders[currentSection]();
+  // Ajustar títulos del historial según el usuario
+  if(currentSection==='historial' && currentUser){
+    var esCuad = currentUser.tipo!=='admin';
+    var tit=document.getElementById('hist-titulo');
+    var sub=document.getElementById('hist-subtitulo');
+    var exp=document.getElementById('hist-export-btn');
+    if(tit) tit.textContent = esCuad ? 'Mis asignaciones de hoy' : 'Historial completo';
+    if(sub) sub.textContent = esCuad ? 'Registros del día actual' : 'Movimientos, asignaciones y anulaciones';
+    if(exp) exp.style.display = esCuad ? 'none' : '';
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -810,24 +858,108 @@ function startApp() {
   if (currentUser.tipo === 'admin') {
     tc.textContent = '★ Administrador'; tc.style.background = 'var(--ink)'; tc.style.color = '#fff';
     document.getElementById('admin-nav').style.display = 'block';
+    // Admin: ocultar alertas del nav (punto 4)
+    document.querySelector('[onclick*="showSection(\'alertas\'"]').closest('.nav-group') && null;
+    document.getElementById('alert-bell-wrap') && (document.getElementById('alert-bell-wrap').style.display='none');
+    showSection('dashboard');
   } else {
     var c = getCuad(currentUser.cuadrillaId);
     tc.textContent = c ? c.nombre : 'Cuadrilla';
     document.getElementById('admin-nav').style.display = 'none';
+    // Cuadrilla: ir directo a Kardex, sin dashboard (punto 2)
+    showSection('kardex');
   }
   document.getElementById('inv-subtitle').textContent =
     currentUser.tipo==='admin' ? 'Stock global (todas las cuadrillas)' : 'Stock asignado a tu bodega';
-  showSection('dashboard');
   updateAlertCount();
+
+  // Guardar sesión activa en Firebase (punto 7)
+  var sid = 'sess_'+Date.now();
+  currentUser.sessionId = sid;
+  db.ref('sessions/'+sid).set({
+    usuario: currentUser.tipo==='admin'?'Administrador':(getCuad(currentUser.cuadrillaId)||{nombre:'?'}).nombre,
+    tipo: currentUser.tipo,
+    cuadrillaId: currentUser.cuadrillaId||'',
+    inicio: nowISO(),
+    agente: navigator.userAgent.substring(0,80)
+  });
+  // Escuchar si la sesión fue terminada remotamente (punto 7)
+  db.ref('sessions/'+sid).on('value', function(snap){
+    if (!snap.val() && currentUser) {
+      toast('Tu sesión fue cerrada por el administrador.','info');
+      setTimeout(function(){ logout(true); }, 2000);
+    }
+  });
+
+  // Auto-refresh: escuchar cambios en Firebase y recargar UI (punto 8)
+  db.ref('_lastUpdate').on('value', function(snap){
+    if (snap.val() && currentUser) {
+      renderCurrentSection();
+      updateAlertCount();
+    }
+  });
 }
 
-function logout() {
+function logout(forzado) {
+  // Limpiar sesión de Firebase
+  if (currentUser && currentUser.sessionId) {
+    db.ref('sessions/'+currentUser.sessionId).off();
+    if (!forzado) db.ref('sessions/'+currentUser.sessionId).remove();
+  }
   currentUser = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   showCuadrillaLogin();
   document.getElementById('login-cuad-pass').value = '';
   document.getElementById('admin-pass').value = '';
+}
+
+// 6. Cambio de contraseña admin
+function cambiarPassAdmin(){
+  var actual = document.getElementById('chpass-actual').value;
+  var nueva = document.getElementById('chpass-nueva').value;
+  var confirmar = document.getElementById('chpass-confirmar').value;
+  if (actual !== ADMIN_PASS) { toast('Contraseña actual incorrecta','error'); return; }
+  if (!nueva || nueva.length < 6) { toast('La nueva contraseña debe tener al menos 6 caracteres','error'); return; }
+  if (nueva !== confirmar) { toast('Las contraseñas no coinciden','error'); return; }
+  showConfirm('Cambiar contraseña de administrador',
+    '¿Confirmas el cambio de contraseña?<br>La nueva contraseña entrará en vigor de inmediato.',
+    function(){
+      ADMIN_PASS = nueva;
+      db.ref('config/adminPass').set(nueva).then(function(){
+        toast('Contraseña de administrador actualizada','success');
+        closeModal('modal-chpass');
+        document.getElementById('chpass-actual').value='';
+        document.getElementById('chpass-nueva').value='';
+        document.getElementById('chpass-confirmar').value='';
+      });
+    }
+  );
+}
+
+// 7. Gestión de sesiones activas
+function renderSesionesActivas(){
+  db.ref('sessions').once('value',function(snap){
+    var sess=[];
+    snap.forEach(function(c){sess.push(Object.assign({id:c.key},c.val()));});
+    var el=document.getElementById('sesiones-lista');
+    if(!sess.length){el.innerHTML='<p style="color:var(--ink3);font-size:13px;">Sin sesiones activas</p>';return;}
+    el.innerHTML=sess.map(function(s){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:1rem;">'
+        +'<div><strong style="font-size:13px;">'+s.usuario+'</strong> <span class="badge badge-gray">'+s.tipo+'</span>'
+        +'<p style="font-size:11px;color:var(--ink3);margin-top:2px;">'+fmtDT(s.inicio)+'</p></div>'
+        +'<button class="btn btn-sm btn-red" onclick="cerrarSesion(\''+s.id+'\')">Desconectar</button>'
+        +'</div>';
+    }).join('');
+  });
+}
+
+function cerrarSesion(sid){
+  showConfirm('Desconectar dispositivo','¿Cerrar esta sesión remotamente?',function(){
+    db.ref('sessions/'+sid).remove().then(function(){
+      toast('Sesión cerrada','success'); renderSesionesActivas();
+    });
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -1048,7 +1180,7 @@ function registrarKardex(){
         updates['kardex/'+kid]={fecha:fecha+'T'+new Date().toTimeString().slice(0,8),tipo:kardexTipo,
           matId:mid,qty:r.qty,ref:ref||'',resp:resp||'',obs:obs||'',cuadrillaId:cid,saldo:nuevoStock};
       });
-      db.ref().update(updates).then(function(){
+      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
         toast(validos.length+' material(es) registrado(s) como '+kardexTipo,'success');
         closeModal('modal-kardex');
       }).catch(function(e){toast('Error: '+e.message,'error');});
@@ -1163,7 +1295,7 @@ function registrarAsignacion(){
         obs:document.getElementById('cli-obs').value,
         materiales:matsData,cuadrillaId:cid};
       updates['asignaciones/'+aid]=asig;
-      db.ref().update(updates).then(function(){
+      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
         toast('Asignación registrada. Generando PDF...','success');
         generarPDF(asig);
         limpiarAsignacion();
@@ -1314,29 +1446,76 @@ function tieneExistenciaRegistrada(cid, mid) {
 
 function renderAlertas(){
   var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  // Solo materiales que tienen existencia registrada en esta bodega y están bajos
+  // Punto 4: admin no ve alertas
+  if(currentUser.tipo==='admin'){
+    document.getElementById('alertas-container').innerHTML='<div class="card"><div style="text-align:center;padding:2rem;color:var(--ink3);font-size:14px;">Las alertas están disponibles solo para las cuadrillas.</div></div>';
+    return;
+  }
+  // Leer alertas ocultas por esta cuadrilla
+  var ocultas = JSON.parse(localStorage.getItem('alertas_ocultas_'+cid)||'[]');
   var bajos=materialesList().filter(function(m){
+    if(ocultas.indexOf(m.id)>=0) return false;
     if(!tieneExistenciaRegistrada(cid,m.id)) return false;
     return getStockVis(cid,m.id)<m.min;
   });
   var el=document.getElementById('alertas-container');
   if(!bajos.length){
-    el.innerHTML='<div class="card">'+empty('Sin alertas — todos los materiales con existencia en esta bodega están en nivel óptimo')+'</div>';
+    el.innerHTML='<div class="card">'+empty('Sin alertas activas — todo el stock en nivel óptimo')+'</div>';
     return;
   }
   el.innerHTML=bajos.map(function(m){
     var s=getStockVis(cid,m.id),d=s===0;
-    return '<div class="alert-item '+(d?'danger':'warning')+'">'
+    return '<div class="alert-item '+(d?'danger':'warning')+'" id="alerta-'+m.id+'">'
       +'<div><strong style="font-size:14px">'+m.nombre+'</strong> <span class="badge badge-gray">'+m.cat+'</span>'
-      +'<p style="font-size:12px;margin-top:3px;color:var(--ink2)">Stock: <strong>'+s+' '+m.unidad+'</strong> — Mínimo requerido: '+m.min+' '+m.unidad+'</p></div>'
-      +'<span class="badge '+(d?'badge-red':'badge-amber')+'">'+(d?'⚠ Agotado':'↓ Stock bajo')+'</span></div>';
-  }).join('');
+      +'<p style="font-size:12px;margin-top:3px;color:var(--ink2)">Stock: <strong>'+s+' '+m.unidad+'</strong> — Mínimo: '+m.min+' '+m.unidad+'</p></div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">'
+      +'<span class="badge '+(d?'badge-red':'badge-amber')+'">'+(d?'⚠ Agotado':'↓ Stock bajo')+'</span>'
+      +'<button class="btn btn-sm" onclick="ocultarAlerta(\''+m.id+'\')" style="font-size:11px;padding:4px 8px;">Ocultar</button>'
+      +'<button class="btn btn-sm btn-red" onclick="eliminarAlertaPerm(\''+m.id+'\')" style="font-size:11px;padding:4px 8px;">Ignorar siempre</button>'
+      +'</div></div>';
+  }).join('')
+  +'<div style="margin-top:12px;text-align:right;">'
+  +(ocultas.length>0?'<button class="btn btn-sm" onclick="restaurarAlertas()" style="font-size:12px;">Restaurar ocultas ('+ocultas.length+')</button>':'')
+  +'</div>';
+}
+
+function ocultarAlerta(mid){
+  var el=document.getElementById('alerta-'+mid);
+  if(el){el.style.opacity='0.4';el.style.pointerEvents='none';}
+  setTimeout(function(){ if(el)el.remove(); },400);
+}
+
+function eliminarAlertaPerm(mid){
+  var cid=currentUser.cuadrillaId;
+  var ocultas=JSON.parse(localStorage.getItem('alertas_ocultas_'+cid)||'[]');
+  if(ocultas.indexOf(mid)<0) ocultas.push(mid);
+  localStorage.setItem('alertas_ocultas_'+cid,JSON.stringify(ocultas));
+  var el=document.getElementById('alerta-'+mid);
+  if(el) el.remove();
+  toast('Alerta ignorada permanentemente. Puedes restaurarla cuando quieras.','info');
+  updateAlertCount();
+}
+
+function restaurarAlertas(){
+  var cid=currentUser.cuadrillaId;
+  localStorage.removeItem('alertas_ocultas_'+cid);
+  renderAlertas(); updateAlertCount();
+  toast('Alertas restauradas','success');
 }
 
 function updateAlertCount(){
   if(!currentUser)return;
-  var cid=currentUser.tipo!=='admin'?currentUser.cuadrillaId:null;
+  // Punto 4: admin no ve alertas
+  if(currentUser.tipo==='admin'){
+    ['alert-count','nav-alert-count'].forEach(function(id){
+      var e=document.getElementById(id); if(e) e.style.display='none';
+    });
+    return;
+  }
+  var cid=currentUser.cuadrillaId;
+  var ocultas=JSON.parse(localStorage.getItem('alertas_ocultas_'+cid)||'[]');
   var n=materialesList().filter(function(m){
+    if(ocultas.indexOf(m.id)>=0) return false;
     if(!tieneExistenciaRegistrada(cid,m.id)) return false;
     return getStockVis(cid,m.id)<m.min;
   }).length;
@@ -1351,30 +1530,96 @@ function updateAlertCount(){
 // ══════════════════════════════════════════════════════
 function renderHistorial(){
   var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var hoy=fmtDate(new Date());
   var rows=[];
   kardexList().filter(function(k){return cid===null||k.cuadrillaId===cid;}).forEach(function(k){
     var mat=getMat(k.matId);
     rows.push({fecha:k.fecha,tipo:k.tipo==='ingreso'?'Ingreso bodega':'Egreso bodega',
-      mat:mat?mat.nombre:'—',qty:k.qty+(mat?' '+mat.unidad:''),ref:k.ref||'—',resp:k.resp||'—',asigId:null});
+      mat:mat?mat.nombre:'—',qty:k.qty+(mat?' '+mat.unidad:''),ref:k.ref||'—',resp:k.resp||'—',
+      asigId:null, kardexId:k.id, esHoy:fmtDate(k.fecha)===hoy});
   });
-  asigList().filter(function(a){return cid===null||a.cuadrillaId===cid;}).forEach(function(a){
+  asigList().filter(function(a){
+    if(a.anulada) return false; // ocultar anuladas del historial normal
+    return cid===null||a.cuadrillaId===cid;
+  }).forEach(function(a){
     rows.push({fecha:a.fecha,tipo:'Asignación cliente',
       mat:(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';}).join(', '),
-      qty:'',ref:a.cliente+(a.ot?' / OT:'+a.ot:''),resp:a.tecnico||'—',asigId:a.id});
+      qty:'',ref:a.cliente+(a.ot?' / OT:'+a.ot:''),resp:a.tecnico||'—',
+      asigId:a.id, kardexId:null, esHoy:fmtDate(a.fecha)===hoy});
   });
   rows.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
+
+  // Cuadrilla: solo muestra asignaciones del día (punto 3)
+  if(cid){
+    rows=rows.filter(function(r){return r.esHoy && r.asigId;});
+  }
+
   var tbody=document.getElementById('hist-tbody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos')+'</td></tr>';return;}
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7">'+empty(cid?'Sin asignaciones registradas hoy':'Sin movimientos')+'</td></tr>';
+    return;
+  }
   tbody.innerHTML=rows.map(function(r){
     var bc=r.tipo==='Ingreso bodega'?'badge-green':r.tipo==='Egreso bodega'?'badge-accent':'badge-blue';
-    return '<tr><td style="font-size:11px;white-space:nowrap">'+fmtDT(r.fecha)+'</td>'
+    var acciones='—';
+    if(r.asigId){
+      acciones='<button class="btn btn-sm" onclick="rePDF(\''+r.asigId+'\')">PDF</button>'
+        +(currentUser.tipo==='admin'?'<button class="btn btn-sm btn-red" style="margin-left:4px;" onclick="anularAsignacion(\''+r.asigId+'\')">Anular</button>':'');
+    } else if(r.kardexId && currentUser.tipo==='admin'){
+      acciones='<button class="btn btn-sm btn-red" onclick="eliminarKardex(\''+r.kardexId+'\')">Eliminar</button>';
+    }
+    return '<tr>'
+      +'<td style="font-size:11px;white-space:nowrap">'+fmtDT(r.fecha)+'</td>'
       +'<td><span class="badge '+bc+'">'+r.tipo+'</span></td>'
       +'<td style="font-size:13px">'+r.mat+'</td>'
       +'<td style="font-size:12px">'+r.qty+'</td>'
       +'<td style="font-size:12px">'+r.ref+'</td>'
       +'<td style="font-size:12px">'+r.resp+'</td>'
-      +'<td>'+(r.asigId?'<button class="btn btn-sm" onclick="rePDF(\''+r.asigId+'\')">PDF</button>':'—')+'</td></tr>';
+      +'<td style="white-space:nowrap">'+acciones+'</td>'
+      +'</tr>';
   }).join('');
+}
+
+// 1. Anular asignación (admin)
+function anularAsignacion(asigId){
+  var a=cache.asignaciones[asigId];
+  if(!a)return;
+  showConfirm('Anular asignación',
+    '¿Anular la asignación de <strong>'+(a.cliente||'cliente')+'</strong>?<br>'
+    +'OT: '+(a.ot||'—')+'<br><br>'
+    +'El stock de materiales será <strong>restaurado</strong> a la bodega de la cuadrilla.',
+    function(){
+      var updates={};
+      // Restaurar stock
+      (a.materiales||[]).forEach(function(m){
+        var cur=getStock(a.cuadrillaId,m.matId);
+        updates['stocks/'+a.cuadrillaId+'/'+m.matId]=cur+m.qty;
+      });
+      // Marcar como anulada
+      updates['asignaciones/'+asigId+'/anulada']=true;
+      updates['asignaciones/'+asigId+'/fechaAnulacion']=nowISO();
+      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
+        toast('Asignación anulada y stock restaurado','success');
+        renderHistorial();
+      });
+    }
+  );
+}
+
+// 5. Eliminar registro de kardex (admin)
+function eliminarKardex(kid){
+  var k=cache.kardex[kid];
+  var mat=k?getMat(k.matId):null;
+  showConfirm('Eliminar registro de Kardex',
+    'Eliminar movimiento: <strong>'+(k?k.tipo:'')+'</strong> de '+(mat?mat.nombre:'material')+'<br>'
+    +'<strong>Cantidad:</strong> '+(k?k.qty:'')+'<br><br>'
+    +'⚠ Esto solo elimina el registro histórico. El stock <strong>no se ajusta automáticamente</strong>.',
+    function(){
+      db.ref('kardex/'+kid).remove().then(function(){
+        toast('Registro eliminado','success'); renderHistorial();
+      });
+    }
+  );
 }
 
 function exportCSV(){
@@ -1529,7 +1774,7 @@ function deleteCuadrilla(id){
       updates['cuadrillas/'+id]=null; updates['stocks/'+id]=null;
       kardexList().filter(function(k){return k.cuadrillaId===id;}).forEach(function(k){updates['kardex/'+k.id]=null;});
       asigList().filter(function(a){return a.cuadrillaId===id;}).forEach(function(a){updates['asignaciones/'+a.id]=null;});
-      db.ref().update(updates).then(function(){toast('Cuadrilla eliminada','success');});
+      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){toast('Cuadrilla eliminada','success');});
     }
   );
 }
@@ -1598,12 +1843,41 @@ function renderAdminReportes(){
   cuadrillasList().forEach(function(c){
     var o=document.createElement('option');o.value=c.id;o.textContent=c.nombre;sel.appendChild(o);
   });
-  // Fechas por defecto
   var hoy=new Date();
   document.getElementById('rep-fecha-fin').value=hoy.toISOString().slice(0,10);
   var ini=new Date(hoy.getFullYear(),hoy.getMonth(),1);
   document.getElementById('rep-fecha-ini').value=ini.toISOString().slice(0,10);
   document.getElementById('rep-preview-card').style.display='none';
+  // Mostrar resumen de materiales utilizados
+  renderResumenMateriales();
+}
+
+// 10. Reporte de material utilizado en asignaciones
+function renderResumenMateriales(){
+  var el=document.getElementById('rep-resumen-mats');
+  if(!el) return;
+  var cid=document.getElementById('rep-cuadrilla').value||null;
+  var asigs=filtrarPorRango(asigList().filter(function(a){return !a.anulada;}));
+  // Sumar por material
+  var totales={};
+  asigs.forEach(function(a){
+    (a.materiales||[]).forEach(function(m){
+      if(!totales[m.matId]) totales[m.matId]={qty:0,mat:getMat(m.matId)};
+      totales[m.matId].qty+=m.qty;
+    });
+  });
+  var items=Object.values(totales).filter(function(x){return x.mat;}).sort(function(a,b){return b.qty-a.qty;});
+  if(!items.length){el.innerHTML='<p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Sin datos en el período</p>';return;}
+  el.innerHTML='<div class="table-wrap"><table>'
+    +'<thead><tr><th>Material</th><th>Categoría</th><th>Unidad</th><th>Total utilizado</th></tr></thead>'
+    +'<tbody>'+items.map(function(x){
+      return '<tr>'
+        +'<td><strong>'+x.mat.nombre+'</strong></td>'
+        +'<td><span class="badge badge-gray">'+x.mat.cat+'</span></td>'
+        +'<td>'+x.mat.unidad+'</td>'
+        +'<td style="font-weight:600;color:var(--accent)">'+x.qty+'</td>'
+        +'</tr>';
+    }).join('')+'</tbody></table></div>';
 }
 
 function toggleRepFechas(){
