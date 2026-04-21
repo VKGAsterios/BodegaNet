@@ -462,9 +462,14 @@ tr:hover td{background:var(--bg3);}
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <label style="font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">Materiales</label>
-      <span id="km-counter" style="font-size:11px;color:var(--ink3)">1/15</span>
+      <span id="km-counter" style="font-size:11px;color:var(--ink3)">1/30</span>
     </div>
-    <div id="km-rows-container"></div>
+    <!-- Búsqueda rápida por nombre -->
+    <div style="position:relative;margin-bottom:10px;">
+      <input type="text" id="km-buscar" placeholder="🔍 Buscar material por nombre..." oninput="filtrarMatsKardex()" autocomplete="off"
+        style="width:100%;padding:9px 12px 9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;transition:border-color .15s;">
+      <div id="km-buscar-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 var(--r) var(--r);max-height:180px;overflow-y:auto;z-index:300;box-shadow:0 6px 16px rgba(0,0,0,.12);"></div>
+    </div>
     <button class="add-row-btn" id="km-add-btn" onclick="addKardexRow()">+ Agregar otro material</button>
     <div style="height:12px;"></div>
     <div class="field" id="km-cuadrilla-field" style="display:none;margin-bottom:12px;">
@@ -788,13 +793,13 @@ function empty(m){return '<div class="empty-state"><svg viewBox="0 0 48 48" fill
 // KARDEX
 // ══════════════════════════════════════════════════════
 function initKardexRows(){kardexRows=[{uid:uid(),matId:'',qty:1}];renderKardexRows();}
-function addKardexRow(){if(kardexRows.length>=15){toast('Máximo 15','info');return;}kardexRows.push({uid:uid(),matId:'',qty:1});renderKardexRows();}
+function addKardexRow(){if(kardexRows.length>=30){toast('Máximo 30 materiales','info');return;}kardexRows.push({uid:uid(),matId:'',qty:1});renderKardexRows();}
 function removeKardexRow(u){if(kardexRows.length<=1)return;kardexRows=kardexRows.filter(function(r){return r.uid!==u;});renderKardexRows();}
 
 function renderKardexRows(){
   var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  document.getElementById('km-counter').textContent=kardexRows.length+'/15';
-  document.getElementById('km-add-btn').style.display=kardexRows.length>=15?'none':'flex';
+  document.getElementById('km-counter').textContent=kardexRows.length+'/30';
+  document.getElementById('km-add-btn').style.display=kardexRows.length>=30?'none':'flex';
   var opts=materialesList().map(function(m){return '<option value="'+m.id+'">'+m.nombre+'</option>';}).join('');
   document.getElementById('km-rows-container').innerHTML=kardexRows.map(function(row){
     var stk=row.matId?(cid?getStock(cid,row.matId):'—'):'—';
@@ -810,10 +815,59 @@ function renderKardexRows(){
 function setKRM(u,v){var r=kardexRows.find(function(x){return x.uid===u;});if(r){r.matId=v;renderKardexRows();}}
 function setKRQ(u,v){var r=kardexRows.find(function(x){return x.uid===u;});if(r)r.qty=parseInt(v)||1;}
 
+// Búsqueda de material por nombre en Kardex
+function filtrarMatsKardex(){
+  var q=(document.getElementById('km-buscar').value||'').toLowerCase().trim();
+  var list=document.getElementById('km-buscar-list');
+  if(!q){list.style.display='none';return;}
+  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var matches=materialesList().filter(function(m){
+    return m.nombre.toLowerCase().includes(q)||(m.codigo||'').toLowerCase().includes(q);
+  }).slice(0,12);
+  if(!matches.length){list.style.display='none';return;}
+  list.innerHTML=matches.map(function(m){
+    var stk=cid?getStock(cid,m.id):0;
+    var color=stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
+    return '<div onclick="seleccionarMatKardex(\''+m.id+'\')" style="padding:9px 14px;cursor:pointer;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;transition:background .1s;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'+
+      '<span><strong>'+m.nombre+'</strong> <span style="font-size:11px;color:var(--ink3)">'+m.cat+'</span></span>'+
+      '<span style="font-family:monospace;font-size:12px;color:'+color+';font-weight:600">'+stk+' '+m.unidad+'</span>'+
+      '</div>';
+  }).join('');
+  list.style.display='block';
+}
+
+function seleccionarMatKardex(matId){
+  // Agregar nueva fila con el material seleccionado
+  if(kardexRows.length>=30){toast('Máximo 30 materiales','info');return;}
+  // Si la última fila está vacía, usarla; sino agregar una nueva
+  var ultima=kardexRows[kardexRows.length-1];
+  if(!ultima.matId){
+    ultima.matId=matId;
+  } else {
+    kardexRows.push({uid:uid(),matId:matId,qty:1});
+  }
+  // Limpiar búsqueda
+  document.getElementById('km-buscar').value='';
+  document.getElementById('km-buscar-list').style.display='none';
+  renderKardexRows();
+  toast('Material agregado a la lista','success');
+}
+
+// Cerrar dropdown al hacer clic fuera
+document.addEventListener('click', function(e){
+  var buscar=document.getElementById('km-buscar');
+  var lista=document.getElementById('km-buscar-list');
+  if(lista && buscar && !buscar.contains(e.target) && !lista.contains(e.target)){
+    lista.style.display='none';
+  }
+});
+
 function openKardexModal(){
   initKardexRows();
   document.getElementById('km-fecha').value=new Date().toISOString().slice(0,10);
   document.getElementById('km-ref').value=''; document.getElementById('km-resp').value=''; document.getElementById('km-obs').value='';
+  document.getElementById('km-buscar').value='';
+  document.getElementById('km-buscar-list').style.display='none';
   var cf=document.getElementById('km-cuadrilla-field');
   if(currentUser.tipo==='admin'){
     cf.style.display='block';
