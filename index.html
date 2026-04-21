@@ -329,7 +329,21 @@ tr:hover td{background:var(--bg3);}
 
       <!-- ASIGNAR -->
       <section class="section" id="sec-asignar">
-        <div class="page-header"><div><h2>Asignar materiales a cliente</h2><p>Hasta 15 materiales por asignación — genera PDF automático</p></div></div>
+        <div class="page-header">
+          <div><h2>Asignar materiales a cliente</h2><p>Hasta 15 materiales — genera PDF o resumen de texto</p></div>
+        </div>
+        <!-- Barra de acciones siempre visible (incluso en móvil) -->
+        <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;">
+          <button class="btn btn-green" onclick="registrarAsignacion()" style="flex:1;justify-content:center;">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-7 14V10H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            Registrar y PDF
+          </button>
+          <button class="btn" onclick="mostrarResumenTexto()" style="flex:1;justify-content:center;border-color:var(--blue);color:var(--blue);">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 10h8M6 13h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            Ver resumen texto
+          </button>
+          <button class="btn btn-ghost" onclick="limpiarAsignacion()" style="flex:1;justify-content:center;">Limpiar</button>
+        </div>
         <div class="card">
           <div class="card-title">Datos del cliente</div>
           <div class="form-grid">
@@ -353,10 +367,6 @@ tr:hover td{background:var(--bg3);}
           <div class="card-header"><h3>Materiales utilizados</h3><span id="asig-counter" style="font-size:12px;color:var(--ink3)">0/15</span></div>
           <div id="asig-rows-container"></div>
           <button class="add-row-btn" id="asig-add-btn" onclick="addAsigRow()">+ Agregar material</button>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-green" onclick="registrarAsignacion()">Registrar y generar PDF</button>
-          <button class="btn btn-ghost" onclick="limpiarAsignacion()">Limpiar</button>
         </div>
       </section>
 
@@ -513,7 +523,18 @@ tr:hover td{background:var(--bg3);}
   </div>
 </div>
 
-<div class="toast-wrap" id="toasts"></div>
+<div class="modal-overlay" id="modal-resumen-texto">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeModal('modal-resumen-texto')">✕</button>
+    <h3>Resumen de materiales</h3>
+    <p style="font-size:13px;color:var(--ink3);margin-bottom:1rem;">Copia este texto para enviarlo por WhatsApp, correo o SMS.</p>
+    <textarea id="resumen-texto-box" readonly style="width:100%;min-height:220px;padding:12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:monospace;font-size:13px;background:var(--bg3);color:var(--ink);resize:vertical;line-height:1.6;outline:none;"></textarea>
+    <div class="btn-row" style="margin-top:1rem;">
+      <button class="btn btn-accent" onclick="copiarResumen()">Copiar texto</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-resumen-texto')">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -985,6 +1006,73 @@ function rePDF(id){
   if(a)generarPDF(Object.assign({id:id},a));
 }
 
+function mostrarResumenTexto(){
+  var nombre=document.getElementById('cli-nombre').value.trim();
+  var tel=document.getElementById('cli-tel').value.trim();
+  var dir=document.getElementById('cli-dir').value.trim();
+  var municipio=document.getElementById('cli-municipio').value.trim();
+  var ot=document.getElementById('cli-ot').value.trim();
+  var tipo=document.getElementById('cli-tipo').value;
+  var tecnico=document.getElementById('cli-tecnico').value.trim();
+  var obs=document.getElementById('cli-obs').value.trim();
+  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var cuad=cid?getCuad(cid):null;
+  var validos=asigRows.filter(function(r){return r.matId&&r.qty>0;});
+
+  var lineas=[];
+  lineas.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lineas.push('📋 REPORTE DE MATERIALES');
+  lineas.push('BodegaNet ISP');
+  lineas.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lineas.push('');
+  if(cuad) lineas.push('🔧 Cuadrilla: '+cuad.nombre);
+  lineas.push('👤 Técnico:   '+(tecnico||'—'));
+  lineas.push('📅 Fecha:     '+fmtDate(nowISO()));
+  if(ot)    lineas.push('🗒  OT:       '+ot);
+  lineas.push('⚙️  Trabajo:   '+tipo);
+  lineas.push('');
+  lineas.push('── CLIENTE ──────────────');
+  lineas.push('Nombre:    '+(nombre||'—'));
+  if(tel)      lineas.push('Teléfono:  '+tel);
+  if(dir)      lineas.push('Dirección: '+dir);
+  if(municipio) lineas.push('Municipio: '+municipio);
+  lineas.push('');
+  lineas.push('── MATERIALES ───────────');
+  if(!validos.length){
+    lineas.push('(Sin materiales seleccionados)');
+  } else {
+    validos.forEach(function(r,i){
+      var mat=getMat(r.matId);
+      if(mat) lineas.push((i+1)+'. '+mat.nombre+': '+r.qty+' '+mat.unidad);
+    });
+    lineas.push('');
+    lineas.push('Total items: '+validos.length);
+  }
+  if(obs){
+    lineas.push('');
+    lineas.push('── OBSERVACIONES ────────');
+    lineas.push(obs);
+  }
+  lineas.push('');
+  lineas.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+  document.getElementById('resumen-texto-box').value=lineas.join('\n');
+  openModal('modal-resumen-texto');
+}
+
+function copiarResumen(){
+  var el=document.getElementById('resumen-texto-box');
+  el.select(); el.setSelectionRange(0,99999);
+  try{
+    document.execCommand('copy');
+    toast('Texto copiado al portapapeles','success');
+  } catch(e){
+    navigator.clipboard.writeText(el.value).then(function(){
+      toast('Texto copiado al portapapeles','success');
+    }).catch(function(){toast('Selecciona el texto y cópialo manualmente','info');});
+  }
+}
+
 // ══════════════════════════════════════════════════════
 // INVENTARIO
 // ══════════════════════════════════════════════════════
@@ -1018,16 +1106,33 @@ function renderInventario(){
 // ══════════════════════════════════════════════════════
 // ALERTAS
 // ══════════════════════════════════════════════════════
+// Solo alerta materiales que tienen existencia registrada alguna vez en esa bodega
+// (es decir: el stock de esa cuadrilla para ese material existe en Firebase, aunque sea 0)
+function tieneExistenciaRegistrada(cid, mid) {
+  if (!cid) return true; // admin ve todo
+  var bodega = cache.stocks[cid];
+  if (!bodega) return false;
+  // Existe la clave en la bodega (fue registrado al menos una vez via Kardex)
+  return bodega.hasOwnProperty(mid);
+}
+
 function renderAlertas(){
   var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  var bajos=materialesList().filter(function(m){return getStockVis(cid,m.id)<m.min;});
+  // Solo materiales que tienen existencia registrada en esta bodega y están bajos
+  var bajos=materialesList().filter(function(m){
+    if(!tieneExistenciaRegistrada(cid,m.id)) return false;
+    return getStockVis(cid,m.id)<m.min;
+  });
   var el=document.getElementById('alertas-container');
-  if(!bajos.length){el.innerHTML='<div class="card">'+empty('Sin alertas — todo el stock en nivel óptimo')+'</div>';return;}
+  if(!bajos.length){
+    el.innerHTML='<div class="card">'+empty('Sin alertas — todos los materiales con existencia en esta bodega están en nivel óptimo')+'</div>';
+    return;
+  }
   el.innerHTML=bajos.map(function(m){
     var s=getStockVis(cid,m.id),d=s===0;
     return '<div class="alert-item '+(d?'danger':'warning')+'">'
       +'<div><strong style="font-size:14px">'+m.nombre+'</strong> <span class="badge badge-gray">'+m.cat+'</span>'
-      +'<p style="font-size:12px;margin-top:3px;color:var(--ink2)">Stock: <strong>'+s+' '+m.unidad+'</strong> — Mínimo: '+m.min+' '+m.unidad+'</p></div>'
+      +'<p style="font-size:12px;margin-top:3px;color:var(--ink2)">Stock: <strong>'+s+' '+m.unidad+'</strong> — Mínimo requerido: '+m.min+' '+m.unidad+'</p></div>'
       +'<span class="badge '+(d?'badge-red':'badge-amber')+'">'+(d?'⚠ Agotado':'↓ Stock bajo')+'</span></div>';
   }).join('');
 }
@@ -1035,7 +1140,10 @@ function renderAlertas(){
 function updateAlertCount(){
   if(!currentUser)return;
   var cid=currentUser.tipo!=='admin'?currentUser.cuadrillaId:null;
-  var n=materialesList().filter(function(m){return getStockVis(cid,m.id)<m.min;}).length;
+  var n=materialesList().filter(function(m){
+    if(!tieneExistenciaRegistrada(cid,m.id)) return false;
+    return getStockVis(cid,m.id)<m.min;
+  }).length;
   ['alert-count','nav-alert-count'].forEach(function(id){
     var e=document.getElementById(id);
     if(n>0){e.style.display='flex';e.textContent=n;}else{e.style.display='none';}
