@@ -305,6 +305,12 @@ tr:hover td{background:var(--bg3);}
         <button class="nav-item" onclick="showSection('admin-cuadrillas')">
           <svg viewBox="0 0 20 20" fill="none"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM4 16c0-2.8 2.7-5 6-5s6 2.2 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Gestionar cuadrillas
         </button>
+        <button class="nav-item" onclick="showSection('admin-reportes')">
+          <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Reportes / Excel
+        </button>
+        <button class="nav-item" onclick="showSection('admin-logs')">
+          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Registro de accesos
+        </button>
       </div>
     </aside>
     <main class="main-content" id="main-scroll">
@@ -369,6 +375,10 @@ tr:hover td{background:var(--bg3);}
               <select id="cli-tipo"><option>Instalación nueva</option><option>Reparación</option><option>Ampliación</option><option>Otro</option></select>
             </div>
             <div class="field"><label>Técnico responsable</label><input type="text" id="cli-tecnico"></div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Hora de inicio de tarea</label><input type="time" id="cli-hora-inicio"></div>
+            <div class="field"><label>Hora de finalización</label><input type="time" id="cli-hora-fin"></div>
           </div>
           <div class="field"><label>Observaciones</label><textarea id="cli-obs" placeholder="Notas..."></textarea></div>
         </div>
@@ -437,6 +447,68 @@ tr:hover td{background:var(--bg3);}
         <div class="card"><div class="table-wrap"><table>
           <thead><tr><th>#</th><th>Nombre</th><th>Responsable</th><th>Zona</th><th>Contraseña</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody id="admin-cuad-tbody"></tbody>
+        </table></div></div>
+      </section>
+
+      <!-- ADMIN REPORTES -->
+      <section class="section" id="sec-admin-reportes">
+        <div class="page-header">
+          <div><h2>Reportes y exportación</h2><p>Descarga registros de asignaciones en Excel/CSV</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Filtros de exportación</div>
+          <div class="form-grid">
+            <div class="field"><label>Cuadrilla</label>
+              <select id="rep-cuadrilla"><option value="">Todas las cuadrillas</option></select>
+            </div>
+            <div class="field"><label>Período</label>
+              <select id="rep-periodo" onchange="toggleRepFechas()">
+                <option value="hoy">Hoy</option>
+                <option value="semana">Esta semana</option>
+                <option value="mes" selected>Este mes</option>
+                <option value="personalizado">Personalizado</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid" id="rep-fechas-custom" style="display:none;">
+            <div class="field"><label>Fecha inicio</label><input type="date" id="rep-fecha-ini"></div>
+            <div class="field"><label>Fecha fin</label><input type="date" id="rep-fecha-fin"></div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Tipo de datos</label>
+              <select id="rep-tipo">
+                <option value="asignaciones">Asignaciones a clientes</option>
+                <option value="kardex">Movimientos de Kardex</option>
+                <option value="ambos">Ambos</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-accent" onclick="previsualizarReporte()">Vista previa</button>
+            <button class="btn btn-green" onclick="exportarExcel()">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4" stroke="currentColor" stroke-width="1.5"/><path d="M7 11l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Descargar Excel/CSV
+            </button>
+          </div>
+        </div>
+        <div class="card" id="rep-preview-card" style="display:none;">
+          <div class="card-header">
+            <h3 id="rep-preview-title">Vista previa</h3>
+            <span id="rep-preview-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
+          </div>
+          <div class="table-wrap" id="rep-preview-table"></div>
+        </div>
+      </section>
+
+      <!-- ADMIN LOGS DE ACCESO -->
+      <section class="section" id="sec-admin-logs">
+        <div class="page-header">
+          <div><h2>Registro de accesos</h2><p>Historial de ingresos al sistema</p></div>
+          <button class="btn" onclick="exportarLogsCSV()">Exportar CSV</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Fecha/Hora</th><th>Usuario</th><th>Tipo</th><th>IP / Dispositivo</th><th>Estado</th></tr></thead>
+          <tbody id="logs-tbody"></tbody>
         </table></div></div>
       </section>
 
@@ -530,6 +602,18 @@ tr:hover td{background:var(--bg3);}
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal('modal-cuadrilla')">Cancelar</button>
       <button class="btn btn-accent" onclick="guardarCuadrilla()">Guardar cuadrilla</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmación -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:400px;">
+    <h3 id="confirm-title">Confirmar acción</h3>
+    <div id="confirm-body" style="font-size:14px;color:var(--ink2);margin-bottom:1.25rem;line-height:1.6;"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">Cancelar</button>
+      <button class="btn btn-accent" id="confirm-ok-btn">Confirmar</button>
     </div>
   </div>
 </div>
@@ -628,6 +712,7 @@ function initFirebaseListeners() {
   db.ref('config/adminPass').on('value', function(snap) {
     if (snap.val()) ADMIN_PASS = snap.val();
   });
+  // Logs se cargan bajo demanda en renderAdminLogs
 }
 
 var currentSection = 'dashboard';
@@ -636,7 +721,9 @@ function renderCurrentSection() {
     dashboard: renderDashboard, kardex: renderKardex,
     inventario: renderInventario, alertas: renderAlertas,
     historial: renderHistorial, 'admin-materiales': renderAdminMateriales,
-    'admin-cuadrillas': renderAdminCuadrillas
+    'admin-cuadrillas': renderAdminCuadrillas,
+    'admin-reportes': renderAdminReportes,
+    'admin-logs': renderAdminLogs
   };
   if (renders[currentSection]) renders[currentSection]();
 }
@@ -684,16 +771,35 @@ function loginCuadrilla() {
   var c = getCuad(id);
   if (!c) { toast('Cuadrilla no encontrada', 'error'); return; }
   if (!c.pass) { toast('Esta cuadrilla no tiene contraseña. Contacta al administrador.', 'error'); return; }
-  if (pass !== c.pass) { toast('Contraseña incorrecta', 'error'); return; }
+  if (pass !== c.pass) {
+    registrarLog(c.nombre, 'cuadrilla', 'fallido');
+    toast('Contraseña incorrecta', 'error'); return;
+  }
   currentUser = { tipo: 'cuadrilla', cuadrillaId: id };
+  registrarLog(c.nombre, 'cuadrilla', 'exitoso');
   startApp();
 }
 
 function loginAdmin() {
   var pass = document.getElementById('admin-pass').value;
-  if (pass !== ADMIN_PASS) { toast('Clave incorrecta', 'error'); return; }
+  if (pass !== ADMIN_PASS) {
+    registrarLog('Administrador', 'admin', 'fallido');
+    toast('Clave incorrecta', 'error'); return;
+  }
   currentUser = { tipo: 'admin', cuadrillaId: null };
+  registrarLog('Administrador', 'admin', 'exitoso');
   startApp();
+}
+
+function registrarLog(usuario, tipo, estado) {
+  var lid = db.ref('logs').push().key;
+  db.ref('logs/'+lid).set({
+    fecha: nowISO(),
+    usuario: usuario,
+    tipo: tipo,
+    estado: estado,
+    agente: navigator.userAgent.substring(0,80)
+  });
 }
 
 function startApp() {
@@ -917,27 +1023,37 @@ function registrarKardex(){
   var ref=document.getElementById('km-ref').value;
   var resp=document.getElementById('km-resp').value;
   var obs=document.getElementById('km-obs').value;
-  // Validar stock para egresos
   if(kardexTipo==='egreso'){
     var errs=[];
     validos.forEach(function(r){var s=getStock(cid,r.matId),m=getMat(r.matId);if(s<r.qty)errs.push((m?m.nombre:'?')+' (disp:'+s+')');});
     if(errs.length){toast('Stock insuficiente: '+errs.join(', '),'error');return;}
   }
-  // Registrar cada material
-  var updates={};
-  validos.forEach(function(r){
-    var mid=r.matId, mat=getMat(mid);
-    var curStock=getStock(cid,mid);
-    var nuevoStock=kardexTipo==='ingreso'?curStock+r.qty:Math.max(0,curStock-r.qty);
-    updates['stocks/'+cid+'/'+mid]=nuevoStock;
-    var kid=uid();
-    updates['kardex/'+kid]={fecha:fecha+'T'+new Date().toTimeString().slice(0,8),tipo:kardexTipo,
-      matId:mid,qty:r.qty,ref:ref||'',resp:resp||'',obs:obs||'',cuadrillaId:cid,saldo:nuevoStock};
-  });
-  db.ref().update(updates).then(function(){
-    toast(validos.length+' material(es) registrado(s) como '+kardexTipo,'success');
-    closeModal('modal-kardex');
-  }).catch(function(e){toast('Error: '+e.message,'error');});
+  // Confirmación antes de guardar
+  var cuad=getCuad(cid);
+  var resumen=validos.map(function(r){var m=getMat(r.matId);return (m?m.nombre:'?')+' × '+r.qty;}).join(', ');
+  showConfirm(
+    (kardexTipo==='ingreso'?'Confirmar ingreso':'Confirmar egreso'),
+    '<strong>Cuadrilla:</strong> '+(cuad?cuad.nombre:'—')+'<br>'
+    +'<strong>Tipo:</strong> '+kardexTipo+'<br>'
+    +'<strong>Materiales:</strong> '+resumen+'<br><br>'
+    +'¿Confirmas el registro de este movimiento?',
+    function(){
+      var updates={};
+      validos.forEach(function(r){
+        var mid=r.matId, mat=getMat(mid);
+        var curStock=getStock(cid,mid);
+        var nuevoStock=kardexTipo==='ingreso'?curStock+r.qty:Math.max(0,curStock-r.qty);
+        updates['stocks/'+cid+'/'+mid]=nuevoStock;
+        var kid=uid();
+        updates['kardex/'+kid]={fecha:fecha+'T'+new Date().toTimeString().slice(0,8),tipo:kardexTipo,
+          matId:mid,qty:r.qty,ref:ref||'',resp:resp||'',obs:obs||'',cuadrillaId:cid,saldo:nuevoStock};
+      });
+      db.ref().update(updates).then(function(){
+        toast(validos.length+' material(es) registrado(s) como '+kardexTipo,'success');
+        closeModal('modal-kardex');
+      }).catch(function(e){toast('Error: '+e.message,'error');});
+    }
+  );
 }
 
 function switchKardexTab(t,btn){
@@ -1014,39 +1130,51 @@ function registrarAsignacion(){
   validos.forEach(function(r){var s=getStock(cid,r.matId),m=getMat(r.matId);if(s<r.qty)errs.push((m?m.nombre:'?')+' (disp:'+s+')');});
   if(errs.length){toast('Stock insuficiente: '+errs.join(', '),'error');return;}
 
-  var updates={};
-  var matsData=validos.map(function(r){
-    var mid=r.matId,cur=getStock(cid,mid),nuevo=Math.max(0,cur-r.qty);
-    updates['stocks/'+cid+'/'+mid]=nuevo;
-    var kid=uid();
-    updates['kardex/'+kid]={fecha:nowISO(),tipo:'egreso',matId:mid,qty:r.qty,
-      ref:'CLIENTE:'+nombre,resp:document.getElementById('cli-tecnico').value,
-      obs:'Asignación',cuadrillaId:cid,saldo:nuevo};
-    return {matId:mid,qty:r.qty};
-  });
-
-  var aid=uid();
-  var asig={id:aid,fecha:nowISO(),cliente:nombre,
-    tel:document.getElementById('cli-tel').value,
-    dir:document.getElementById('cli-dir').value,
-    municipio:document.getElementById('cli-municipio').value,
-    ot:document.getElementById('cli-ot').value,
-    tipo:document.getElementById('cli-tipo').value,
-    tecnico:document.getElementById('cli-tecnico').value,
-    obs:document.getElementById('cli-obs').value,
-    materiales:matsData,cuadrillaId:cid};
-  updates['asignaciones/'+aid]=asig;
-
-  db.ref().update(updates).then(function(){
-    toast('Asignación registrada. Generando PDF...','success');
-    generarPDF(asig);
-    limpiarAsignacion();
-    showSection('dashboard');
-  }).catch(function(e){toast('Error: '+e.message,'error');});
+  var resumen=validos.map(function(r){var m=getMat(r.matId);return(m?m.nombre:'?')+' × '+r.qty;}).join(', ');
+  var cuad=getCuad(cid);
+  showConfirm(
+    'Confirmar asignación a cliente',
+    '<strong>Cliente:</strong> '+nombre+'<br>'
+    +'<strong>OT:</strong> '+(document.getElementById('cli-ot').value||'—')+'<br>'
+    +'<strong>Cuadrilla:</strong> '+(cuad?cuad.nombre:'—')+'<br>'
+    +'<strong>Materiales:</strong> '+resumen+'<br><br>'
+    +'¿Confirmas el registro y generación del PDF?',
+    function(){
+      var updates={};
+      var matsData=validos.map(function(r){
+        var mid=r.matId,cur=getStock(cid,mid),nuevo=Math.max(0,cur-r.qty);
+        updates['stocks/'+cid+'/'+mid]=nuevo;
+        var kid=uid();
+        updates['kardex/'+kid]={fecha:nowISO(),tipo:'egreso',matId:mid,qty:r.qty,
+          ref:'CLIENTE:'+nombre,resp:document.getElementById('cli-tecnico').value,
+          obs:'Asignación',cuadrillaId:cid,saldo:nuevo};
+        return {matId:mid,qty:r.qty};
+      });
+      var aid=uid();
+      var asig={id:aid,fecha:nowISO(),cliente:nombre,
+        tel:document.getElementById('cli-tel').value,
+        dir:document.getElementById('cli-dir').value,
+        municipio:document.getElementById('cli-municipio').value,
+        ot:document.getElementById('cli-ot').value,
+        tipo:document.getElementById('cli-tipo').value,
+        tecnico:document.getElementById('cli-tecnico').value,
+        horaInicio:document.getElementById('cli-hora-inicio').value||'',
+        horaFin:document.getElementById('cli-hora-fin').value||'',
+        obs:document.getElementById('cli-obs').value,
+        materiales:matsData,cuadrillaId:cid};
+      updates['asignaciones/'+aid]=asig;
+      db.ref().update(updates).then(function(){
+        toast('Asignación registrada. Generando PDF...','success');
+        generarPDF(asig);
+        limpiarAsignacion();
+        showSection('dashboard');
+      }).catch(function(e){toast('Error: '+e.message,'error');});
+    }
+  );
 }
 
 function limpiarAsignacion(){
-  ['cli-nombre','cli-tel','cli-dir','cli-municipio','cli-ot','cli-tecnico','cli-obs'].forEach(function(id){document.getElementById(id).value='';});
+  ['cli-nombre','cli-tel','cli-dir','cli-municipio','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
   asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
 }
@@ -1069,7 +1197,9 @@ function generarPDF(asig){
   sec('INFORMACIÓN GENERAL');
   r2('Cuadrilla:',cuad?cuad.nombre:'—','Fecha:',fmtDate(asig.fecha));
   r2('Técnico:',asig.tecnico||'—','OT:',asig.ot||'—');
-  r2('Tipo:',asig.tipo||'—','','');y+=4;
+  r2('Tipo:',asig.tipo||'—','','');
+  if(asig.horaInicio||asig.horaFin) r2('Hora inicio:',(asig.horaInicio||'—'),'Hora fin:',(asig.horaFin||'—'));
+  y+=4;
   sec('DATOS DEL CLIENTE');
   [['Cliente:',asig.cliente],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—'],['Municipio:',asig.municipio||'—']].forEach(function(r){r2(r[0],r[1]);});
   y+=4;sec('MATERIALES UTILIZADOS');
@@ -1168,35 +1298,6 @@ function copiarResumen(){
   }
 }
 
-// ══════════════════════════════════════════════════════
-// INVENTARIO
-// ══════════════════════════════════════════════════════
-function renderInventario(){
-  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  var q=(document.getElementById('inv-search').value||'').toLowerCase();
-  var catF=document.getElementById('inv-cat-filter').value;
-  var mats=materialesList();
-  var cats=[...new Set(mats.map(function(m){return m.cat;}))];
-  var sel=document.getElementById('inv-cat-filter');
-  sel.innerHTML='<option value="">Todas las categorías</option>'+cats.map(function(c){return'<option value="'+c+'" '+(catF===c?'selected':'')+'>'+c+'</option>';}).join('');
-  mats=mats.filter(function(m){return(!q||m.nombre.toLowerCase().includes(q)||(m.codigo||'').toLowerCase().includes(q))&&(!catF||m.cat===catF);});
-  var tbody=document.getElementById('inv-tbody');
-  if(!mats.length){tbody.innerHTML='<tr><td colspan="7">'+empty('Sin materiales')+'</td></tr>';return;}
-  tbody.innerHTML=mats.map(function(m){
-    var stk=getStockVis(cid,m.id);
-    var pct=Math.min(100,Math.round(stk/Math.max(m.min*2,1)*100));
-    var color=stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
-    var badge=stk===0?'badge-red':stk<m.min?'badge-amber':'badge-green';
-    return '<tr><td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
-      +'<td><strong>'+m.nombre+'</strong></td>'
-      +'<td><span class="badge badge-gray">'+m.cat+'</span></td>'
-      +'<td style="font-size:12px">'+m.unidad+'</td>'
-      +'<td><strong style="color:'+color+'">'+stk+'</strong>'
-      +'<div class="stock-bar"><div class="stock-fill" style="width:'+pct+'%;background:'+color+'"></div></div></td>'
-      +'<td style="color:var(--ink3)">'+m.min+'</td>'
-      +'<td><span class="badge '+badge+'">'+(stk===0?'Agotado':stk<m.min?'Stock bajo':'Disponible')+'</span></td></tr>';
-  }).join('');
-}
 
 // ══════════════════════════════════════════════════════
 // ALERTAS
@@ -1334,16 +1435,29 @@ function guardarMaterial(){
   var mat={codigo:document.getElementById('mat-codigo').value.trim(),nombre:nombre,
     cat:document.getElementById('mat-cat').value,unidad:document.getElementById('mat-unidad').value,
     min:parseInt(document.getElementById('mat-min').value)||5};
-  var ref=editId?db.ref('materiales/'+editId):db.ref('materiales').push();
-  ref.set(mat).then(function(){
-    toast(editId?'Material actualizado':'Material "'+nombre+'" agregado','success');
-    closeModal('modal-material');
-  }).catch(function(e){toast('Error: '+e.message,'error');});
+  showConfirm(
+    editId?'Confirmar actualización':'Confirmar nuevo material',
+    '<strong>'+(editId?'Actualizar':'Agregar')+':</strong> '+nombre+'<br>'
+    +'<strong>Categoría:</strong> '+mat.cat+'<br>'
+    +'<strong>Unidad:</strong> '+mat.unidad+'<br>'
+    +'<strong>Stock mínimo:</strong> '+mat.min+'<br><br>'
+    +'¿Confirmas '+(editId?'los cambios?':'el nuevo material?'),
+    function(){
+      var ref=editId?db.ref('materiales/'+editId):db.ref('materiales').push();
+      ref.set(mat).then(function(){
+        toast(editId?'Material actualizado':'Material "'+nombre+'" agregado','success');
+        closeModal('modal-material');
+      }).catch(function(e){toast('Error: '+e.message,'error');});
+    }
+  );
 }
 
 function deleteMat(id){
-  if(!confirm('¿Eliminar este material?'))return;
-  db.ref('materiales/'+id).remove().then(function(){toast('Material eliminado','success');});
+  var m=getMat(id);
+  showConfirm('Eliminar material',
+    '¿Eliminar <strong>'+(m?m.nombre:'este material')+'</strong>?<br><br>Esta acción no se puede deshacer.',
+    function(){ db.ref('materiales/'+id).remove().then(function(){toast('Material eliminado','success');}); }
+  );
 }
 
 // ══════════════════════════════════════════════════════
@@ -1391,22 +1505,247 @@ function guardarCuadrilla(){
   if(!pass||pass.length<4){toast('La contraseña debe tener al menos 4 caracteres','error');return;}
   if(!editId&&cuadrillasList().length>=30){toast('Máximo 30 cuadrillas','error');return;}
   var cuad={nombre:nombre,responsable:document.getElementById('cuad-resp').value,zona:document.getElementById('cuad-zona').value,pass:pass};
-  var ref=editId?db.ref('cuadrillas/'+editId):db.ref('cuadrillas').push();
-  ref.set(cuad).then(function(){
-    toast(editId?'Cuadrilla actualizada':'"'+nombre+'" creada','success');
-    closeModal('modal-cuadrilla');
-  }).catch(function(e){toast('Error: '+e.message,'error');});
+  showConfirm(
+    editId?'Confirmar actualización':'Confirmar nueva cuadrilla',
+    '<strong>'+(editId?'Actualizar':'Crear')+':</strong> '+nombre+'<br>'
+    +'<strong>Responsable:</strong> '+(cuad.responsable||'—')+'<br>'
+    +'<strong>Zona:</strong> '+(cuad.zona||'—'),
+    function(){
+      var ref=editId?db.ref('cuadrillas/'+editId):db.ref('cuadrillas').push();
+      ref.set(cuad).then(function(){
+        toast(editId?'Cuadrilla actualizada':'"'+nombre+'" creada','success');
+        closeModal('modal-cuadrilla');
+      }).catch(function(e){toast('Error: '+e.message,'error');});
+    }
+  );
 }
 
 function deleteCuadrilla(id){
-  if(!confirm('¿Eliminar esta cuadrilla y todos sus datos?'))return;
-  var updates={};
-  updates['cuadrillas/'+id]=null;
-  updates['stocks/'+id]=null;
-  // Limpiar kardex y asignaciones de esta cuadrilla
-  kardexList().filter(function(k){return k.cuadrillaId===id;}).forEach(function(k){updates['kardex/'+k.id]=null;});
-  asigList().filter(function(a){return a.cuadrillaId===id;}).forEach(function(a){updates['asignaciones/'+a.id]=null;});
-  db.ref().update(updates).then(function(){toast('Cuadrilla eliminada','success');});
+  var c=getCuad(id);
+  showConfirm('Eliminar cuadrilla',
+    '¿Eliminar <strong>'+(c?c.nombre:'esta cuadrilla')+'</strong> y todos sus datos?<br><br>Esta acción <strong>no se puede deshacer</strong>.',
+    function(){
+      var updates={};
+      updates['cuadrillas/'+id]=null; updates['stocks/'+id]=null;
+      kardexList().filter(function(k){return k.cuadrillaId===id;}).forEach(function(k){updates['kardex/'+k.id]=null;});
+      asigList().filter(function(a){return a.cuadrillaId===id;}).forEach(function(a){updates['asignaciones/'+a.id]=null;});
+      db.ref().update(updates).then(function(){toast('Cuadrilla eliminada','success');});
+    }
+  );
+}
+
+// ══════════════════════════════════════════════════════
+// CONFIRMACIÓN MODAL
+// ══════════════════════════════════════════════════════
+function showConfirm(title, body, onOk) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-body').innerHTML = body;
+  var btn = document.getElementById('confirm-ok-btn');
+  btn.onclick = function(){ closeModal('modal-confirm'); onOk(); };
+  openModal('modal-confirm');
+}
+
+// ══════════════════════════════════════════════════════
+// INVENTARIO — cuadrilla solo ve materiales de su bodega
+// ══════════════════════════════════════════════════════
+function renderInventario(){
+  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var q=(document.getElementById('inv-search').value||'').toLowerCase();
+  var catF=document.getElementById('inv-cat-filter').value;
+
+  var mats=materialesList();
+  // MEJORA 2: cuadrilla solo ve materiales con existencia en su bodega
+  if(cid){
+    mats=mats.filter(function(m){ return tieneExistenciaRegistrada(cid,m.id); });
+  }
+  var cats=[...new Set(mats.map(function(m){return m.cat;}))];
+  var sel=document.getElementById('inv-cat-filter');
+  sel.innerHTML='<option value="">Todas las categorías</option>'+cats.map(function(c){
+    return '<option value="'+c+'" '+(catF===c?'selected':'')+'>'+c+'</option>';
+  }).join('');
+  mats=mats.filter(function(m){
+    return(!q||m.nombre.toLowerCase().includes(q)||(m.codigo||'').toLowerCase().includes(q))&&(!catF||m.cat===catF);
+  });
+  var tbody=document.getElementById('inv-tbody');
+  if(!mats.length){
+    tbody.innerHTML='<tr><td colspan="7">'+empty(cid?'Sin materiales asignados a esta bodega aún':'Sin materiales')+'</td></tr>';
+    return;
+  }
+  tbody.innerHTML=mats.map(function(m){
+    var stk=getStockVis(cid,m.id);
+    var pct=Math.min(100,Math.round(stk/Math.max(m.min*2,1)*100));
+    var color=stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
+    var badge=stk===0?'badge-red':stk<m.min?'badge-amber':'badge-green';
+    return '<tr>'
+      +'<td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
+      +'<td><strong>'+m.nombre+'</strong></td>'
+      +'<td><span class="badge badge-gray">'+m.cat+'</span></td>'
+      +'<td style="font-size:12px">'+m.unidad+'</td>'
+      +'<td><strong style="color:'+color+'">'+stk+'</strong>'
+      +'<div class="stock-bar"><div class="stock-fill" style="width:'+pct+'%;background:'+color+'"></div></div></td>'
+      +'<td style="color:var(--ink3)">'+m.min+'</td>'
+      +'<td><span class="badge '+badge+'">'+(stk===0?'Agotado':stk<m.min?'Stock bajo':'Disponible')+'</span></td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// REPORTES — solo admin
+// ══════════════════════════════════════════════════════
+function renderAdminReportes(){
+  var sel=document.getElementById('rep-cuadrilla');
+  sel.innerHTML='<option value="">Todas las cuadrillas</option>';
+  cuadrillasList().forEach(function(c){
+    var o=document.createElement('option');o.value=c.id;o.textContent=c.nombre;sel.appendChild(o);
+  });
+  // Fechas por defecto
+  var hoy=new Date();
+  document.getElementById('rep-fecha-fin').value=hoy.toISOString().slice(0,10);
+  var ini=new Date(hoy.getFullYear(),hoy.getMonth(),1);
+  document.getElementById('rep-fecha-ini').value=ini.toISOString().slice(0,10);
+  document.getElementById('rep-preview-card').style.display='none';
+}
+
+function toggleRepFechas(){
+  var p=document.getElementById('rep-periodo').value;
+  document.getElementById('rep-fechas-custom').style.display=p==='personalizado'?'grid':'none';
+}
+
+function getRepRango(){
+  var p=document.getElementById('rep-periodo').value;
+  var hoy=new Date(); hoy.setHours(23,59,59,999);
+  var ini=new Date(); ini.setHours(0,0,0,0);
+  if(p==='hoy'){ /* ya está */ }
+  else if(p==='semana'){ ini.setDate(ini.getDate()-ini.getDay()); }
+  else if(p==='mes'){ ini=new Date(hoy.getFullYear(),hoy.getMonth(),1); }
+  else if(p==='personalizado'){
+    ini=new Date(document.getElementById('rep-fecha-ini').value+'T00:00:00');
+    hoy=new Date(document.getElementById('rep-fecha-fin').value+'T23:59:59');
+  }
+  return {ini:ini,fin:hoy};
+}
+
+function filtrarPorRango(lista){
+  var r=getRepRango();
+  var cid=document.getElementById('rep-cuadrilla').value;
+  return lista.filter(function(x){
+    var f=new Date(x.fecha);
+    return f>=r.ini && f<=r.fin && (!cid||x.cuadrillaId===cid);
+  });
+}
+
+function previsualizarReporte(){
+  var tipo=document.getElementById('rep-tipo').value;
+  var rows=[];
+  if(tipo==='asignaciones'||tipo==='ambos'){
+    filtrarPorRango(asigList()).forEach(function(a){
+      var cuad=getCuad(a.cuadrillaId);
+      rows.push({
+        fecha:fmtDate(a.fecha), cuadrilla:cuad?cuad.nombre:'—',
+        tipo:'Asignación', cliente:a.cliente||'—', ot:a.ot||'—',
+        tecnico:a.tecnico||'—', horaInicio:a.horaInicio||'—', horaFin:a.horaFin||'—',
+        materiales:(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.nombre:'';}).join(' | '),
+        obs:a.obs||''
+      });
+    });
+  }
+  if(tipo==='kardex'||tipo==='ambos'){
+    filtrarPorRango(kardexList()).forEach(function(k){
+      var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
+      rows.push({
+        fecha:fmtDT(k.fecha), cuadrilla:cuad?cuad.nombre:'—',
+        tipo:k.tipo==='ingreso'?'Ingreso':'Egreso', cliente:k.ref||'—', ot:'—',
+        tecnico:k.resp||'—', horaInicio:'—', horaFin:'—',
+        materiales:(mat?mat.nombre:'—')+' × '+k.qty+' '+(mat?mat.unidad:''),
+        obs:k.obs||''
+      });
+    });
+  }
+  rows.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
+  document.getElementById('rep-preview-count').textContent=rows.length+' registros';
+  document.getElementById('rep-preview-title').textContent='Vista previa — '+document.getElementById('rep-tipo').options[document.getElementById('rep-tipo').selectedIndex].text;
+  var card=document.getElementById('rep-preview-card');
+  card.style.display='block';
+  if(!rows.length){ document.getElementById('rep-preview-table').innerHTML=empty('Sin registros en el período seleccionado'); return; }
+  document.getElementById('rep-preview-table').innerHTML=
+    '<table><thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Tipo</th><th>Cliente/Ref.</th><th>OT</th><th>Técnico</th><th>Materiales</th></tr></thead>'
+    +'<tbody>'+rows.slice(0,20).map(function(r){
+      return '<tr>'
+        +'<td style="font-size:11px;white-space:nowrap">'+r.fecha+'</td>'
+        +'<td style="font-size:12px">'+r.cuadrilla+'</td>'
+        +'<td><span class="badge '+(r.tipo==='Ingreso'?'badge-green':r.tipo==='Asignación'?'badge-blue':'badge-accent')+'">'+r.tipo+'</span></td>'
+        +'<td style="font-size:12px">'+r.cliente+'</td>'
+        +'<td style="font-size:12px">'+r.ot+'</td>'
+        +'<td style="font-size:12px">'+r.tecnico+'</td>'
+        +'<td style="font-size:11px;color:var(--ink2)">'+r.materiales+'</td>'
+        +'</tr>';
+    }).join('')+(rows.length>20?'<tr><td colspan="7" style="text-align:center;color:var(--ink3);font-size:12px;">... y '+(rows.length-20)+' más. Descarga el CSV para ver todos.</td></tr>':'')
+    +'</tbody></table>';
+}
+
+function exportarExcel(){
+  var tipo=document.getElementById('rep-tipo').value;
+  var rows=[['Fecha','Cuadrilla','Tipo','Cliente/Referencia','OT','Técnico','Hora Inicio','Hora Fin','Materiales','Observaciones']];
+  if(tipo==='asignaciones'||tipo==='ambos'){
+    filtrarPorRango(asigList()).forEach(function(a){
+      var cuad=getCuad(a.cuadrillaId);
+      rows.push([fmtDate(a.fecha),cuad?cuad.nombre:'—','Asignación',a.cliente||'—',a.ot||'—',a.tecnico||'—',
+        a.horaInicio||'—',a.horaFin||'—',
+        (a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';}).join(' | '),
+        a.obs||'']);
+    });
+  }
+  if(tipo==='kardex'||tipo==='ambos'){
+    filtrarPorRango(kardexList()).forEach(function(k){
+      var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
+      rows.push([fmtDT(k.fecha),cuad?cuad.nombre:'—',k.tipo,k.ref||'—','—',k.resp||'—','—','—',
+        (mat?mat.nombre:'—')+' × '+k.qty+' '+(mat?mat.unidad:''),k.obs||'']);
+    });
+  }
+  rows.sort(function(a,b){return new Date(b[0])-new Date(a[0]);});
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='BodegaNet_Reporte_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('Reporte descargado ('+( rows.length-1)+' registros)','success');
+}
+
+// ══════════════════════════════════════════════════════
+// LOGS DE ACCESO
+// ══════════════════════════════════════════════════════
+function renderAdminLogs(){
+  db.ref('logs').orderByChild('fecha').limitToLast(200).once('value',function(snap){
+    var logs=[];
+    snap.forEach(function(c){logs.unshift(Object.assign({id:c.key},c.val()));});
+    var tbody=document.getElementById('logs-tbody');
+    if(!logs.length){tbody.innerHTML='<tr><td colspan="5">'+empty('Sin registros de acceso')+'</td></tr>';return;}
+    tbody.innerHTML=logs.map(function(l){
+      var esExitoso=l.estado==='exitoso';
+      return '<tr>'
+        +'<td style="font-size:11px;white-space:nowrap">'+fmtDT(l.fecha)+'</td>'
+        +'<td><strong>'+( l.usuario||'—')+'</strong></td>'
+        +'<td><span class="badge '+(l.tipo==='admin'?'badge-gray':'badge-blue')+'">'+( l.tipo||'—')+'</span></td>'
+        +'<td style="font-size:11px;color:var(--ink3)">'+( l.agente||'—')+'</td>'
+        +'<td><span class="badge '+(esExitoso?'badge-green':'badge-red')+'">'+(esExitoso?'✓ Exitoso':'✕ Fallido')+'</span></td>'
+        +'</tr>';
+    }).join('');
+  });
+}
+
+function exportarLogsCSV(){
+  db.ref('logs').orderByChild('fecha').once('value',function(snap){
+    var rows=[['Fecha','Usuario','Tipo','Estado','Agente']];
+    snap.forEach(function(c){
+      var l=c.val();
+      rows.unshift([fmtDT(l.fecha),l.usuario||'—',l.tipo||'—',l.estado||'—',l.agente||'—']);
+    });
+    var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+    var a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+    a.download='BodegaNet_Logs_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+  });
 }
 
 // ══════════════════════════════════════════════════════
