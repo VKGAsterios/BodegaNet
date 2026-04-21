@@ -461,15 +461,10 @@ tr:hover td{background:var(--bg3);}
       <div class="kardex-opt egreso" id="kopt-egreso" onclick="selectKardexTipo('egreso')"><div class="ko-icon">🚚</div><div class="ko-label">Egreso</div><div class="ko-sub">Salida de bodega</div></div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <label style="font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">Materiales</label>
+      <label style="font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">Materiales — toca para buscar</label>
       <span id="km-counter" style="font-size:11px;color:var(--ink3)">1/30</span>
     </div>
-    <!-- Búsqueda rápida por nombre -->
-    <div style="position:relative;margin-bottom:10px;">
-      <input type="text" id="km-buscar" placeholder="🔍 Buscar material por nombre..." oninput="filtrarMatsKardex()" autocomplete="off"
-        style="width:100%;padding:9px 12px 9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:var(--sans);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;transition:border-color .15s;">
-      <div id="km-buscar-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 var(--r) var(--r);max-height:180px;overflow-y:auto;z-index:300;box-shadow:0 6px 16px rgba(0,0,0,.12);"></div>
-    </div>
+    <div id="km-rows-container"></div>
     <button class="add-row-btn" id="km-add-btn" onclick="addKardexRow()">+ Agregar otro material</button>
     <div style="height:12px;"></div>
     <div class="field" id="km-cuadrilla-field" style="display:none;margin-bottom:12px;">
@@ -800,65 +795,94 @@ function renderKardexRows(){
   var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
   document.getElementById('km-counter').textContent=kardexRows.length+'/30';
   document.getElementById('km-add-btn').style.display=kardexRows.length>=30?'none':'flex';
-  var opts=materialesList().map(function(m){return '<option value="'+m.id+'">'+m.nombre+'</option>';}).join('');
   document.getElementById('km-rows-container').innerHTML=kardexRows.map(function(row){
+    var mat=row.matId?getMat(row.matId):null;
     var stk=row.matId?(cid?getStock(cid,row.matId):'—'):'—';
-    var sc=(typeof stk==='number'&&stk===0)?'var(--red)':(typeof stk==='number'&&stk<10)?'var(--amber)':'var(--ink3)';
-    return '<div class="mat-row">'
-      +'<select onchange="setKRM(\''+row.uid+'\',this.value)"><option value="">— Material —</option>'+opts.replace('value="'+row.matId+'"','value="'+row.matId+'" selected')+'</select>'
-      +'<span class="stock-label" style="color:'+sc+'">Stock:'+stk+'</span>'
-      +'<input type="number" min="1" value="'+row.qty+'" onchange="setKRQ(\''+row.uid+'\',this.value)">'
+    var sc=(typeof stk==='number'&&stk===0)?'var(--red)':(typeof stk==='number'&&stk<10)?'var(--amber)':'var(--green)';
+    var label=mat?mat.nombre:'— Buscar material —';
+    return '<div class="mat-row" style="grid-template-columns:1fr auto auto auto;">'
+      +'<div style="position:relative;">'
+        +'<div onclick="abrirBuscadorFila(\'km\',\''+row.uid+'\')" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(mat?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+          +'<span style="overflow:hidden;text-overflow:ellipsis;">'+label+'</span>'
+          +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
+        +'</div>'
+        +'<div id="drop-km-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<input type="text" placeholder="Escribir para buscar..." oninput="buscarEnFila(\'km\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" '
+            +'style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
+          +'<div id="drop-km-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;"></div>'
+        +'</div>'
+      +'</div>'
+      +'<span class="stock-label" style="color:'+sc+'">'+stk+'</span>'
+      +'<input type="number" min="1" value="'+row.qty+'" onchange="setKRQ(\''+row.uid+'\',this.value)" style="width:64px;">'
       +'<button class="remove-row-btn" onclick="removeKardexRow(\''+row.uid+'\')">✕</button>'
       +'</div>';
   }).join('');
 }
 function setKRM(u,v){var r=kardexRows.find(function(x){return x.uid===u;});if(r){r.matId=v;renderKardexRows();}}
 function setKRQ(u,v){var r=kardexRows.find(function(x){return x.uid===u;});if(r)r.qty=parseInt(v)||1;}
+function setARM(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r){r.matId=v;renderAsigRows();}}
+function setARQ(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r)r.qty=parseInt(v)||1;}
 
-// Búsqueda de material por nombre en Kardex
-function filtrarMatsKardex(){
-  var q=(document.getElementById('km-buscar').value||'').toLowerCase().trim();
-  var list=document.getElementById('km-buscar-list');
-  if(!q){list.style.display='none';return;}
-  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  var matches=materialesList().filter(function(m){
-    return m.nombre.toLowerCase().includes(q)||(m.codigo||'').toLowerCase().includes(q);
-  }).slice(0,12);
-  if(!matches.length){list.style.display='none';return;}
-  list.innerHTML=matches.map(function(m){
-    var stk=cid?getStock(cid,m.id):0;
-    var color=stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
-    return '<div onclick="seleccionarMatKardex(\''+m.id+'\')" style="padding:9px 14px;cursor:pointer;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;transition:background .1s;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'+
-      '<span><strong>'+m.nombre+'</strong> <span style="font-size:11px;color:var(--ink3)">'+m.cat+'</span></span>'+
-      '<span style="font-family:monospace;font-size:12px;color:'+color+';font-weight:600">'+stk+' '+m.unidad+'</span>'+
+// ── Buscador de fila personalizado (reemplaza <select> nativo) ──
+function abrirBuscadorFila(ctx, rowUid) {
+  // Cerrar todos los dropdowns abiertos primero
+  document.querySelectorAll('[id^="drop-"]').forEach(function(d){
+    if(!d.id.endsWith('-list')) d.style.display='none';
+  });
+  var drop = document.getElementById('drop-'+ctx+'-'+rowUid);
+  if (!drop) return;
+  drop.style.display = 'block';
+  // Poblar con todos los materiales al abrir
+  buscarEnFila(ctx, rowUid, '');
+  // Foco en el input de búsqueda
+  var inp = drop.querySelector('input');
+  if (inp) setTimeout(function(){ inp.focus(); }, 50);
+}
+
+function buscarEnFila(ctx, rowUid, q) {
+  var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var listEl = document.getElementById('drop-'+ctx+'-'+rowUid+'-list');
+  if (!listEl) return;
+  var mats = materialesList();
+  if (q && q.trim()) {
+    var ql = q.toLowerCase();
+    mats = mats.filter(function(m){
+      return m.nombre.toLowerCase().includes(ql) || (m.codigo||'').toLowerCase().includes(ql) || m.cat.toLowerCase().includes(ql);
+    });
+  }
+  if (!mats.length) {
+    listEl.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:var(--ink3);">Sin resultados</div>';
+    return;
+  }
+  listEl.innerHTML = mats.slice(0,20).map(function(m){
+    var stk = cid ? getStock(cid, m.id) : 0;
+    var color = stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
+    return '<div onclick="elegirMatFila(\''+ctx+'\',\''+rowUid+'\',\''+m.id+'\')" '
+      +'style="padding:9px 14px;cursor:pointer;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;active:background:var(--bg3);"'
+      +' onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'+
+      '<div><div style="font-size:13px;font-weight:500;color:var(--ink)">'+m.nombre+'</div>'+
+      '<div style="font-size:11px;color:var(--ink3)">'+m.cat+(m.codigo?' · '+m.codigo:'')+'</div></div>'+
+      '<span style="font-family:monospace;font-size:12px;color:'+color+';font-weight:600;white-space:nowrap;margin-left:8px;">'+stk+' '+m.unidad+'</span>'+
       '</div>';
   }).join('');
-  list.style.display='block';
 }
 
-function seleccionarMatKardex(matId){
-  // Agregar nueva fila con el material seleccionado
-  if(kardexRows.length>=30){toast('Máximo 30 materiales','info');return;}
-  // Si la última fila está vacía, usarla; sino agregar una nueva
-  var ultima=kardexRows[kardexRows.length-1];
-  if(!ultima.matId){
-    ultima.matId=matId;
+function elegirMatFila(ctx, rowUid, matId) {
+  if (ctx === 'km') {
+    var r = kardexRows.find(function(x){return x.uid===rowUid;});
+    if (r) { r.matId = matId; renderKardexRows(); }
   } else {
-    kardexRows.push({uid:uid(),matId:matId,qty:1});
+    var r = asigRows.find(function(x){return x.uid===rowUid;});
+    if (r) { r.matId = matId; renderAsigRows(); }
   }
-  // Limpiar búsqueda
-  document.getElementById('km-buscar').value='';
-  document.getElementById('km-buscar-list').style.display='none';
-  renderKardexRows();
-  toast('Material agregado a la lista','success');
 }
 
-// Cerrar dropdown al hacer clic fuera
+// Cerrar dropdowns al tocar fuera
 document.addEventListener('click', function(e){
-  var buscar=document.getElementById('km-buscar');
-  var lista=document.getElementById('km-buscar-list');
-  if(lista && buscar && !buscar.contains(e.target) && !lista.contains(e.target)){
-    lista.style.display='none';
+  if (!e.target.closest('[id^="drop-"]') && !e.target.closest('.mat-row')) {
+    document.querySelectorAll('[id^="drop-"]').forEach(function(d){
+      if (!d.id.endsWith('-list')) d.style.display='none';
+    });
   }
 });
 
@@ -866,8 +890,6 @@ function openKardexModal(){
   initKardexRows();
   document.getElementById('km-fecha').value=new Date().toISOString().slice(0,10);
   document.getElementById('km-ref').value=''; document.getElementById('km-resp').value=''; document.getElementById('km-obs').value='';
-  document.getElementById('km-buscar').value='';
-  document.getElementById('km-buscar-list').style.display='none';
   var cf=document.getElementById('km-cuadrilla-field');
   if(currentUser.tipo==='admin'){
     cf.style.display='block';
@@ -956,17 +978,25 @@ function renderAsigRows(){
   var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
   document.getElementById('asig-counter').textContent=asigRows.length+'/15';
   document.getElementById('asig-add-btn').style.display=asigRows.length>=15?'none':'flex';
-  var opts=materialesList().map(function(m){
-    var s=cid?getStock(cid,m.id):0;
-    return '<option value="'+m.id+'">'+m.nombre+' ('+s+' '+m.unidad+')</option>';
-  }).join('');
   document.getElementById('asig-rows-container').innerHTML=asigRows.map(function(row){
+    var mat=row.matId?getMat(row.matId):null;
     var stk=row.matId?(cid?getStock(cid,row.matId):0):'—';
-    var sc=(typeof stk==='number'&&stk===0)?'var(--red)':(typeof stk==='number'&&stk<10)?'var(--amber)':'var(--ink3)';
-    return '<div class="mat-row">'
-      +'<select onchange="setARM(\''+row.uid+'\',this.value)"><option value="">— Seleccionar —</option>'+opts.replace('value="'+row.matId+'"','value="'+row.matId+'" selected')+'</select>'
-      +'<span class="stock-label" style="color:'+sc+'">Disp:'+stk+'</span>'
-      +'<input type="number" min="1" value="'+row.qty+'" onchange="setARQ(\''+row.uid+'\',this.value)">'
+    var sc=(typeof stk==='number'&&stk===0)?'var(--red)':(typeof stk==='number'&&stk<10)?'var(--amber)':'var(--green)';
+    var label=mat?mat.nombre:'— Buscar material —';
+    return '<div class="mat-row" style="grid-template-columns:1fr auto auto auto;">'
+      +'<div style="position:relative;">'
+        +'<div onclick="abrirBuscadorFila(\'ar\',\''+row.uid+'\')" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(mat?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+          +'<span style="overflow:hidden;text-overflow:ellipsis;">'+label+'</span>'
+          +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
+        +'</div>'
+        +'<div id="drop-ar-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<input type="text" placeholder="Escribir para buscar..." oninput="buscarEnFila(\'ar\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" '
+            +'style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
+          +'<div id="drop-ar-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;"></div>'
+        +'</div>'
+      +'</div>'
+      +'<span class="stock-label" style="color:'+sc+'">'+stk+'</span>'
+      +'<input type="number" min="1" value="'+row.qty+'" onchange="setARQ(\''+row.uid+'\',this.value)" style="width:64px;">'
       +'<button class="remove-row-btn" onclick="removeAsigRow(\''+row.uid+'\')">✕</button>'
       +'</div>';
   }).join('');
