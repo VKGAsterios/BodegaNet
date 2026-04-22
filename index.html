@@ -467,8 +467,18 @@ tr:hover td{background:var(--bg3);}
           <div><h2 id="hist-titulo">Historial</h2><p id="hist-subtitulo">Movimientos y asignaciones</p></div>
           <button class="btn" onclick="exportCSV()" id="hist-export-btn">Exportar CSV</button>
         </div>
+        <!-- Filtro por día — solo visible para cuadrilla -->
+        <div id="hist-filtro-cuad" style="display:none;margin-bottom:1rem;">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+              <label style="font-size:12px;font-weight:600;color:var(--ink2);white-space:nowrap;">Ver día:</label>
+              <input type="date" id="hist-fecha-filtro" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;" onchange="renderHistorial()">
+            </div>
+            <button class="btn btn-sm" onclick="document.getElementById('hist-fecha-filtro').value=new Date().toISOString().slice(0,10);renderHistorial();" style="white-space:nowrap;">Hoy</button>
+          </div>
+        </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>Fecha</th><th>Tipo</th><th>Material/Desc.</th><th>Cant.</th><th>Cliente/Ref.</th><th>Técnico</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Hora</th><th>Cliente</th><th>OT</th><th>Materiales utilizados</th><th>Técnico</th></tr></thead>
           <tbody id="hist-tbody"></tbody>
         </table></div></div>
       </section>
@@ -729,6 +739,70 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ══════════════════════════════════════════════════════
+// PARCHE DE SEGURIDAD
+// ══════════════════════════════════════════════════════
+
+// 1. Rate limiting de intentos de login
+var _loginAttempts = 0;
+var _loginBlockedUntil = 0;
+var MAX_LOGIN_ATTEMPTS = 5;
+var LOGIN_BLOCK_MS = 5 * 60 * 1000; // 5 minutos
+
+function checkLoginRateLimit() {
+  var ahora = Date.now();
+  if (ahora < _loginBlockedUntil) {
+    var restante = Math.ceil((_loginBlockedUntil - ahora) / 60000);
+    toast('Demasiados intentos fallidos. Espera '+restante+' minuto(s).', 'error');
+    return false;
+  }
+  return true;
+}
+function registrarIntentoFallido() {
+  _loginAttempts++;
+  if (_loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+    _loginBlockedUntil = Date.now() + LOGIN_BLOCK_MS;
+    _loginAttempts = 0;
+    toast('Acceso bloqueado por 5 minutos por múltiples intentos fallidos.', 'error');
+  }
+}
+function resetLoginAttempts() { _loginAttempts = 0; _loginBlockedUntil = 0; }
+
+// 2. Timeout de sesión por inactividad (30 minutos)
+var _sessionTimer = null;
+var SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+function resetSessionTimer() {
+  clearTimeout(_sessionTimer);
+  _sessionTimer = setTimeout(function() {
+    if (currentUser) {
+      toast('Sesión cerrada por inactividad.', 'info');
+      setTimeout(function(){ logout(false); }, 2000);
+    }
+  }, SESSION_TIMEOUT_MS);
+}
+document.addEventListener('click', function(){ if(currentUser) resetSessionTimer(); });
+document.addEventListener('keydown', function(){ if(currentUser) resetSessionTimer(); });
+
+// 3. Sanitizar inputs: eliminar caracteres peligrosos
+function sanitize(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/[<>'"]/g, function(c){ return {'<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]; })
+    .substring(0, 500);
+}
+
+// 4. Validar que el usuario logueado solo acceda a su propia cuadrilla
+function puedeAccederCuadrilla(cid) {
+  if (!currentUser) return false;
+  if (currentUser.tipo === 'admin') return true;
+  return currentUser.cuadrillaId === cid;
+}
+
+// 5. Content Security básica: bloquear iframes externos
+(function(){
+  try { if (window.top !== window.self) window.top.location = window.self.location; } catch(e){}
+})();
+
+// ══════════════════════════════════════════════════════
 // ESTADO LOCAL (caché en memoria)
 // ══════════════════════════════════════════════════════
 var ADMIN_PASS = 'admin2024';
@@ -857,6 +931,7 @@ function showCuadrillaLogin() {
 }
 
 function loginCuadrilla() {
+  if (!checkLoginRateLimit()) return;
   var id = document.getElementById('login-cuadrilla-sel').value;
   var pass = document.getElementById('login-cuad-pass').value;
   if (!id) { toast('Selecciona una cuadrilla', 'error'); return; }
@@ -864,22 +939,29 @@ function loginCuadrilla() {
   if (!c) { toast('Cuadrilla no encontrada', 'error'); return; }
   if (!c.pass) { toast('Esta cuadrilla no tiene contraseña. Contacta al administrador.', 'error'); return; }
   if (pass !== c.pass) {
+    registrarIntentoFallido();
     registrarLog(c.nombre, 'cuadrilla', 'fallido');
     toast('Contraseña incorrecta', 'error'); return;
   }
+  resetLoginAttempts();
   currentUser = { tipo: 'cuadrilla', cuadrillaId: id };
   registrarLog(c.nombre, 'cuadrilla', 'exitoso');
+  resetSessionTimer();
   startApp();
 }
 
 function loginAdmin() {
+  if (!checkLoginRateLimit()) return;
   var pass = document.getElementById('admin-pass').value;
   if (pass !== ADMIN_PASS) {
+    registrarIntentoFallido();
     registrarLog('Administrador', 'admin', 'fallido');
     toast('Clave incorrecta', 'error'); return;
   }
+  resetLoginAttempts();
   currentUser = { tipo: 'admin', cuadrillaId: null };
   registrarLog('Administrador', 'admin', 'exitoso');
+  resetSessionTimer();
   startApp();
 }
 
@@ -1360,6 +1442,8 @@ function registrarKardex(){
   // Confirmación antes de guardar
   var cuad=getCuad(cid);
   var resumen=validos.map(function(r){var m=getMat(r.matId);return (m?m.nombre:'?')+' × '+r.qty;}).join(', ');
+  // Cerrar modal ANTES de mostrar confirmación (Fix: ventana se cierra al confirmar)
+  closeModal('modal-kardex');
   showConfirm(
     (kardexTipo==='ingreso'?'Confirmar ingreso':'Confirmar egreso'),
     '<strong>Cuadrilla:</strong> '+(cuad?cuad.nombre:'—')+'<br>'
@@ -1379,7 +1463,6 @@ function registrarKardex(){
       });
       updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
         toast(validos.length+' material(es) registrado(s) como '+kardexTipo,'success');
-        closeModal('modal-kardex');
       }).catch(function(e){toast('Error: '+e.message,'error');});
     }
   );
@@ -1726,55 +1809,113 @@ function updateAlertCount(){
 // HISTORIAL
 // ══════════════════════════════════════════════════════
 function renderHistorial(){
-  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  var hoy=fmtDate(new Date());
-  var rows=[];
-  kardexList().filter(function(k){return cid===null||k.cuadrillaId===cid;}).forEach(function(k){
-    var mat=getMat(k.matId);
-    rows.push({fecha:k.fecha,tipo:k.tipo==='ingreso'?'Ingreso bodega':'Egreso bodega',
-      mat:mat?mat.nombre:'—',qty:k.qty+(mat?' '+mat.unidad:''),ref:k.ref||'—',resp:k.resp||'—',
-      asigId:null, kardexId:k.id, esHoy:fmtDate(k.fecha)===hoy});
-  });
-  asigList().filter(function(a){
-    if(a.anulada) return false; // ocultar anuladas del historial normal
-    return cid===null||a.cuadrillaId===cid;
-  }).forEach(function(a){
-    rows.push({fecha:a.fecha,tipo:'Asignación cliente',
-      mat:(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';}).join(', '),
-      qty:'',ref:a.cliente+(a.ot?' / OT:'+a.ot:''),resp:a.tecnico||'—',
-      asigId:a.id, kardexId:null, esHoy:fmtDate(a.fecha)===hoy});
-  });
-  rows.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
+  var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
+  var esCuad = !!cid;
 
-  // Cuadrilla: solo muestra asignaciones del día (punto 3)
-  if(cid){
-    rows=rows.filter(function(r){return r.esHoy && r.asigId;});
-  }
+  // Mostrar/ocultar filtro de fecha y ajustar cabecera
+  var filtroEl = document.getElementById('hist-filtro-cuad');
+  var expBtn   = document.getElementById('hist-export-btn');
+  var titEl    = document.getElementById('hist-titulo');
+  var subEl    = document.getElementById('hist-subtitulo');
 
-  var tbody=document.getElementById('hist-tbody');
-  if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="7">'+empty(cid?'Sin asignaciones registradas hoy':'Sin movimientos')+'</td></tr>';
-    return;
-  }
-  tbody.innerHTML=rows.map(function(r){
-    var bc=r.tipo==='Ingreso bodega'?'badge-green':r.tipo==='Egreso bodega'?'badge-accent':'badge-blue';
-    var acciones='—';
-    if(r.asigId){
-      acciones='<button class="btn btn-sm" onclick="rePDF(\''+r.asigId+'\')">PDF</button>'
-        +(currentUser.tipo==='admin'?'<button class="btn btn-sm btn-red" style="margin-left:4px;" onclick="anularAsignacion(\''+r.asigId+'\')">Anular</button>':'');
-    } else if(r.kardexId && currentUser.tipo==='admin'){
-      acciones='<button class="btn btn-sm btn-red" onclick="eliminarKardex(\''+r.kardexId+'\')">Eliminar</button>';
+  if (esCuad) {
+    // ── Vista CUADRILLA: solo asignaciones, búsqueda por día, sin PDF ──
+    filtroEl.style.display = 'block';
+    expBtn.style.display   = 'none';
+    titEl.textContent      = 'Historial de asignaciones';
+    subEl.textContent      = 'Busca por día para revisar materiales asignados';
+
+    // Inicializar fecha si está vacía
+    var fechaInput = document.getElementById('hist-fecha-filtro');
+    if (!fechaInput.value) fechaInput.value = new Date().toISOString().slice(0,10);
+    var fechaSel = fechaInput.value; // 'YYYY-MM-DD'
+
+    var asigs = asigList().filter(function(a){
+      if (a.anulada) return false;
+      if (a.cuadrillaId !== cid) return false;
+      // Comparar fecha ISO con la fecha seleccionada
+      return a.fecha && a.fecha.slice(0,10) === fechaSel;
+    }).sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
+
+    var tbody = document.getElementById('hist-tbody');
+    if (!asigs.length) {
+      tbody.innerHTML = '<tr><td colspan="5">'+empty('Sin asignaciones el '+fmtDate(fechaSel+'T12:00:00'))+'</td></tr>';
+      return;
     }
-    return '<tr>'
-      +'<td style="font-size:11px;white-space:nowrap">'+fmtDT(r.fecha)+'</td>'
-      +'<td><span class="badge '+bc+'">'+r.tipo+'</span></td>'
-      +'<td style="font-size:13px">'+r.mat+'</td>'
-      +'<td style="font-size:12px">'+r.qty+'</td>'
-      +'<td style="font-size:12px">'+r.ref+'</td>'
-      +'<td style="font-size:12px">'+r.resp+'</td>'
-      +'<td style="white-space:nowrap">'+acciones+'</td>'
-      +'</tr>';
-  }).join('');
+    tbody.innerHTML = asigs.map(function(a){
+      var hora = a.horaInicio
+        ? a.horaInicio + (a.horaFin ? ' – '+a.horaFin : '')
+        : fmtDT(a.fecha).split(', ')[1] || '—';
+      var matsHTML = (a.materiales||[]).map(function(m){
+        var mt = getMat(m.matId);
+        return mt
+          ? '<span style="display:inline-block;background:var(--blue-light);color:var(--blue);font-size:11px;padding:2px 7px;border-radius:20px;margin:2px 2px 0 0;">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>'
+          : '';
+      }).join('');
+      return '<tr>'
+        +'<td style="font-size:12px;white-space:nowrap;font-weight:500;">'+hora+'</td>'
+        +'<td><strong style="font-size:13px;">'+( a.cliente||'—')+'</strong>'
+          +(a.dir?'<div style="font-size:11px;color:var(--ink3);">'+a.dir+'</div>':'')+'</td>'
+        +'<td style="font-size:12px;white-space:nowrap;">'+(a.ot||'—')+'</td>'
+        +'<td>'+( matsHTML||'<span style="color:var(--ink3);font-size:12px;">Sin materiales</span>')+'</td>'
+        +'<td style="font-size:12px;">'+(a.tecnico||'—')+'</td>'
+        +'</tr>';
+    }).join('');
+
+  } else {
+    // ── Vista ADMIN: historial completo con acciones ──
+    filtroEl.style.display = 'none';
+    expBtn.style.display   = '';
+    titEl.textContent      = 'Historial completo';
+    subEl.textContent      = 'Movimientos, asignaciones y anulaciones';
+
+    var rows = [];
+    kardexList().filter(function(k){ return true; }).forEach(function(k){
+      var mat = getMat(k.matId);
+      rows.push({
+        fecha:k.fecha, tipo:k.tipo==='ingreso'?'Ingreso bodega':'Egreso bodega',
+        mat:mat?mat.nombre:'—', qty:k.qty+(mat?' '+mat.unidad:''),
+        ref:k.ref||'—', resp:k.resp||'—', asigId:null, kardexId:k.id
+      });
+    });
+    asigList().filter(function(a){ return !a.anulada; }).forEach(function(a){
+      rows.push({
+        fecha:a.fecha, tipo:'Asignación cliente',
+        mat:(a.materiales||[]).map(function(m){
+          var mt=getMat(m.matId); return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';
+        }).join(', '),
+        qty:'', ref:a.cliente+(a.ot?' / OT:'+a.ot:''), resp:a.tecnico||'—',
+        asigId:a.id, kardexId:null
+      });
+    });
+    rows.sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
+
+    // Reemplazar encabezados de tabla para admin
+    var thead = document.querySelector('#sec-historial table thead tr');
+    if (thead) thead.innerHTML = '<th>Fecha</th><th>Tipo</th><th>Material/Desc.</th><th>Cant.</th><th>Cliente/Ref.</th><th>Técnico</th><th>Acciones</th>';
+
+    var tbody = document.getElementById('hist-tbody');
+    if (!rows.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos')+'</td></tr>'; return; }
+    tbody.innerHTML = rows.map(function(r){
+      var bc = r.tipo==='Ingreso bodega'?'badge-green':r.tipo==='Egreso bodega'?'badge-accent':'badge-blue';
+      var acciones = '—';
+      if (r.asigId) {
+        acciones = '<button class="btn btn-sm" onclick="rePDF(\''+r.asigId+'\')">PDF</button>'
+          +'<button class="btn btn-sm btn-red" style="margin-left:4px;" onclick="anularAsignacion(\''+r.asigId+'\')">Anular</button>';
+      } else if (r.kardexId) {
+        acciones = '<button class="btn btn-sm btn-red" onclick="eliminarKardex(\''+r.kardexId+'\')">Eliminar</button>';
+      }
+      return '<tr>'
+        +'<td style="font-size:11px;white-space:nowrap">'+fmtDT(r.fecha)+'</td>'
+        +'<td><span class="badge '+bc+'">'+r.tipo+'</span></td>'
+        +'<td style="font-size:13px">'+r.mat+'</td>'
+        +'<td style="font-size:12px">'+r.qty+'</td>'
+        +'<td style="font-size:12px">'+r.ref+'</td>'
+        +'<td style="font-size:12px">'+r.resp+'</td>'
+        +'<td style="white-space:nowrap">'+acciones+'</td>'
+        +'</tr>';
+    }).join('');
+  }
 }
 
 // 1. Anular asignación (admin)
