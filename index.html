@@ -204,6 +204,8 @@ tr:hover td{background:var(--bg3);}
   .bottom-nav{display:flex;}
   .asignar-action-bar{position:sticky;top:54px;z-index:50;background:var(--bg);padding:10px 0 6px;margin-bottom:0;border-bottom:1px solid var(--border);}
   .asignar-action-bar .btn{font-size:13px;padding:10px 8px;}
+  /* Dashboard cuadrilla: apilar paneles en móvil */
+  #dash-cuad-panels{grid-template-columns:1fr !important;}
 }
 @media(min-width:769px){
   .bottom-nav{display:none;}
@@ -320,10 +322,52 @@ tr:hover td{background:var(--bg3);}
 
       <!-- DASHBOARD -->
       <section class="section active" id="sec-dashboard">
-        <div class="page-header"><div><h2>Dashboard</h2><p id="dash-subtitle">—</p></div></div>
-        <div class="kpi-grid" id="kpi-grid"></div>
-        <div class="card"><div class="card-title">Últimas asignaciones</div><div id="dash-recent"></div></div>
-        <div class="card"><div class="card-title">Estado del inventario</div><div id="dash-inv-status"></div></div>
+        <div class="page-header">
+          <div><h2 id="dash-title">Dashboard</h2><p id="dash-subtitle">—</p></div>
+          <div id="dash-acciones" style="display:none;">
+            <button class="btn btn-green" onclick="descargarPDFDia()">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              PDF del día
+            </button>
+          </div>
+        </div>
+
+        <!-- Vista ADMIN -->
+        <div id="dash-admin-view">
+          <div class="kpi-grid" id="kpi-grid"></div>
+          <div class="card"><div class="card-title">Últimas asignaciones</div><div id="dash-recent"></div></div>
+          <div class="card"><div class="card-title">Estado del inventario</div><div id="dash-inv-status"></div></div>
+        </div>
+
+        <!-- Vista CUADRILLA: 2 paneles -->
+        <div id="dash-cuad-view" style="display:none;">
+          <!-- KPIs cuadrilla -->
+          <div class="kpi-grid" id="kpi-grid-cuad"></div>
+          <!-- Layout de 2 columnas en desktop, apilado en móvil -->
+          <div id="dash-cuad-panels" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <!-- Panel izquierdo: Stock actual -->
+            <div>
+              <div class="card" style="height:100%;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                  <div class="card-title" style="margin-bottom:0;">Stock en bodega</div>
+                  <input type="text" id="dash-stock-search" placeholder="Buscar..." oninput="renderDashStockCuad()"
+                    style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;width:130px;">
+                </div>
+                <div id="dash-stock-list" style="max-height:420px;overflow-y:auto;"></div>
+              </div>
+            </div>
+            <!-- Panel derecho: Asignaciones del día -->
+            <div>
+              <div class="card" style="height:100%;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                  <div class="card-title" style="margin-bottom:0;">Asignaciones de hoy</div>
+                  <span id="dash-asig-count" style="font-size:12px;color:var(--ink3);"></span>
+                </div>
+                <div id="dash-asig-hoy" style="max-height:420px;overflow-y:auto;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- KARDEX -->
@@ -552,8 +596,8 @@ tr:hover td{background:var(--bg3);}
     </main>
   </div>
   <nav class="bottom-nav" id="bottom-nav">
-    <button class="bn-item" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
-    <button class="bn-item active" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
+    <button class="bn-item active" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Bodega</button>
+    <button class="bn-item" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
     <button class="bn-item" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
     <button class="bn-item" onclick="showSection('historial')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mi día</button>
     <button class="bn-item" onclick="showSection('alertas')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas</button>
@@ -866,8 +910,8 @@ function startApp() {
     var c = getCuad(currentUser.cuadrillaId);
     tc.textContent = c ? c.nombre : 'Cuadrilla';
     document.getElementById('admin-nav').style.display = 'none';
-    // Cuadrilla: ir directo a Kardex, sin dashboard (punto 2)
-    showSection('kardex');
+    // Cuadrilla: ir al Dashboard propio (stock + asignaciones del día)
+    showSection('dashboard');
   }
   document.getElementById('inv-subtitle').textContent =
     currentUser.tipo==='admin' ? 'Stock global (todas las cuadrillas)' : 'Stock asignado a tu bodega';
@@ -981,38 +1025,191 @@ function showSection(id) {
 // DASHBOARD
 // ══════════════════════════════════════════════════════
 function renderDashboard() {
-  var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
+  var esAdmin = currentUser.tipo === 'admin';
+  var cid = esAdmin ? null : currentUser.cuadrillaId;
   var today = fmtDate(new Date());
   document.getElementById('dash-subtitle').textContent =
     new Date().toLocaleDateString('es-HN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var mats = materialesList();
-  var bajo = mats.filter(function(m){ var s=getStockVis(cid,m.id); return s<m.min; }).length;
-  var asigHoy = asigList().filter(function(a){ return fmtDate(a.fecha)===today&&(cid===null||a.cuadrillaId===cid); }).length;
-  var movHoy = kardexList().filter(function(k){ return fmtDate(k.fecha)===today&&(cid===null||k.cuadrillaId===cid); }).length;
-  document.getElementById('kpi-grid').innerHTML =
-    kpi('Total materiales',mats.length,'en catálogo','c-accent')+
-    kpi('Asignaciones hoy',asigHoy,'clientes atendidos','c-green')+
-    kpi('Movimientos hoy',movHoy,'en kardex','')+
-    kpi('Stock bajo',bajo,'requieren reposición',bajo>0?'c-red':'c-green');
-  var recientes = asigList().filter(function(a){return cid===null||a.cuadrillaId===cid;})
-    .sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);}).slice(0,5);
-  var recEl = document.getElementById('dash-recent');
-  if (!recientes.length) { recEl.innerHTML = empty('Sin asignaciones aún'); }
-  else {
-    recEl.innerHTML = recientes.map(function(a){
-      var cuad=getCuad(a.cuadrillaId);
-      var mlist=(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?'<span class="badge badge-blue">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>':'';}).join('');
-      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:10px 0;border-bottom:1px solid var(--border)">'
-        +'<div><strong style="font-size:14px">'+(a.cliente||'—')+'</strong>'
-        +'<p style="font-size:12px;color:var(--ink3)">'+(cuad&&currentUser.tipo==='admin'?cuad.nombre+' · ':'')+fmtDate(a.fecha)+' · OT:'+(a.ot||'—')+'</p>'
-        +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">'+mlist+'</div></div>'
-        +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button></div>';
-    }).join('');
+
+  if (esAdmin) {
+    // ── Vista ADMIN (igual que antes) ──
+    document.getElementById('dash-admin-view').style.display = 'block';
+    document.getElementById('dash-cuad-view').style.display = 'none';
+    document.getElementById('dash-acciones').style.display = 'none';
+    document.getElementById('dash-title').textContent = 'Dashboard';
+    var mats = materialesList();
+    var bajo = mats.filter(function(m){ return getStockVis(null,m.id)<m.min; }).length;
+    var asigHoy = asigList().filter(function(a){ return !a.anulada && fmtDate(a.fecha)===today; }).length;
+    var movHoy = kardexList().filter(function(k){ return fmtDate(k.fecha)===today; }).length;
+    document.getElementById('kpi-grid').innerHTML =
+      kpi('Total materiales',mats.length,'en catálogo','c-accent')+
+      kpi('Asignaciones hoy',asigHoy,'clientes atendidos','c-green')+
+      kpi('Movimientos hoy',movHoy,'en kardex','')+
+      kpi('Stock bajo',bajo,'requieren reposición',bajo>0?'c-red':'c-green');
+    var recientes = asigList().filter(function(a){return !a.anulada;})
+      .sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);}).slice(0,5);
+    var recEl = document.getElementById('dash-recent');
+    recEl.innerHTML = !recientes.length ? empty('Sin asignaciones aún')
+      : recientes.map(function(a){
+          var cuad=getCuad(a.cuadrillaId);
+          var mlist=(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?'<span class="badge badge-blue">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>':'';}).join('');
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:10px 0;border-bottom:1px solid var(--border)">'
+            +'<div><strong style="font-size:14px">'+(a.cliente||'—')+'</strong>'
+            +'<p style="font-size:12px;color:var(--ink3)">'+(cuad?cuad.nombre+' · ':'')+fmtDate(a.fecha)+' · OT:'+(a.ot||'—')+'</p>'
+            +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">'+mlist+'</div></div>'
+            +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button></div>';
+        }).join('');
+    var bajos = mats.filter(function(m){return getStockVis(null,m.id)<m.min;});
+    document.getElementById('dash-inv-status').innerHTML = !bajos.length
+      ? '<p style="color:var(--green);font-size:13px;font-weight:500">✓ Todo el inventario en niveles óptimos</p>'
+      : bajos.map(function(m){var s=getStockVis(null,m.id);return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px">'+m.nombre+'</span><span class="badge '+(s===0?'badge-red':'badge-amber')+'">'+(s===0?'Agotado':s+' '+m.unidad)+'</span></div>';}).join('');
+
+  } else {
+    // ── Vista CUADRILLA: stock + asignaciones del día ──
+    document.getElementById('dash-admin-view').style.display = 'none';
+    document.getElementById('dash-cuad-view').style.display = 'block';
+    document.getElementById('dash-acciones').style.display = 'flex';
+    document.getElementById('dash-title').textContent = 'Mi Bodega';
+
+    // KPIs cuadrilla
+    var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
+    var asigHoyCuad = asigList().filter(function(a){ return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today; });
+    var bajoCuad = matsCuad.filter(function(m){ return getStock(cid,m.id) < m.min; }).length;
+    document.getElementById('kpi-grid-cuad').innerHTML =
+      kpi('Items en bodega', matsCuad.length, 'materiales asignados', 'c-accent') +
+      kpi('Asignaciones hoy', asigHoyCuad.length, 'clientes atendidos', 'c-green') +
+      kpi('Stock bajo', bajoCuad, 'por debajo del mínimo', bajoCuad>0?'c-amber':'c-green');
+
+    renderDashStockCuad();
+    renderDashAsigCuad();
   }
-  var bajos = mats.filter(function(m){return getStockVis(cid,m.id)<m.min;});
-  var ie = document.getElementById('dash-inv-status');
-  ie.innerHTML = !bajos.length ? '<p style="color:var(--green);font-size:13px;font-weight:500">✓ Todo el inventario en niveles óptimos</p>'
-    : bajos.map(function(m){var s=getStockVis(cid,m.id);return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px">'+m.nombre+'</span><span class="badge '+(s===0?'badge-red':'badge-amber')+'">'+(s===0?'Agotado':s+' '+m.unidad)+'</span></div>';}).join('');
+}
+
+// Panel izquierdo: stock de la bodega
+function renderDashStockCuad() {
+  var cid = currentUser.cuadrillaId;
+  var q = (document.getElementById('dash-stock-search').value||'').toLowerCase();
+  var mats = materialesList().filter(function(m){
+    return tieneExistenciaRegistrada(cid, m.id) &&
+      (!q || m.nombre.toLowerCase().includes(q) || (m.codigo||'').toLowerCase().includes(q));
+  });
+  var el = document.getElementById('dash-stock-list');
+  if (!mats.length) {
+    el.innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Sin materiales en bodega</p>';
+    return;
+  }
+  el.innerHTML = mats.map(function(m) {
+    var stk = getStock(cid, m.id);
+    var pct = Math.min(100, Math.round(stk / Math.max(m.min*2,1) * 100));
+    var color = stk===0 ? 'var(--red)' : stk<m.min ? 'var(--amber)' : 'var(--green)';
+    var badge = stk===0 ? 'badge-red' : stk<m.min ? 'badge-amber' : 'badge-green';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;">'
+      + '<div style="flex:1;min-width:0;">'
+        + '<div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+m.nombre+'</div>'
+        + '<div style="font-size:11px;color:var(--ink3);">'+m.cat+'</div>'
+        + '<div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:4px;width:80px;">'
+          + '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:2px;"></div>'
+        + '</div>'
+      + '</div>'
+      + '<div style="text-align:right;flex-shrink:0;">'
+        + '<strong style="font-size:15px;color:'+color+';">'+stk+'</strong>'
+        + '<div style="font-size:10px;color:var(--ink3);">'+m.unidad+'</div>'
+        + '<span class="badge '+badge+'" style="font-size:10px;padding:2px 6px;">'+(stk===0?'Agotado':stk<m.min?'Bajo':'OK')+'</span>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+// Panel derecho: asignaciones del día con PDF individual
+function renderDashAsigCuad() {
+  var cid = currentUser.cuadrillaId;
+  var today = fmtDate(new Date());
+  var asigs = asigList().filter(function(a){
+    return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today;
+  }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
+
+  document.getElementById('dash-asig-count').textContent = asigs.length + ' registro(s)';
+  var el = document.getElementById('dash-asig-hoy');
+
+  if (!asigs.length) {
+    el.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--ink3);">'
+      + '<svg width="36" height="36" viewBox="0 0 48 48" fill="none" style="opacity:.25;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;">'
+      + '<rect x="8" y="8" width="32" height="32" rx="4" stroke="currentColor" stroke-width="2"/>'
+      + '<path d="M16 24h16M16 32h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+      + '<p style="font-size:13px;">Sin asignaciones hoy</p></div>';
+    return;
+  }
+
+  el.innerHTML = asigs.map(function(a) {
+    var hora = a.horaInicio ? a.horaInicio+(a.horaFin?' — '+a.horaFin:'') : fmtDT(a.fecha).split(' ')[1]||'';
+    var mlist = (a.materiales||[]).map(function(m){
+      var mt = getMat(m.matId);
+      return mt ? '<span style="font-size:11px;background:var(--blue-light);color:var(--blue);padding:2px 7px;border-radius:20px;display:inline-block;margin:2px 2px 0 0;">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>' : '';
+    }).join('');
+    return '<div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px;background:var(--bg);">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">'
+        + '<div>'
+          + '<strong style="font-size:14px;">'+( a.cliente||'—')+'</strong>'
+          + '<span style="font-size:11px;background:var(--accent-light);color:var(--accent);padding:2px 7px;border-radius:20px;margin-left:6px;">'+( a.tipo||'')+'</span>'
+          + '<p style="font-size:11px;color:var(--ink3);margin-top:2px;">OT: '+(a.ot||'—')+' · '+hora+'</p>'
+          + (a.tecnico?'<p style="font-size:11px;color:var(--ink3);">Técnico: '+a.tecnico+'</p>':'')
+        + '</div>'
+        + '<button class="btn btn-sm btn-accent" onclick="rePDF(\''+a.id+'\')" style="white-space:nowrap;flex-shrink:0;">'
+            + '<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> PDF'
+          + '</button>'
+      + '</div>'
+      + '<div>'+mlist+'</div>'
+      + '</div>';
+  }).join('');
+}
+
+// Descargar PDF resumen de todo el día
+function descargarPDFDia() {
+  var cid = currentUser.cuadrillaId;
+  var today = fmtDate(new Date());
+  var asigs = asigList().filter(function(a){
+    return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today;
+  }).sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
+
+  if (!asigs.length) { toast('Sin asignaciones hoy para descargar','info'); return; }
+
+  var {jsPDF} = window.jspdf;
+  var doc = new jsPDF({unit:'mm',format:'a4'});
+  var L=20, y=20;
+  var cuad = getCuad(cid);
+
+  // Header
+  doc.setFillColor(232,68,10); doc.rect(0,0,210,28,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('BodegaNet — Resumen del Día', L, 13);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text((cuad?cuad.nombre:'Cuadrilla')+' · '+today, L, 21);
+  y = 36;
+
+  asigs.forEach(function(a, idx) {
+    if (y > 250) { doc.addPage(); y = 20; }
+    // Bloque asignación
+    doc.setFillColor(245,244,240); doc.rect(L,y,170,8,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(30,30,30);
+    doc.text((idx+1)+'. '+( a.cliente||'Cliente'), L+3, y+5.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text('OT: '+(a.ot||'—')+'   Tipo: '+(a.tipo||'—')+'   Hora: '+(a.horaInicio||'—'), 105, y+5.5);
+    y += 10;
+    (a.materiales||[]).forEach(function(m) {
+      var mt = getMat(m.matId); if(!mt) return;
+      doc.text('  • '+mt.nombre+': '+m.qty+' '+mt.unidad, L+4, y);
+      y += 5.5;
+    });
+    if (a.obs) { doc.setTextColor(100,100,100); doc.text('  Obs: '+a.obs, L+4, y); y+=5.5; doc.setTextColor(30,30,30); }
+    y += 4;
+  });
+
+  // Footer
+  doc.setFillColor(30,30,30); doc.rect(0,282,210,15,'F');
+  doc.setTextColor(160,160,160); doc.setFontSize(8);
+  doc.text('BodegaNet  |  '+today+'  |  '+asigs.length+' asignaciones', L, 291);
+  doc.save('resumen_dia_'+(cuad?cuad.nombre.replace(/\s/g,'_'):'cuadrilla')+'_'+today.replace(/\//g,'-')+'.pdf');
+  toast('PDF del día generado ('+asigs.length+' asignaciones)','success');
 }
 
 function getStockVis(cid, mid) {
