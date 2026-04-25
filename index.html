@@ -173,6 +173,7 @@ tr:hover td{background:var(--bg3);}
 .toast.t-error{border-left:4px solid var(--red);}
 .toast.t-info{border-left:4px solid var(--accent);}
 @keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 .kardex-tipo{display:flex;gap:8px;margin-bottom:1rem;}
 .kardex-opt{flex:1;padding:12px;border:2px solid var(--border);border-radius:var(--r);text-align:center;cursor:pointer;transition:all .15s;}
 .kardex-opt.ingreso.sel{border-color:var(--green);background:var(--green-light);}
@@ -239,6 +240,7 @@ tr:hover td{background:var(--bg3);}
         <button class="pass-toggle" onclick="togglePass('login-cuad-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
       <button class="login-btn" onclick="loginCuadrilla()">Ingresar</button>
+      <div id="login-err-cuad" style="display:none;background:var(--red-light);border:1px solid #f5c5c5;border-radius:var(--r);padding:9px 12px;font-size:13px;color:var(--red);margin-top:10px;text-align:center;font-weight:500;"></div>
       <div style="text-align:center;margin-top:10px;">
         <button style="background:none;border:none;font-size:12px;color:var(--ink3);cursor:pointer;" onclick="refreshLogin()">🔄 Actualizar cuadrillas</button>
       </div>
@@ -252,6 +254,7 @@ tr:hover td{background:var(--bg3);}
         <button class="pass-toggle" onclick="togglePass('admin-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
       <button class="login-btn dark" onclick="loginAdmin()">Entrar como Administrador</button>
+      <div id="login-err-admin" style="display:none;background:var(--red-light);border:1px solid #f5c5c5;border-radius:var(--r);padding:9px 12px;font-size:13px;color:var(--red);margin-top:10px;text-align:center;font-weight:500;"></div>
       <div class="login-divider">o</div>
       <div class="admin-link"><a onclick="showCuadrillaLogin()">← Volver</a></div>
     </div>
@@ -336,7 +339,18 @@ tr:hover td{background:var(--bg3);}
         <div id="dash-admin-view">
           <div class="kpi-grid" id="kpi-grid"></div>
           <div class="card"><div class="card-title">Últimas asignaciones</div><div id="dash-recent"></div></div>
-          <div class="card"><div class="card-title">Estado del inventario</div><div id="dash-inv-status"></div></div>
+          <!-- 5. Gráfico materiales más usados -->
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+              <div class="card-title" style="margin-bottom:0;">Top materiales más utilizados</div>
+              <select id="dash-chart-periodo" onchange="renderChartMateriales()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;background:var(--bg);">
+                <option value="semana">Esta semana</option>
+                <option value="mes" selected>Este mes</option>
+                <option value="todo">Todo el tiempo</option>
+              </select>
+            </div>
+            <div id="chart-container" style="position:relative;width:100%;"></div>
+          </div>
         </div>
 
         <!-- Vista CUADRILLA: 2 paneles -->
@@ -606,10 +620,12 @@ tr:hover td{background:var(--bg3);}
     </main>
   </div>
   <nav class="bottom-nav" id="bottom-nav">
-    <button class="bn-item active" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Bodega</button>
+    <button class="bn-item active" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
     <button class="bn-item" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
     <button class="bn-item" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
     <button class="bn-item" onclick="showSection('historial')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mi día</button>
+    <!-- 6. Solo visible para admin en móvil -->
+    <button class="bn-item" id="bn-nuevo-mat" onclick="irNuevoMaterial()" style="display:none;color:var(--accent);"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>+ Material</button>
     <button class="bn-item" onclick="showSection('alertas')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas</button>
   </nav>
 </div>
@@ -934,15 +950,19 @@ function loginCuadrilla() {
   if (!checkLoginRateLimit()) return;
   var id = document.getElementById('login-cuadrilla-sel').value;
   var pass = document.getElementById('login-cuad-pass').value;
-  if (!id) { toast('Selecciona una cuadrilla', 'error'); return; }
+  if (!id) { showLoginError('cuad','Selecciona una cuadrilla para continuar.'); return; }
   var c = getCuad(id);
-  if (!c) { toast('Cuadrilla no encontrada', 'error'); return; }
-  if (!c.pass) { toast('Esta cuadrilla no tiene contraseña. Contacta al administrador.', 'error'); return; }
+  if (!c) { showLoginError('cuad','Cuadrilla no encontrada. Contacta al administrador.'); return; }
+  if (!c.pass) { showLoginError('cuad','Esta cuadrilla no tiene contraseña configurada.'); return; }
   if (pass !== c.pass) {
     registrarIntentoFallido();
     registrarLog(c.nombre, 'cuadrilla', 'fallido');
-    toast('Contraseña incorrecta', 'error'); return;
+    var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
+    showLoginError('cuad', '⚠ Contraseña incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
+    if (navigator.vibrate) navigator.vibrate([100,50,100]);
+    return;
   }
+  clearLoginError('cuad');
   resetLoginAttempts();
   currentUser = { tipo: 'cuadrilla', cuadrillaId: id };
   registrarLog(c.nombre, 'cuadrilla', 'exitoso');
@@ -953,16 +973,36 @@ function loginCuadrilla() {
 function loginAdmin() {
   if (!checkLoginRateLimit()) return;
   var pass = document.getElementById('admin-pass').value;
+  if (!pass) { showLoginError('admin','Ingresa la contraseña de administrador.'); return; }
   if (pass !== ADMIN_PASS) {
     registrarIntentoFallido();
     registrarLog('Administrador', 'admin', 'fallido');
-    toast('Clave incorrecta', 'error'); return;
+    var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
+    showLoginError('admin', '⚠ Clave incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
+    if (navigator.vibrate) navigator.vibrate([100,50,100]);
+    return;
   }
+  clearLoginError('admin');
   resetLoginAttempts();
   currentUser = { tipo: 'admin', cuadrillaId: null };
   registrarLog('Administrador', 'admin', 'exitoso');
   resetSessionTimer();
   startApp();
+}
+
+function showLoginError(tipo, msg) {
+  var id = tipo==='cuad' ? 'login-err-cuad' : 'login-err-admin';
+  var inp = tipo==='cuad' ? 'login-cuad-pass' : 'admin-pass';
+  var el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  var iEl = document.getElementById(inp);
+  if (iEl) { iEl.style.borderColor='var(--red)'; iEl.style.animation='shake .4s ease'; setTimeout(function(){ iEl.style.animation=''; },500); }
+}
+function clearLoginError(tipo) {
+  var id = tipo==='cuad' ? 'login-err-cuad' : 'login-err-admin';
+  var inp = tipo==='cuad' ? 'login-cuad-pass' : 'admin-pass';
+  var el = document.getElementById(id); if (el) el.style.display='none';
+  var iEl = document.getElementById(inp); if (iEl) iEl.style.borderColor='';
 }
 
 function registrarLog(usuario, tipo, estado) {
@@ -1027,11 +1067,12 @@ function startApp() {
 }
 
 function logout(forzado) {
-  // Limpiar sesión de Firebase
+  // 3. Siempre eliminar la sesión de Firebase al salir (botón o cierre de página)
   if (currentUser && currentUser.sessionId) {
     db.ref('sessions/'+currentUser.sessionId).off();
-    if (!forzado) db.ref('sessions/'+currentUser.sessionId).remove();
+    db.ref('sessions/'+currentUser.sessionId).remove();
   }
+  clearTimeout(_sessionTimer);
   currentUser = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
@@ -1039,6 +1080,16 @@ function logout(forzado) {
   document.getElementById('login-cuad-pass').value = '';
   document.getElementById('admin-pass').value = '';
 }
+
+// 3. Limpiar sesión al cerrar/recargar la página
+window.addEventListener('beforeunload', function() {
+  if (currentUser && currentUser.sessionId) {
+    // navigator.sendBeacon para garantizar envío antes de cerrar
+    var url = 'https://bodeganet-41a58-default-rtdb.firebaseio.com/sessions/'+currentUser.sessionId+'.json';
+    navigator.sendBeacon ? navigator.sendBeacon(url, JSON.stringify(null)) : null;
+    db.ref('sessions/'+currentUser.sessionId).remove();
+  }
+});
 
 // 6. Cambio de contraseña admin
 function cambiarPassAdmin(){
@@ -1119,6 +1170,9 @@ function renderDashboard() {
     document.getElementById('dash-cuad-view').style.display = 'none';
     document.getElementById('dash-acciones').style.display = 'none';
     document.getElementById('dash-title').textContent = 'Dashboard';
+    // 6. Mostrar botón + Material en bottom nav para admin
+    var bnMat = document.getElementById('bn-nuevo-mat');
+    if (bnMat) bnMat.style.display = 'flex';
     var mats = materialesList();
     var bajo = mats.filter(function(m){ return getStockVis(null,m.id)<m.min; }).length;
     var asigHoy = asigList().filter(function(a){ return !a.anulada && fmtDate(a.fecha)===today; }).length;
@@ -1142,9 +1196,8 @@ function renderDashboard() {
             +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button></div>';
         }).join('');
     var bajos = mats.filter(function(m){return getStockVis(null,m.id)<m.min;});
-    document.getElementById('dash-inv-status').innerHTML = !bajos.length
-      ? '<p style="color:var(--green);font-size:13px;font-weight:500">✓ Todo el inventario en niveles óptimos</p>'
-      : bajos.map(function(m){var s=getStockVis(null,m.id);return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px">'+m.nombre+'</span><span class="badge '+(s===0?'badge-red':'badge-amber')+'">'+(s===0?'Agotado':s+' '+m.unidad)+'</span></div>';}).join('');
+    // 5. Renderizar gráfico de materiales más usados
+    renderChartMateriales();
 
   } else {
     // ── Vista CUADRILLA: stock + asignaciones del día ──
@@ -1167,7 +1220,61 @@ function renderDashboard() {
   }
 }
 
-// Panel izquierdo: stock de la bodega
+// 5. Gráfico de materiales más usados (barras horizontales con Canvas)
+function renderChartMateriales() {
+  var container = document.getElementById('chart-container');
+  if (!container) return;
+
+  var periodo = (document.getElementById('dash-chart-periodo')||{value:'mes'}).value;
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini = new Date();
+  if (periodo==='semana') { ini.setDate(ini.getDate()-7); ini.setHours(0,0,0,0); }
+  else if (periodo==='mes') { ini = new Date(hoy.getFullYear(),hoy.getMonth(),1); }
+  else { ini = new Date('2000-01-01'); }
+
+  var totales = {};
+  asigList().filter(function(a){
+    return !a.anulada && new Date(a.fecha)>=ini && new Date(a.fecha)<=hoy;
+  }).forEach(function(a){
+    (a.materiales||[]).forEach(function(m){
+      totales[m.matId] = (totales[m.matId]||0) + m.qty;
+    });
+  });
+
+  var items = Object.keys(totales).map(function(id){
+    var mat = getMat(id);
+    return { nombre: mat?mat.nombre:'(eliminado)', qty: totales[id], cat: mat?mat.cat:'' };
+  }).sort(function(a,b){return b.qty-a.qty;}).slice(0,10);
+
+  if (!items.length) {
+    container.innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:2rem;">Sin datos de asignaciones en el período seleccionado</p>';
+    return;
+  }
+
+  var COLORS = ['#e8440a','#1a7a4a','#1a5fa8','#b87800','#7b3fa8','#c92b2b','#0d8a8a','#e8840a','#3a7a1a','#5a3fa8'];
+  var maxVal = items[0].qty;
+  var barH = 32, gap = 10, labelW = 0, padding = 16;
+  var totalH = items.length * (barH + gap) + padding * 2;
+
+  var html = '<div style="width:100%;font-family:var(--sans);">';
+  items.forEach(function(item, i) {
+    var pct = Math.round((item.qty / maxVal) * 100);
+    var color = COLORS[i % COLORS.length];
+    html += '<div style="margin-bottom:'+gap+'px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
+        + '<span style="font-size:12px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">'+item.nombre+'</span>'
+        + '<span style="font-size:12px;font-weight:700;color:'+color+';flex-shrink:0;margin-left:8px;">'+item.qty+'</span>'
+      + '</div>'
+      + '<div style="height:'+barH+'px;background:var(--bg3);border-radius:6px;overflow:hidden;position:relative;">'
+        + '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:6px;display:flex;align-items:center;padding-left:10px;transition:width .6s ease;min-width:2%;">'
+          + (pct>15?'<span style="font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">'+item.cat+'</span>':'')
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
 function renderDashStockCuad() {
   var cid = currentUser.cuadrillaId;
   var q = (document.getElementById('dash-stock-search').value||'').toLowerCase();
@@ -1385,6 +1492,20 @@ function buscarEnFila(ctx, rowUid, q) {
 }
 
 function elegirMatFila(ctx, rowUid, matId) {
+  var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  // 1. Alerta push si el material no tiene existencia en la bodega
+  if (cid) {
+    var stk = getStock(cid, matId);
+    var mat = getMat(matId);
+    if (!tieneExistenciaRegistrada(cid, matId)) {
+      toast('⚠ ' + (mat?mat.nombre:'Este material') + ' no tiene existencia registrada en esta bodega.', 'error');
+      return;
+    }
+    if (stk === 0) {
+      toast('⚠ ' + (mat?mat.nombre:'Material') + ' está AGOTADO en tu bodega (stock: 0).', 'error');
+      // igual permite seleccionarlo pero advierte
+    }
+  }
   if (ctx === 'km') {
     var r = kardexRows.find(function(x){return x.uid===rowUid;});
     if (r) { r.matId = matId; renderKardexRows(); }
@@ -1578,6 +1699,7 @@ function registrarAsignacion(){
       updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
         toast('Asignación registrada. Generando PDF...','success');
         generarPDF(asig);
+        // 2. Limpieza automática completa al confirmar
         limpiarAsignacion();
         showSection('dashboard');
       }).catch(function(e){toast('Error: '+e.message,'error');});
@@ -1988,6 +2110,12 @@ function renderAdminMateriales(){
       +'<button class="btn btn-sm btn-red" onclick="deleteMat(\''+m.id+'\')">Eliminar</button>'
       +'</td></tr>';
   }).join('');
+}
+
+// 6. Acceso rápido móvil para admin: ir a sección materiales y abrir modal
+function irNuevoMaterial() {
+  showSection('admin-materiales');
+  setTimeout(function(){ openMatModal(); }, 150);
 }
 
 function openMatModal(editId){
