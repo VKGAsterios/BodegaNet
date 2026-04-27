@@ -1493,19 +1493,29 @@ function buscarEnFila(ctx, rowUid, q) {
 
 function elegirMatFila(ctx, rowUid, matId) {
   var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  // 1. Alerta push si el material no tiene existencia en la bodega
-  if (cid) {
+  var mat = getMat(matId);
+  
+  // Solo restringir en ASIGNACIÓN (ctx='ar'), no en Kardex
+  if (ctx === 'ar' && cid) {
     var stk = getStock(cid, matId);
-    var mat = getMat(matId);
+    // En asignación a cliente, sí bloquear si no tiene existencia registrada o está agotado
     if (!tieneExistenciaRegistrada(cid, matId)) {
-      toast('⚠ ' + (mat?mat.nombre:'Este material') + ' no tiene existencia registrada en esta bodega.', 'error');
+      toast('⚠ ' + (mat?mat.nombre:'Este material') + ' no tiene existencia en tu bodega.', 'error');
       return;
     }
     if (stk === 0) {
-      toast('⚠ ' + (mat?mat.nombre:'Material') + ' está AGOTADO en tu bodega (stock: 0).', 'error');
-      // igual permite seleccionarlo pero advierte
+      toast('⚠ ' + (mat?mat.nombre:'Material') + ' está AGOTADO (stock: 0). Registra un ingreso primero.', 'error');
+      return;
+    }
+  } else if (ctx === 'km' && cid) {
+    // En Kardex (ingreso), permitir registrar aunque esté en 0, solo avisar
+    var stk = getStock(cid, matId);
+    if (stk === 0) {
+      toast('ℹ Ingresarás ' + (mat?mat.nombre:'este material') + ' (actualmente en stock 0)', 'info');
     }
   }
+  
+  // Permitir seleccionar en ambos casos
   if (ctx === 'km') {
     var r = kardexRows.find(function(x){return x.uid===rowUid;});
     if (r) { r.matId = matId; renderKardexRows(); }
