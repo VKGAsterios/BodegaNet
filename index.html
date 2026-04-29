@@ -174,6 +174,13 @@ tr:hover td{background:var(--bg3);}
 .toast.t-info{border-left:4px solid var(--accent);}
 @keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(20px)}}
+#login-cuadrilla-area{animation:slideIn .4s ease;}
+#login-admin-area{animation:slideIn .4s ease;}
+.login-divider{position:relative;margin:1.2rem 0;color:var(--ink3);font-size:13px;}
+.login-section-switch{transition:all .3s ease;opacity:1;}
+.login-section-switch.hidden{opacity:0;pointer-events:none;position:absolute;}
 .kardex-tipo{display:flex;gap:8px;margin-bottom:1rem;}
 .kardex-opt{flex:1;padding:12px;border:2px solid var(--border);border-radius:var(--r);text-align:center;cursor:pointer;transition:all .15s;}
 .kardex-opt.ingreso.sel{border-color:var(--green);background:var(--green-light);}
@@ -236,7 +243,7 @@ tr:hover td{background:var(--bg3);}
       <select class="login-select" id="login-cuadrilla-sel"></select>
       <label class="login-label">Contraseña de cuadrilla</label>
       <div class="pass-field">
-        <input class="login-input" type="password" id="login-cuad-pass" placeholder="••••••" style="padding-right:40px">
+        <input class="login-input" type="password" id="login-cuad-pass" placeholder="••••••" style="padding-right:40px" onkeypress="if(event.key==='Enter'){loginCuadrilla();return false;}">
         <button class="pass-toggle" onclick="togglePass('login-cuad-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
       <button class="login-btn" onclick="loginCuadrilla()">Ingresar</button>
@@ -250,7 +257,7 @@ tr:hover td{background:var(--bg3);}
     <div id="login-admin-area" style="display:none">
       <label class="login-label">Clave de administrador</label>
       <div class="pass-field">
-        <input class="login-input" type="password" id="admin-pass" placeholder="••••••" style="padding-right:40px">
+        <input class="login-input" type="password" id="admin-pass" placeholder="••••••" style="padding-right:40px" onkeypress="if(event.key==='Enter'){loginAdmin();return false;}">
         <button class="pass-toggle" onclick="togglePass('admin-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
       <button class="login-btn dark" onclick="loginAdmin()">Entrar como Administrador</button>
@@ -297,6 +304,9 @@ tr:hover td{background:var(--bg3);}
         <button class="nav-item" onclick="showSection('alertas')">
           <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas
           <span class="nav-badge" id="nav-alert-count" style="display:none">0</span>
+        </button>
+        <button class="nav-item" onclick="showSection('visitas-fallidas-cuad')">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM6 10h8M10 6v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Visita Fallida
         </button>
         <button class="nav-item" onclick="showSection('historial')">
           <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Historial
@@ -588,6 +598,83 @@ tr:hover td{background:var(--bg3);}
         </table></div></div>
       </section>
 
+      <!-- VISITAS FALLIDAS -->
+      <section class="section" id="sec-visitas-fallidas">
+        <div class="page-header">
+          <div><h2>Reporte de visitas fallidas</h2><p>Análisis de trabajos no completados</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Filtros</div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr auto;">
+            <div class="field"><label>Cuadrilla</label>
+              <select id="vf-cuadrilla" onchange="renderVisitasFallidas()"><option value="">Todas</option></select>
+            </div>
+            <div class="field"><label>Período</label>
+              <select id="vf-periodo" onchange="toggleVFFechas();renderVisitasFallidas()">
+                <option value="hoy">Hoy</option>
+                <option value="semana">Esta semana</option>
+                <option value="mes" selected>Este mes</option>
+                <option value="personalizado">Personalizado</option>
+              </select>
+            </div>
+            <div class="field" id="vf-fechas" style="display:none;">
+              <label>Fecha</label>
+              <input type="date" id="vf-fecha" onchange="renderVisitasFallidas()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
+            </div>
+            <button class="btn btn-sm" onclick="exportarVisitasFallidas()" style="align-self:flex-end;">Exportar CSV</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Registros de visitas fallidas</h3>
+            <span id="vf-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>Motivo</th><th>OT</th><th>Técnico</th><th>Observaciones</th></tr></thead>
+            <tbody id="vf-tbody"></tbody>
+          </table></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Resumen de reasignaciones por período</div>
+          <div id="vf-resumen"></div>
+        </div>
+        <!-- 2. Gráficos de visitas fallidas -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Gráficos de análisis</h3>
+            <select id="vf-chart-tipo" onchange="renderGraficosVisitasFallidas()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;background:var(--bg);">
+              <option value="motivos">Por motivo de falla</option>
+              <option value="cuadrilla">Por cuadrilla</option>
+            </select>
+          </div>
+          <div id="vf-chart-container" style="position:relative;width:100%;"></div>
+          <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+            <button class="btn btn-green" onclick="descargarGraficoVisitas()">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Descargar gráfico (PNG)
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISITAS FALLIDAS — CUADRILLA (registro) -->
+      <section class="section" id="sec-visitas-fallidas-cuad">
+        <div class="page-header">
+          <div><h2>Registrar visita fallida</h2><p>Documento de trabajos no completados para reasignación</p></div>
+          <button class="btn btn-accent" onclick="abrirModalVisitaFallida()">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            + Nueva visita fallida
+          </button>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Mis visitas fallidas hoy</h3></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Hora</th><th>Cliente</th><th>Motivo</th><th>OT</th><th>Observaciones</th><th></th></tr></thead>
+            <tbody id="vf-cuad-tbody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
       <!-- ADMIN CONFIG -->
       <section class="section" id="sec-admin-config">
         <div class="page-header"><div><h2>Configuración de administrador</h2><p>Contraseña y sesiones activas</p></div></div>
@@ -714,6 +801,47 @@ tr:hover td{background:var(--bg3);}
 </div>
 
 <!-- Modal confirmación -->
+<!-- Modal visita fallida -->
+<div class="modal-overlay" id="modal-visita-fallida">
+  <div class="modal" style="max-width:500px;">
+    <button class="modal-close" onclick="closeModal('modal-visita-fallida')">✕</button>
+    <h3 style="margin-bottom:1rem;">Registrar visita fallida</h3>
+    <div class="form-grid g1">
+      <div class="field"><label>Cuadrilla</label>
+        <select id="vf-cuad-sel" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);"><option value="">Selecciona cuadrilla</option></select>
+      </div>
+      <div class="field"><label>Cliente</label>
+        <input type="text" id="vf-cliente" placeholder="Nombre del cliente" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
+      </div>
+      <div class="field"><label>OT</label>
+        <input type="text" id="vf-ot" placeholder="Número de OT" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
+      </div>
+      <div class="field"><label>Técnico</label>
+        <input type="text" id="vf-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
+      </div>
+      <div class="field"><label>Motivo de falla</label>
+        <select id="vf-motivo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);">
+          <option value="">Selecciona motivo</option>
+          <option value="cliente_no_disponible">Cliente no disponible</option>
+          <option value="falta_material">Falta de material</option>
+          <option value="problema_tecnico">Problema técnico</option>
+          <option value="acceso_negado">Acceso negado</option>
+          <option value="cliente_no_autorizo">Cliente no autorizó</option>
+          <option value="problema_infraestructura">Problema en infraestructura</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>Observaciones</label>
+        <textarea id="vf-obs" placeholder="Detalles de la visita fallida..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;resize:vertical;min-height:80px;"></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('modal-visita-fallida')">Cancelar</button>
+      <button class="btn btn-accent" onclick="guardarVisitaFallida()">Registrar visita fallida</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-confirm">
   <div class="modal" style="max-width:400px;">
     <h3 id="confirm-title">Confirmar acción</h3>
@@ -856,6 +984,314 @@ function nowISO() { return new Date().toISOString(); }
 function togglePass(id) { var e=document.getElementById(id); e.type=e.type==='password'?'text':'password'; }
 
 // ══════════════════════════════════════════════════════
+// 1. VISITAS FALLIDAS
+// ══════════════════════════════════════════════════════
+function abrirModalVisitaFallida() {
+  var sel = document.getElementById('vf-cuad-sel');
+  sel.innerHTML = '<option value="">Selecciona cuadrilla</option>';
+  cuadrillasList().forEach(function(c){
+    var o = document.createElement('option');
+    o.value = c.id; o.textContent = c.nombre;
+    sel.appendChild(o);
+  });
+  // 1. Si es cuadrilla, seleccionar por default su cuadrilla
+  if (currentUser && currentUser.tipo === 'cuadrilla') {
+    sel.value = currentUser.cuadrillaId;
+    sel.disabled = true; // No puede cambiar su propia cuadrilla
+  }
+  ['vf-cliente','vf-ot','vf-tecnico','vf-obs'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('vf-motivo').value = '';
+  openModal('modal-visita-fallida');
+  document.getElementById('vf-cliente').focus();
+}
+
+function guardarVisitaFallida() {
+  if (!checkRateLimit('visita_fallida')) return;
+  var cid = document.getElementById('vf-cuad-sel').value;
+  var cliente = document.getElementById('vf-cliente').value.trim();
+  var ot = document.getElementById('vf-ot').value.trim();
+  var tecnico = document.getElementById('vf-tecnico').value.trim();
+  var motivo = document.getElementById('vf-motivo').value;
+  var obs = document.getElementById('vf-obs').value.trim();
+
+  if (!cid) { toast('Selecciona una cuadrilla', 'error'); return; }
+  if (!cliente) { toast('Ingresa el nombre del cliente', 'error'); return; }
+  if (!motivo) { toast('Selecciona el motivo de la falla', 'error'); return; }
+
+  var vfId = uid();
+  var updates = {};
+  updates['visitas_fallidas/'+vfId] = {
+    id: vfId, fecha: nowISO(), cuadrillaId: cid,
+    cliente: sanitizeAdvanced(cliente), ot: sanitizeAdvanced(ot),
+    tecnico: sanitizeAdvanced(tecnico), motivo: motivo,
+    obs: sanitizeAdvanced(obs)
+  };
+  updates['_lastUpdate'] = Date.now();
+  updates['_csrf'] = getCSRFToken();
+
+  db.ref().update(updates).then(function(){
+    toast('Visita fallida registrada', 'success');
+    closeModal('modal-visita-fallida');
+    renderVisitasFallidas();
+  }).catch(function(e){ toast('Error: '+e.message, 'error'); });
+}
+
+function renderVisitasFallidas() {
+  var sel = document.getElementById('vf-cuadrilla');
+  sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
+  cuadrillasList().forEach(function(c){
+    var o = document.createElement('option');
+    o.value = c.id; o.textContent = c.nombre;
+    sel.appendChild(o);
+  });
+
+  var cid = (document.getElementById('vf-cuadrilla')||{value:''}).value;
+  var periodo = (document.getElementById('vf-periodo')||{value:'mes'}).value;
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini = new Date(); ini.setHours(0,0,0,0);
+  
+  if (periodo === 'hoy') {}
+  else if (periodo === 'semana') { ini.setDate(ini.getDate() - 7); }
+  else if (periodo === 'mes') { ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
+  else if (periodo === 'personalizado') {
+    var fechaInput = document.getElementById('vf-fecha');
+    if (fechaInput && fechaInput.value) {
+      ini = new Date(fechaInput.value + 'T00:00:00');
+      hoy = new Date(fechaInput.value + 'T23:59:59');
+    }
+  }
+
+  var vfs = (Object.values(cache.visitas_fallidas||{})||[]).filter(function(v){
+    var f = new Date(v.fecha);
+    return f >= ini && f <= hoy && (!cid || v.cuadrillaId === cid);
+  }).sort(function(a,b){ return new Date(b.fecha) - new Date(a.fecha); });
+
+  document.getElementById('vf-count').textContent = vfs.length + ' registro(s)';
+  var tbody = document.getElementById('vf-tbody');
+  if (!vfs.length) {
+    tbody.innerHTML = '<tr><td colspan="8">'+empty('Sin visitas fallidas')+'</td></tr>';
+  } else {
+    var motivos = {'cliente_no_disponible':'Cliente no disponible','falta_material':'Falta de material','problema_tecnico':'Problema técnico','acceso_negado':'Acceso negado','cliente_no_autorizo':'Cliente no autorizó','problema_infraestructura':'Problema infraestructura','otro':'Otro'};
+    tbody.innerHTML = vfs.map(function(v){
+      var c = getCuad(v.cuadrillaId);
+      return '<tr><td style="font-size:11px;">'+fmtDT(v.fecha)+'</td><td style="font-size:12px;"><strong>'+(c?c.nombre:'—')+'</strong></td><td>'+v.cliente+'</td><td><span class="badge badge-amber">'+(motivos[v.motivo]||v.motivo)+'</span></td><td>'+(v.ot||'—')+'</td><td>'+(v.tecnico||'—')+'</td><td style="font-size:11px;">'+(v.obs||'—')+'</td><td><button class="btn btn-sm btn-red" onclick="eliminarVisitaFallida(\''+v.id+'\')">X</button></td></tr>';
+    }).join('');
+  }
+
+  var resumenPorMotivo = {};
+  vfs.forEach(function(v){
+    resumenPorMotivo[v.motivo] = (resumenPorMotivo[v.motivo]||0) + 1;
+  });
+  var motivos = {'cliente_no_disponible':'Cliente no disponible','falta_material':'Falta de material','problema_tecnico':'Problema técnico','acceso_negado':'Acceso negado','cliente_no_autorizo':'Cliente no autorizó','problema_infraestructura':'Problema infraestructura','otro':'Otro'};
+  var resumenHTML = Object.keys(resumenPorMotivo).map(function(m){
+    var pct = Math.round(resumenPorMotivo[m] / vfs.length * 100);
+    return '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span>'+(motivos[m]||m)+'</span><strong>'+resumenPorMotivo[m]+' ('+pct+'%)</strong></div><div style="height:6px;background:var(--bg3);border-radius:3px;"><div style="height:100%;width:'+pct+'%;background:var(--amber);border-radius:3px;"></div></div></div>';
+  }).join('');
+  document.getElementById('vf-resumen').innerHTML = resumenHTML || '<p style="color:var(--ink3);font-size:13px;">Sin datos</p>';
+  // 2. Renderizar gráficos
+  renderGraficosVisitasFallidas();
+}
+
+// Vista cuadrilla: registro rápido de visita fallida
+function renderVisitasFallidasCuad() {
+  var cid = currentUser.cuadrillaId;
+  var hoy = fmtDate(new Date());
+  var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
+    return v.cuadrillaId === cid && fmtDate(v.fecha) === hoy;
+  }).sort(function(a,b){ return new Date(b.fecha) - new Date(a.fecha); });
+
+  var tbody = document.getElementById('vf-cuad-tbody');
+  if (!vfs.length) {
+    tbody.innerHTML = '<tr><td colspan="6">'+empty('Sin visitas fallidas registradas hoy')+'</td></tr>';
+  } else {
+    var motivos = {'cliente_no_disponible':'Cliente no disponible','falta_material':'Falta de material','problema_tecnico':'Problema técnico','acceso_negado':'Acceso negado','cliente_no_autorizo':'Cliente no autorizó','problema_infraestructura':'Problema infraestructura','otro':'Otro'};
+    tbody.innerHTML = vfs.map(function(v){
+      var hora = fmtDT(v.fecha).split(' ')[1] || '—';
+      return '<tr><td style="font-weight:500;">'+hora+'</td><td><strong>'+v.cliente+'</strong></td><td><span class="badge badge-amber">'+(motivos[v.motivo]||v.motivo)+'</span></td><td style="font-size:12px;">'+(v.ot||'—')+'</td><td style="font-size:11px;color:var(--ink2);">'+(v.obs||'—')+'</td><td><button class="btn btn-sm btn-red" onclick="eliminarVisitaFallida(\''+v.id+'\')">X</button></td></tr>';
+    }).join('');
+  }
+}
+
+// 2. Gráficos de visitas fallidas
+function renderGraficosVisitasFallidas() {
+  var tipo = (document.getElementById('vf-chart-tipo')||{value:'motivos'}).value;
+  var cid = (document.getElementById('vf-cuadrilla')||{value:''}).value;
+  var periodo = (document.getElementById('vf-periodo')||{value:'mes'}).value;
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini = new Date(); ini.setHours(0,0,0,0);
+  
+  if (periodo === 'hoy') {}
+  else if (periodo === 'semana') { ini.setDate(ini.getDate() - 7); }
+  else if (periodo === 'mes') { ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
+  else if (periodo === 'personalizado') {
+    var fechaInput = document.getElementById('vf-fecha');
+    if (fechaInput && fechaInput.value) {
+      ini = new Date(fechaInput.value + 'T00:00:00');
+      hoy = new Date(fechaInput.value + 'T23:59:59');
+    }
+  }
+
+  var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
+    var f = new Date(v.fecha);
+    return f >= ini && f <= hoy && (!cid || v.cuadrillaId === cid);
+  });
+
+  var datos = {};
+  vfs.forEach(function(v){
+    var key = tipo === 'motivos' ? v.motivo : v.cuadrillaId;
+    var label = tipo === 'motivos' ? v.motivo : (getCuad(v.cuadrillaId)||{nombre:'—'}).nombre;
+    datos[key] = {label: label, count: (datos[key]||{count:0}).count + 1};
+  });
+
+  var sorted = Object.keys(datos).map(function(k){ return {label: datos[k].label, value: datos[k].count}; })
+    .sort(function(a,b){ return b.value - a.value; });
+
+  if (!sorted.length) {
+    document.getElementById('vf-chart-container').innerHTML = '<p style="color:var(--ink3);text-align:center;padding:2rem;">Sin datos para el período</p>';
+    return;
+  }
+
+  var COLORS = ['#e8440a','#1a7a4a','#1a5fa8','#b87800','#7b3fa8','#c92b2b','#0d8a8a'];
+  var maxVal = sorted[0].value;
+  var html = '<div style="width:100%;font-family:var(--sans);">';
+  
+  sorted.forEach(function(item, i){
+    var pct = Math.round((item.value / maxVal) * 100);
+    var color = COLORS[i % COLORS.length];
+    html += '<div style="margin-bottom:20px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">'
+        + '<span style="font-size:13px;font-weight:500;">' + item.label + '</span>'
+        + '<span style="font-size:13px;font-weight:700;color:' + color + ';">' + item.value + ' visitas</span>'
+      + '</div>'
+      + '<div style="height:28px;background:var(--bg3);border-radius:6px;overflow:hidden;position:relative;">'
+        + '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:6px;display:flex;align-items:center;padding-left:10px;transition:width .6s ease;">'
+          + (pct > 20 ? '<span style="font-size:12px;color:#fff;font-weight:600;">' + pct + '%</span>' : '')
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  });
+  
+  html += '</div>';
+  document.getElementById('vf-chart-container').innerHTML = html;
+}
+
+function descargarGraficoVisitas() {
+  var tipo = (document.getElementById('vf-chart-tipo')||{value:'motivos'}).value;
+  var cid = (document.getElementById('vf-cuadrilla')||{value:''}).value;
+  var container = document.getElementById('vf-chart-container');
+  
+  if (!container || container.textContent.includes('Sin datos')) {
+    toast('No hay datos para descargar', 'info');
+    return;
+  }
+
+  // Crear canvas con html2canvas (si está disponible) o usar PNG simple
+  var canvas = document.createElement('canvas');
+  canvas.width = 800;
+  canvas.height = 400;
+  var ctx = canvas.getContext('2d');
+  
+  // Fondo blanco
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Título
+  ctx.fillStyle = '#1a1917';
+  ctx.font = 'bold 18px Arial';
+  ctx.fillText('Reporte de Visitas Fallidas', 20, 30);
+  
+  ctx.font = '12px Arial';
+  ctx.fillStyle = '#5a5854';
+  ctx.fillText('Período: ' + (document.getElementById('vf-periodo')||{value:'mes'}).value, 20, 50);
+  
+  // Convertir canvas a imagen y descargar
+  canvas.toBlob(function(blob){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'Visitas_Fallidas_' + new Date().toISOString().slice(0,10) + '.png';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Gráfico descargado', 'success');
+  });
+}
+
+function toggleVFFechas() {
+  var p = (document.getElementById('vf-periodo')||{value:'mes'}).value;
+  document.getElementById('vf-fechas').style.display = p==='personalizado' ? '' : 'none';
+}
+
+function eliminarVisitaFallida(vfId) {
+  showConfirm('Eliminar visita fallida', '¿Eliminar este registro?', function(){
+    db.ref('visitas_fallidas/'+vfId).remove().then(function(){
+      toast('Eliminado', 'success');
+      renderVisitasFallidas();
+    });
+  });
+}
+
+function exportarVisitasFallidas() {
+  var rows = [['Fecha','Cuadrilla','Cliente','Motivo','OT','Técnico','Observaciones']];
+  Object.values(cache.visitas_fallidas||{}).forEach(function(v){
+    var c = getCuad(v.cuadrillaId);
+    rows.push([fmtDT(v.fecha), c?c.nombre:'—', v.cliente, v.motivo, v.ot||'—', v.tecnico||'—', v.obs||'']);
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c||'').replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download = 'VisitasFallidas_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// 2. PARCHES DE SEGURIDAD ANTIHACKEOS
+// ══════════════════════════════════════════════════════
+
+function getCSRFToken() {
+  var token = localStorage.getItem('_csrf_token');
+  if (!token) {
+    token = 'csrf_' + Math.random().toString(36).substr(2, 32) + '_' + Date.now();
+    localStorage.setItem('_csrf_token', token);
+  }
+  return token;
+}
+
+var _requestCounts = {};
+function checkRateLimit(key) {
+  var now = Date.now();
+  if (!_requestCounts[key]) _requestCounts[key] = [];
+  _requestCounts[key] = _requestCounts[key].filter(function(t){ return now - t < 60000; });
+  if (_requestCounts[key].length >= 100) {
+    toast('Demasiadas solicitudes. Espera.', 'error');
+    return false;
+  }
+  _requestCounts[key].push(now);
+  return true;
+}
+
+function sanitizeAdvanced(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/[<>'"]/g, function(c){ return {'<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]; })
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .substring(0, 1000);
+}
+
+(function(){
+  setInterval(function(){
+    if (window.outerHeight - window.innerHeight > 160 || window.outerWidth - window.innerWidth > 160) {
+      if (currentUser) db.ref('seguridad_logs').push({
+        timestamp: Date.now(), tipo: 'devtools_sospecha',
+        usuario: currentUser.tipo, agente: navigator.userAgent.substring(0,60)
+      });
+    }
+  }, 3000);
+})();
+
+// ══════════════════════════════════════════════════════
 // FIREBASE — LISTENERS EN TIEMPO REAL
 // ══════════════════════════════════════════════════════
 function initFirebaseListeners() {
@@ -883,6 +1319,11 @@ function initFirebaseListeners() {
   db.ref('config/adminPass').on('value', function(snap) {
     if (snap.val()) ADMIN_PASS = snap.val();
   });
+  // 1. Escuchar visitas fallidas
+  db.ref('visitas_fallidas').on('value', function(snap) {
+    cache.visitas_fallidas = snap.val() || {};
+    if (currentSection === 'visitas-fallidas') renderVisitasFallidas();
+  });
   // Logs se cargan bajo demanda en renderAdminLogs
 }
 
@@ -895,7 +1336,9 @@ function renderCurrentSection() {
     'admin-cuadrillas': renderAdminCuadrillas,
     'admin-reportes': renderAdminReportes,
     'admin-logs': renderAdminLogs,
-    'admin-config': function(){ renderSesionesActivas(); }
+    'admin-config': function(){ renderSesionesActivas(); },
+    'visitas-fallidas': renderVisitasFallidas,
+    'visitas-fallidas-cuad': renderVisitasFallidasCuad
   };
   if (renders[currentSection]) renders[currentSection]();
   // Ajustar títulos del historial según el usuario
@@ -938,12 +1381,41 @@ function refreshLogin() {
 }
 
 function showAdminLogin() {
-  document.getElementById('login-cuadrilla-area').style.display = 'none';
-  document.getElementById('login-admin-area').style.display = 'block';
+  var cuad = document.getElementById('login-cuadrilla-area');
+  var admin = document.getElementById('login-admin-area');
+  cuad.style.opacity = '0';
+  cuad.style.transform = 'translateY(-20px)';
+  setTimeout(function(){
+    cuad.style.display = 'none';
+    admin.style.display = 'block';
+    admin.style.opacity = '0';
+    admin.style.transform = 'translateY(20px)';
+    setTimeout(function(){
+      admin.style.transition = 'all .3s ease';
+      admin.style.opacity = '1';
+      admin.style.transform = 'translateY(0)';
+    }, 10);
+  }, 200);
+  document.getElementById('admin-pass').focus();
 }
+
 function showCuadrillaLogin() {
-  document.getElementById('login-admin-area').style.display = 'none';
-  document.getElementById('login-cuadrilla-area').style.display = 'block';
+  var cuad = document.getElementById('login-cuadrilla-area');
+  var admin = document.getElementById('login-admin-area');
+  admin.style.opacity = '0';
+  admin.style.transform = 'translateY(20px)';
+  setTimeout(function(){
+    admin.style.display = 'none';
+    cuad.style.display = 'block';
+    cuad.style.opacity = '0';
+    cuad.style.transform = 'translateY(-20px)';
+    setTimeout(function(){
+      cuad.style.transition = 'all .3s ease';
+      cuad.style.opacity = '1';
+      cuad.style.transform = 'translateY(0)';
+    }, 10);
+  }, 200);
+  document.getElementById('login-cuadrilla-sel').focus();
 }
 
 function loginCuadrilla() {
@@ -1464,70 +1936,94 @@ function abrirBuscadorFila(ctx, rowUid) {
 }
 
 function buscarEnFila(ctx, rowUid, q) {
-  var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
   var listEl = document.getElementById('drop-'+ctx+'-'+rowUid+'-list');
   if (!listEl) return;
+
   var mats = materialesList();
+
+  // Solo filtrar en Asignacion (ar). En Kardex (km) mostrar TODOS siempre.
+  if (ctx === 'ar' && cid) {
+    mats = mats.filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
+  }
+
   if (q && q.trim()) {
     var ql = q.toLowerCase();
     mats = mats.filter(function(m){
-      return m.nombre.toLowerCase().includes(ql) || (m.codigo||'').toLowerCase().includes(ql) || m.cat.toLowerCase().includes(ql);
+      return (m.nombre||'').toLowerCase().includes(ql)
+          || (m.codigo||'').toLowerCase().includes(ql)
+          || (m.cat||'').toLowerCase().includes(ql);
     });
   }
+
+  listEl.innerHTML = '';
+
   if (!mats.length) {
     listEl.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:var(--ink3);">Sin resultados</div>';
     return;
   }
-  listEl.innerHTML = mats.slice(0,20).map(function(m){
-    var stk = cid ? getStock(cid, m.id) : 0;
-    var color = stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
-    return '<div onclick="elegirMatFila(\''+ctx+'\',\''+rowUid+'\',\''+m.id+'\')" '
-      +'style="padding:9px 14px;cursor:pointer;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;active:background:var(--bg3);"'
-      +' onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'+
-      '<div><div style="font-size:13px;font-weight:500;color:var(--ink)">'+m.nombre+'</div>'+
-      '<div style="font-size:11px;color:var(--ink3)">'+m.cat+(m.codigo?' · '+m.codigo:'')+'</div></div>'+
-      '<span style="font-family:monospace;font-size:12px;color:'+color+';font-weight:600;white-space:nowrap;margin-left:8px;">'+stk+' '+m.unidad+'</span>'+
-      '</div>';
-  }).join('');
-}
 
+  mats.slice(0, 20).forEach(function(m) {
+    var stk = cid ? getStock(cid, m.id) : 0;
+    var color = stk===0 ? 'var(--red)' : stk<m.min ? 'var(--amber)' : 'var(--green)';
+    var stockTxt = stk===0 ? '(sin existencia)' : stk+' '+m.unidad;
+
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:9px 14px;cursor:pointer;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;-webkit-tap-highlight-color:rgba(232,68,10,0.15);';
+    item.innerHTML =
+      '<div style="flex:1;pointer-events:none;">'
+      + '<div style="font-size:13px;font-weight:500;color:var(--ink);">'+m.nombre+'</div>'
+      + '<div style="font-size:11px;color:var(--ink3);">'+m.cat+(m.codigo?' &middot; '+m.codigo:'')+'</div>'
+      + '</div>'
+      + '<span style="font-family:monospace;font-size:12px;color:'+color+';font-weight:600;white-space:nowrap;margin-left:8px;pointer-events:none;">'+stockTxt+'</span>';
+
+    // Closure para capturar ctx, rowUid, matId correctamente
+    (function(_ctx, _rowUid, _matId) {
+      function seleccionar(e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        var drop = document.getElementById('drop-'+_ctx+'-'+_rowUid);
+        if (drop) drop.style.display = 'none';
+        elegirMatFila(_ctx, _rowUid, _matId);
+      }
+      item.addEventListener('touchstart', seleccionar, {passive:false});
+      item.addEventListener('mousedown',  seleccionar, false);
+    })(ctx, rowUid, m.id);
+
+    item.addEventListener('mouseover', function(){ this.style.background='var(--bg3)'; });
+    item.addEventListener('mouseout',  function(){ this.style.background=''; });
+    listEl.appendChild(item);
+  });
+}
 function elegirMatFila(ctx, rowUid, matId) {
-  var cid = currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
+  var cid = currentUser.tipo === 'admin' ? null : currentUser.cuadrillaId;
   var mat = getMat(matId);
-  
-  // Solo restringir en ASIGNACIÓN (ctx='ar'), no en Kardex
+
+  // Kardex (km): SIN NINGUNA restricción — admin y cuadrilla pueden
+  // ingresar o egresar cualquier material, incluso con stock 0.
+
+  // Asignación (ar): solo bloquear si está agotado al momento de asignar
   if (ctx === 'ar' && cid) {
     var stk = getStock(cid, matId);
-    // En asignación a cliente, sí bloquear si no tiene existencia registrada o está agotado
-    if (!tieneExistenciaRegistrada(cid, matId)) {
-      toast('⚠ ' + (mat?mat.nombre:'Este material') + ' no tiene existencia en tu bodega.', 'error');
+    if (stk <= 0) {
+      toast('⚠ ' + (mat ? mat.nombre : 'Material') + ' está agotado. Registra un ingreso en Kardex primero.', 'error');
       return;
-    }
-    if (stk === 0) {
-      toast('⚠ ' + (mat?mat.nombre:'Material') + ' está AGOTADO (stock: 0). Registra un ingreso primero.', 'error');
-      return;
-    }
-  } else if (ctx === 'km' && cid) {
-    // En Kardex (ingreso), permitir registrar aunque esté en 0, solo avisar
-    var stk = getStock(cid, matId);
-    if (stk === 0) {
-      toast('ℹ Ingresarás ' + (mat?mat.nombre:'este material') + ' (actualmente en stock 0)', 'info');
     }
   }
-  
-  // Permitir seleccionar en ambos casos
+
   if (ctx === 'km') {
-    var r = kardexRows.find(function(x){return x.uid===rowUid;});
+    var r = kardexRows.find(function(x){ return x.uid === rowUid; });
     if (r) { r.matId = matId; renderKardexRows(); }
   } else {
-    var r = asigRows.find(function(x){return x.uid===rowUid;});
+    var r = asigRows.find(function(x){ return x.uid === rowUid; });
     if (r) { r.matId = matId; renderAsigRows(); }
   }
 }
 
 // Cerrar dropdowns al tocar fuera
 document.addEventListener('click', function(e){
-  if (!e.target.closest('[id^="drop-"]') && !e.target.closest('.mat-row')) {
+  // No cerrar si haces click en: dropdown, mat-row, o buscar-item
+  if (!e.target.closest('[id^="drop-"]') && !e.target.closest('.mat-row') && !e.target.closest('.buscar-item')) {
     document.querySelectorAll('[id^="drop-"]').forEach(function(d){
       if (!d.id.endsWith('-list')) d.style.display='none';
     });
@@ -1565,11 +2061,7 @@ function registrarKardex(){
   var ref=document.getElementById('km-ref').value;
   var resp=document.getElementById('km-resp').value;
   var obs=document.getElementById('km-obs').value;
-  if(kardexTipo==='egreso'){
-    var errs=[];
-    validos.forEach(function(r){var s=getStock(cid,r.matId),m=getMat(r.matId);if(s<r.qty)errs.push((m?m.nombre:'?')+' (disp:'+s+')');});
-    if(errs.length){toast('Stock insuficiente: '+errs.join(', '),'error');return;}
-  }
+  // Kardex: SIN restricción de stock. Egreso puede dejar stock en 0.
   // Confirmación antes de guardar
   var cuad=getCuad(cid);
   var resumen=validos.map(function(r){var m=getMat(r.matId);return (m?m.nombre:'?')+' × '+r.qty;}).join(', ');
@@ -1587,7 +2079,7 @@ function registrarKardex(){
         var mid=r.matId, mat=getMat(mid);
         var curStock=getStock(cid,mid);
         var nuevoStock=kardexTipo==='ingreso'?curStock+r.qty:Math.max(0,curStock-r.qty);
-        updates['stocks/'+cid+'/'+mid]=nuevoStock;
+        updates['stocks/'+cid+'/'+mid]=nuevoStock!==undefined?nuevoStock:0;
         var kid=uid();
         updates['kardex/'+kid]={fecha:fecha+'T'+new Date().toTimeString().slice(0,8),tipo:kardexTipo,
           matId:mid,qty:r.qty,ref:ref||'',resp:resp||'',obs:obs||'',cuadrillaId:cid,saldo:nuevoStock};
@@ -1852,8 +2344,13 @@ function tieneExistenciaRegistrada(cid, mid) {
   if (!cid) return true; // admin ve todo
   var bodega = cache.stocks[cid];
   if (!bodega) return false;
-  // Existe la clave en la bodega (fue registrado al menos una vez via Kardex)
-  return bodega.hasOwnProperty(mid);
+  // Registrado si la clave existe O si alguna vez tuvo movimiento en kardex
+  if (bodega.hasOwnProperty(mid)) return true;
+  // Verificar en el historial de kardex si hubo algún movimiento para este material
+  var kardexData = cache.kardex || {};
+  return Object.values(kardexData).some(function(k){
+    return k.cuadrillaId === cid && k.matId === mid;
+  });
 }
 
 function renderAlertas(){
