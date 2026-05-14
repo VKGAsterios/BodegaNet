@@ -79,7 +79,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 
 /* ── LAYOUT ── */
 .layout{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;padding:1rem 0;}
+.sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;padding:1rem 0;transition:width .25s ease,padding .25s ease;}
+.sidebar.collapsed{width:0;padding:0;overflow:hidden;}
+.sidebar-toggle{position:fixed;top:14px;left:228px;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:left .25s ease;color:var(--ink2);box-shadow:0 1px 4px rgba(0,0,0,.1);}
+.sidebar.collapsed ~ .sidebar-toggle,.sidebar.collapsed+.sidebar-toggle{left:8px;}
+.sidebar-toggle-btn{position:fixed;top:14px;left:230px;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:4px 8px;cursor:pointer;transition:left .25s ease;font-size:11px;color:var(--ink2);display:flex;align-items:center;gap:4px;box-shadow:0 1px 4px rgba(0,0,0,.1);}
+.sidebar-toggle-btn.collapsed{left:8px;}
 .nav-group{margin-bottom:1.5rem;}
 .nav-group-label{font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.1em;padding:0 1.25rem;margin-bottom:4px;}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 1.25rem;background:none;border:none;width:100%;text-align:left;cursor:pointer;color:var(--ink2);font-size:13.5px;font-family:var(--sans);transition:all .12s;border-left:3px solid transparent;}
@@ -283,7 +288,11 @@ tr:hover td{background:var(--bg3);}
     </div>
   </header>
   <div class="layout">
-    <aside class="sidebar">
+    <aside class="sidebar" id="main-sidebar">
+      <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Mostrar/ocultar menú">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span id="sidebar-toggle-label">Ocultar</span>
+      </button>
       <div class="nav-group">
         <div class="nav-group-label">Principal</div>
         <button class="nav-item active" onclick="showSection('dashboard')">
@@ -301,13 +310,11 @@ tr:hover td{background:var(--bg3);}
         <button class="nav-item" onclick="showSection('inventario')">
           <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M2 8h16M7 8v9" stroke="currentColor" stroke-width="1.3"/></svg>Ver inventario
         </button>
-        <button class="nav-item" onclick="showSection('alertas')">
+        <button class="nav-item" id="nav-alertas-cuad" onclick="showSection('alertas')">
           <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas
           <span class="nav-badge" id="nav-alert-count" style="display:none">0</span>
         </button>
-        <button class="nav-item" onclick="showSection('visitas-fallidas-cuad')">
-          <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM6 10h8M10 6v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Visita Fallida
-        </button>
+        <!-- Botón Visita Fallida oculto — no implementado actualmente -->
         <button class="nav-item" onclick="showSection('historial')">
           <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Historial
         </button>
@@ -349,14 +356,14 @@ tr:hover td{background:var(--bg3);}
         <div id="dash-admin-view">
           <div class="kpi-grid" id="kpi-grid"></div>
           <div class="card"><div class="card-title">Últimas asignaciones</div><div id="dash-recent"></div></div>
-          <!-- 5. Gráfico materiales más usados -->
+          <!-- 4. Gráfico trabajos realizados por cuadrilla (diario) -->
           <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
-              <div class="card-title" style="margin-bottom:0;">Top materiales más utilizados</div>
-              <select id="dash-chart-periodo" onchange="renderChartMateriales()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;background:var(--bg);">
+              <div class="card-title" style="margin-bottom:0;">Trabajos por cuadrilla</div>
+              <select id="dash-chart-periodo" onchange="renderChartTrabajosXCuadrilla()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;background:var(--bg);">
+                <option value="hoy" selected>Hoy</option>
                 <option value="semana">Esta semana</option>
-                <option value="mes" selected>Este mes</option>
-                <option value="todo">Todo el tiempo</option>
+                <option value="mes">Este mes</option>
               </select>
             </div>
             <div id="chart-container" style="position:relative;width:100%;"></div>
@@ -448,8 +455,8 @@ tr:hover td{background:var(--bg3);}
             <div class="field"><label>Técnico responsable</label><input type="text" id="cli-tecnico"></div>
           </div>
           <div class="form-grid">
-            <div class="field"><label>Hora de inicio de tarea</label><input type="time" id="cli-hora-inicio"></div>
-            <div class="field"><label>Hora de finalización</label><input type="time" id="cli-hora-fin"></div>
+            <div class="field"><label>Hora de inicio de tarea *</label><input type="time" id="cli-hora-inicio" required placeholder="Obligatorio"></div>
+            <div class="field"><label>Hora de finalización <span style="font-size:10px;color:var(--ink3);font-weight:400;">(auto)</span></label><input type="time" id="cli-hora-fin"></div>
           </div>
           <div class="field"><label>Observaciones</label><textarea id="cli-obs" placeholder="Notas..."></textarea></div>
         </div>
@@ -534,55 +541,195 @@ tr:hover td{background:var(--bg3);}
       <!-- ADMIN REPORTES -->
       <section class="section" id="sec-admin-reportes">
         <div class="page-header">
-          <div><h2>Reportes y exportación</h2><p>Descarga registros de asignaciones en Excel/CSV</p></div>
+          <div><h2>Reportes</h2><p>Asignaciones, Kardex y Tiempos por Trabajo</p></div>
         </div>
-        <div class="card">
-          <div class="card-title">Filtros</div>
-          <div class="form-grid">
-            <div class="field"><label>Cuadrilla</label>
-              <select id="rep-cuadrilla" onchange="renderResumenMateriales()"><option value="">Todas las cuadrillas</option></select>
+        <!-- Pestañas de reportes -->
+        <div style="display:flex;gap:4px;margin-bottom:1.2rem;border-bottom:2px solid var(--border);overflow-x:auto;">
+          <button class="rep-tab active" onclick="switchRepTab('asignaciones')" id="tab-asignaciones" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-2px;cursor:pointer;white-space:nowrap;">Asignaciones</button>
+          <button class="rep-tab" onclick="switchRepTab('kardex')" id="tab-kardex" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">Kardex</button>
+          <button class="rep-tab" onclick="switchRepTab('tiempos')" id="tab-tiempos" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">⏱ Tiempos por Trabajo</button>
+          <!-- Tab Visitas Fallidas oculto — no implementado actualmente -->
+        </div>
+
+        <!-- Pestaña: Asignaciones -->
+        <div id="reptab-asignaciones">
+          <div class="card">
+            <div class="card-title">Filtros</div>
+            <div class="form-grid">
+              <div class="field"><label>Cuadrilla</label>
+                <select id="rep-cuadrilla" onchange="renderResumenMateriales()"><option value="">Todas las cuadrillas</option></select>
+              </div>
+              <div class="field"><label>Período</label>
+                <select id="rep-periodo" onchange="toggleRepFechas();renderResumenMateriales()">
+                  <option value="hoy">Hoy</option>
+                  <option value="semana">Esta semana</option>
+                  <option value="mes" selected>Este mes</option>
+                  <option value="personalizado">Personalizado</option>
+                </select>
+              </div>
             </div>
-            <div class="field"><label>Período</label>
-              <select id="rep-periodo" onchange="toggleRepFechas();renderResumenMateriales()">
-                <option value="hoy">Hoy</option>
-                <option value="semana">Esta semana</option>
-                <option value="mes" selected>Este mes</option>
-                <option value="personalizado">Personalizado</option>
+            <div class="form-grid" id="rep-fechas-custom" style="display:none;">
+              <div class="field"><label>Fecha inicio</label><input type="date" id="rep-fecha-ini" onchange="renderResumenMateriales()"></div>
+              <div class="field"><label>Fecha fin</label><input type="date" id="rep-fecha-fin" onchange="renderResumenMateriales()"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-accent" onclick="previsualizarReporte()">Vista previa</button>
+              <button class="btn btn-green" onclick="exportarExcel()">
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
+                Descargar CSV
+              </button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Materiales utilizados en el período</div>
+            <div id="rep-resumen-mats"><p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Selecciona un período para ver el resumen</p></div>
+          </div>
+          <div class="card" id="rep-preview-card" style="display:none;">
+            <div class="card-header">
+              <h3 id="rep-preview-title">Vista previa</h3>
+              <span id="rep-preview-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
+            </div>
+            <div class="table-wrap" id="rep-preview-table"></div>
+          </div>
+        </div>
+
+        <!-- Pestaña: Kardex -->
+        <div id="reptab-kardex" style="display:none;">
+          <div class="card">
+            <div class="card-title">Filtros de Kardex</div>
+            <div class="form-grid">
+              <div class="field"><label>Cuadrilla</label>
+                <select id="km-rep-cuadrilla"><option value="">Todas</option></select>
+              </div>
+              <div class="field"><label>Tipo</label>
+                <select id="km-rep-tipo">
+                  <option value="">Todos</option>
+                  <option value="ingreso">Ingresos</option>
+                  <option value="egreso">Egresos</option>
+                </select>
+              </div>
+              <div class="field"><label>Período</label>
+                <select id="km-rep-periodo" onchange="toggleKmRepFechas()">
+                  <option value="hoy">Hoy</option>
+                  <option value="semana">Esta semana</option>
+                  <option value="mes" selected>Este mes</option>
+                  <option value="personalizado">Personalizado</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid" id="km-rep-fechas" style="display:none;">
+              <div class="field"><label>Fecha inicio</label><input type="date" id="km-rep-ini"></div>
+              <div class="field"><label>Fecha fin</label><input type="date" id="km-rep-fin"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-accent" onclick="renderRepKardex()">Generar reporte</button>
+              <button class="btn btn-green" onclick="exportarKardexCSV()">Descargar CSV</button>
+            </div>
+          </div>
+          <div class="card" id="km-rep-result" style="display:none;">
+            <div class="card-header"><h3>Movimientos de Kardex</h3><span id="km-rep-count" style="font-size:13px;color:var(--ink3);"></span></div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Tipo</th><th>Material</th><th>Cantidad</th><th>Responsable</th><th>Referencia</th></tr></thead>
+              <tbody id="km-rep-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- Pestaña: Tiempos por Trabajo -->
+        <div id="reptab-tiempos" style="display:none;">
+          <div class="card">
+            <div class="card-title">Filtros — Tiempos de trabajo por cuadrilla</div>
+            <div class="form-grid">
+              <div class="field"><label>Cuadrilla</label>
+                <select id="tm-cuadrilla"><option value="">Todas las cuadrillas</option></select>
+              </div>
+              <div class="field"><label>Período</label>
+                <select id="tm-periodo" onchange="toggleTmFechas()">
+                  <option value="hoy">Hoy</option>
+                  <option value="semana">Esta semana</option>
+                  <option value="mes" selected>Este mes</option>
+                  <option value="personalizado">Personalizado</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid" id="tm-fechas" style="display:none;">
+              <div class="field"><label>Fecha inicio</label><input type="date" id="tm-fecha-ini"></div>
+              <div class="field"><label>Fecha fin</label><input type="date" id="tm-fecha-fin"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-accent" onclick="renderTiemposTrabajo()">Generar reporte</button>
+              <button class="btn btn-green" onclick="exportarTiemposCSV()">Descargar CSV</button>
+            </div>
+          </div>
+          <!-- KPIs resumen -->
+          <div class="kpi-grid" id="tm-kpis" style="display:none;">
+            <div class="kpi"><label>Trabajos con tiempo</label><div class="val c-accent" id="tm-kpi-total">—</div><div class="sub">Con hora inicio y fin</div></div>
+            <div class="kpi"><label>Tiempo promedio</label><div class="val c-green" id="tm-kpi-prom">—</div><div class="sub">Por trabajo</div></div>
+            <div class="kpi"><label>Tiempo mínimo</label><div class="val c-amber" id="tm-kpi-min">—</div></div>
+            <div class="kpi"><label>Tiempo máximo</label><div class="val c-red" id="tm-kpi-max">—</div></div>
+          </div>
+          <div class="card" id="tm-result" style="display:none;">
+            <div class="card-header">
+              <h3>Tiempos de trabajo registrados</h3>
+              <span id="tm-count" style="font-size:13px;color:var(--ink3);"></span>
+            </div>
+            <div class="table-wrap"><table>
+              <thead><tr>
+                <th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>OT</th><th>Técnico</th>
+                <th>Hora Inicio</th><th>Hora Fin</th><th>Duración</th><th>Tipo</th>
+              </tr></thead>
+              <tbody id="tm-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- Pestaña: Visitas Fallidas (oculta) -->
+        <div id="reptab-visitas" style="display:none;">
+          <div class="card">
+            <div class="card-title">Filtros de visitas fallidas</div>
+            <div class="form-grid">
+              <div class="field"><label>Cuadrilla</label>
+                <select id="vf-cuadrilla" onchange="renderVisitasFallidas()"><option value="">Todas</option></select>
+              </div>
+              <div class="field"><label>Período</label>
+                <select id="vf-periodo" onchange="toggleVFFechas();renderVisitasFallidas()">
+                  <option value="hoy">Hoy</option>
+                  <option value="semana">Esta semana</option>
+                  <option value="mes" selected>Este mes</option>
+                  <option value="personalizado">Personalizado</option>
+                </select>
+              </div>
+              <div class="field" id="vf-fechas" style="display:none;">
+                <label>Fecha</label>
+                <input type="date" id="vf-fecha" onchange="renderVisitasFallidas()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-green" onclick="exportarVisitasFallidas()">Descargar CSV</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Registros</h3>
+              <span id="vf-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
+            </div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>Motivo</th><th>OT</th><th>Técnico</th><th>Observaciones</th></tr></thead>
+              <tbody id="vf-tbody"></tbody>
+            </table></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Resumen y gráfico de motivos</div>
+            <div id="vf-resumen" style="margin-bottom:1rem;"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+              <select id="vf-chart-tipo" onchange="renderGraficosVisitasFallidas()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;background:var(--bg);">
+                <option value="motivos">Por motivo</option>
+                <option value="cuadrilla">Por cuadrilla</option>
               </select>
+              <button class="btn btn-sm btn-green" onclick="descargarGraficoVisitas()">Descargar gráfico</button>
             </div>
+            <div id="vf-chart-container"></div>
           </div>
-          <div class="form-grid" id="rep-fechas-custom" style="display:none;">
-            <div class="field"><label>Fecha inicio</label><input type="date" id="rep-fecha-ini" onchange="renderResumenMateriales()"></div>
-            <div class="field"><label>Fecha fin</label><input type="date" id="rep-fecha-fin" onchange="renderResumenMateriales()"></div>
-          </div>
-          <div class="form-grid">
-            <div class="field"><label>Tipo de datos</label>
-              <select id="rep-tipo">
-                <option value="asignaciones">Asignaciones a clientes</option>
-                <option value="kardex">Movimientos de Kardex</option>
-                <option value="ambos">Ambos</option>
-              </select>
-            </div>
-          </div>
-          <div class="btn-row">
-            <button class="btn btn-accent" onclick="previsualizarReporte()">Vista previa</button>
-            <button class="btn btn-green" onclick="exportarExcel()">
-              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
-              Descargar Excel/CSV
-            </button>
-          </div>
-        </div>
-        <!-- 10. Resumen de materiales utilizados -->
-        <div class="card">
-          <div class="card-title">Materiales utilizados en el período</div>
-          <div id="rep-resumen-mats"><p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Selecciona un período para ver el resumen</p></div>
-        </div>
-        <div class="card" id="rep-preview-card" style="display:none;">
-          <div class="card-header">
-            <h3 id="rep-preview-title">Vista previa</h3>
-            <span id="rep-preview-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
-          </div>
-          <div class="table-wrap" id="rep-preview-table"></div>
         </div>
       </section>
 
@@ -598,8 +745,8 @@ tr:hover td{background:var(--bg3);}
         </table></div></div>
       </section>
 
-      <!-- VISITAS FALLIDAS -->
-      <section class="section" id="sec-visitas-fallidas">
+      <!-- VISITAS FALLIDAS — OCULTA (no implementada actualmente) -->
+      <section class="section" id="sec-visitas-fallidas" style="display:none!important">
         <div class="page-header">
           <div><h2>Reporte de visitas fallidas</h2><p>Análisis de trabajos no completados</p></div>
         </div>
@@ -708,12 +855,17 @@ tr:hover td{background:var(--bg3);}
   </div>
   <nav class="bottom-nav" id="bottom-nav">
     <button class="bn-item active" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
-    <button class="bn-item" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
-    <button class="bn-item" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
-    <button class="bn-item" onclick="showSection('historial')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mi día</button>
-    <!-- 6. Solo visible para admin en móvil -->
-    <button class="bn-item" id="bn-nuevo-mat" onclick="irNuevoMaterial()" style="display:none;color:var(--accent);"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>+ Material</button>
-    <button class="bn-item" onclick="showSection('alertas')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas</button>
+    <!-- Cuadrilla -->
+    <button class="bn-item bn-cuad" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
+    <button class="bn-item bn-cuad" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
+    <button class="bn-item bn-cuad" onclick="showSection('historial')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mi día</button>
+    <!-- 1. Visita Fallida visible para cuadrilla en móvil -->
+    <!-- Botón Fallida oculto — no implementado actualmente -->
+    <button class="bn-item bn-cuad" onclick="showSection('alertas')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas</button>
+    <!-- Admin en móvil -->
+    <button class="bn-item bn-admin" id="bn-nuevo-mat" onclick="irNuevoMaterial()" style="display:none;color:var(--accent);"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>+ Material</button>
+    <button class="bn-item bn-admin" style="display:none;" onclick="showSection('admin-reportes')"><svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Reportes</button>
+    <!-- Botón Fallidas admin oculto — no implementado actualmente -->
   </nav>
 </div>
 
@@ -1292,6 +1444,313 @@ function sanitizeAdvanced(str) {
 })();
 
 // ══════════════════════════════════════════════════════
+// 7. SIDEBAR TOGGLE — Ocultable en PC y móvil
+// ══════════════════════════════════════════════════════
+function toggleSidebar() {
+  var sb  = document.getElementById('main-sidebar');
+  var btn = document.getElementById('sidebar-toggle-btn');
+  var lbl = document.getElementById('sidebar-toggle-label');
+  if (!sb) return;
+  sb.classList.toggle('collapsed');
+  var collapsed = sb.classList.contains('collapsed');
+  if (btn) btn.classList.toggle('collapsed', collapsed);
+  if (lbl) lbl.textContent = collapsed ? 'Menú' : 'Ocultar';
+  localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0');
+}
+function initSidebarState() {
+  if (localStorage.getItem('sidebar_collapsed') === '1') {
+    var sb  = document.getElementById('main-sidebar');
+    var btn = document.getElementById('sidebar-toggle-btn');
+    var lbl = document.getElementById('sidebar-toggle-label');
+    if (sb)  sb.classList.add('collapsed');
+    if (btn) btn.classList.add('collapsed');
+    if (lbl) lbl.textContent = 'Menú';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 3. PESTAÑAS DE REPORTES
+// ══════════════════════════════════════════════════════
+function switchRepTab(tab) {
+  ['asignaciones','kardex','visitas','tiempos'].forEach(function(t) {
+    var panel = document.getElementById('reptab-'+t);
+    var btn   = document.getElementById('tab-'+t);
+    if (!panel || !btn) return;
+    var active = t === tab;
+    panel.style.display = active ? 'block' : 'none';
+    btn.style.color        = active ? 'var(--accent)' : 'var(--ink3)';
+    btn.style.borderBottom = active ? '2px solid var(--accent)' : '2px solid transparent';
+    btn.style.fontWeight   = active ? '700' : '500';
+  });
+  if (tab === 'visitas') renderVisitasFallidas();
+  if (tab === 'kardex')  { renderRepKardex(); poblarSelKardexRep(); }
+  if (tab === 'asignaciones') renderResumenMateriales();
+  if (tab === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
+}
+
+function poblarSelKardexRep() {
+  var sel = document.getElementById('km-rep-cuadrilla');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Todas</option>';
+  cuadrillasList().forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c.id; o.textContent = c.nombre;
+    sel.appendChild(o);
+  });
+}
+
+function poblarSelTiempos() {
+  var sel = document.getElementById('tm-cuadrilla');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
+  cuadrillasList().forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c.id; o.textContent = c.nombre;
+    sel.appendChild(o);
+  });
+}
+
+function toggleKmRepFechas() {
+  var p = document.getElementById('km-rep-periodo');
+  var f = document.getElementById('km-rep-fechas');
+  if (p && f) f.style.display = p.value === 'personalizado' ? '' : 'none';
+}
+
+function renderRepKardex() {
+  var cid    = (document.getElementById('km-rep-cuadrilla')||{value:''}).value;
+  var tipo   = (document.getElementById('km-rep-tipo')||{value:''}).value;
+  var periodo= (document.getElementById('km-rep-periodo')||{value:'mes'}).value;
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini = new Date(); ini.setHours(0,0,0,0);
+  if (periodo==='semana') ini.setDate(ini.getDate()-7);
+  else if (periodo==='mes') ini = new Date(hoy.getFullYear(),hoy.getMonth(),1);
+  else if (periodo==='personalizado') {
+    var i=document.getElementById('km-rep-ini'), f=document.getElementById('km-rep-fin');
+    if(i&&i.value) ini=new Date(i.value+'T00:00:00');
+    if(f&&f.value) hoy=new Date(f.value+'T23:59:59');
+  }
+  var rows = kardexList().filter(function(k){
+    var d=new Date(k.fecha);
+    return d>=ini && d<=hoy
+      && (!cid  || k.cuadrillaId===cid)
+      && (!tipo || k.tipo===tipo);
+  }).sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
+
+  var card = document.getElementById('km-rep-result');
+  if (card) card.style.display = 'block';
+  var count = document.getElementById('km-rep-count');
+  if (count) count.textContent = rows.length + ' registros';
+  var tbody = document.getElementById('km-rep-tbody');
+  if (!tbody) return;
+  if (!rows.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos')+'</td></tr>'; return; }
+  tbody.innerHTML = rows.map(function(k){
+    var c=getCuad(k.cuadrillaId), m=getMat(k.matId);
+    var bc=k.tipo==='ingreso'?'badge-green':'badge-accent';
+    return '<tr>'
+      +'<td style="font-size:11px;">'+fmtDT(k.fecha)+'</td>'
+      +'<td style="font-size:12px;">'+(c?c.nombre:'—')+'</td>'
+      +'<td><span class="badge '+bc+'">'+k.tipo+'</span></td>'
+      +'<td style="font-size:12px;">'+(m?m.nombre:'—')+'</td>'
+      +'<td style="font-size:12px;font-weight:600;">'+(k.tipo==='ingreso'?'+':'-')+k.qty+' '+(m?m.unidad:'')+'</td>'
+      +'<td style="font-size:12px;">'+(k.resp||'—')+'</td>'
+      +'<td style="font-size:12px;">'+(k.ref||'—')+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function exportarKardexCSV() {
+  var rows=[['Fecha','Cuadrilla','Tipo','Material','Cantidad','Unidad','Responsable','Referencia']];
+  kardexList().forEach(function(k){
+    var c=getCuad(k.cuadrillaId), m=getMat(k.matId);
+    rows.push([fmtDT(k.fecha), c?c.nombre:'—', k.tipo, m?m.nombre:'—', k.qty, m?m.unidad:'', k.resp||'', k.ref||'']);
+  });
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
+  a.download='Kardex_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('CSV descargado','success');
+}
+
+// ══════════════════════════════════════════════════════
+// TIEMPOS POR TRABAJO — Reporte de horas por cuadrilla
+// ══════════════════════════════════════════════════════
+function toggleTmFechas(){
+  var p=document.getElementById('tm-periodo').value;
+  document.getElementById('tm-fechas').style.display=p==='personalizado'?'grid':'none';
+}
+
+function getTmRango(){
+  var p=document.getElementById('tm-periodo').value;
+  var hoy=new Date(); hoy.setHours(23,59,59,999);
+  var ini=new Date(); ini.setHours(0,0,0,0);
+  if(p==='semana'){ ini.setDate(ini.getDate()-ini.getDay()); }
+  else if(p==='mes'){ ini=new Date(hoy.getFullYear(),hoy.getMonth(),1); }
+  else if(p==='personalizado'){
+    var iniVal=document.getElementById('tm-fecha-ini').value;
+    var finVal=document.getElementById('tm-fecha-fin').value;
+    if(iniVal) ini=new Date(iniVal+'T00:00:00');
+    if(finVal) hoy=new Date(finVal+'T23:59:59');
+  }
+  return {ini:ini,fin:hoy};
+}
+
+function calcDuracionMin(horaInicio, horaFin){
+  if(!horaInicio||!horaFin) return null;
+  var partsI=horaInicio.split(':'), partsF=horaFin.split(':');
+  var minI=parseInt(partsI[0])*60+parseInt(partsI[1]);
+  var minF=parseInt(partsF[0])*60+parseInt(partsF[1]);
+  var diff=minF-minI;
+  return diff>0?diff:null; // ignora si fin <= inicio
+}
+
+function fmtDuracion(min){
+  if(min===null) return '—';
+  var h=Math.floor(min/60), m=min%60;
+  return (h>0?h+'h ':'')+m+'min';
+}
+
+function renderTiemposTrabajo(){
+  var cid=document.getElementById('tm-cuadrilla').value||null;
+  var rango=getTmRango();
+  var asigs=asigList().filter(function(a){
+    if(a.anulada) return false;
+    var f=new Date(a.fecha);
+    if(f<rango.ini||f>rango.fin) return false;
+    if(cid && a.cuadrillaId!==cid) return false;
+    return true;
+  });
+
+  // Solo los que tienen hora inicio
+  var conTiempo=asigs.filter(function(a){return a.horaInicio;});
+  var tbody=document.getElementById('tm-tbody');
+  var result=document.getElementById('tm-result');
+  var kpis=document.getElementById('tm-kpis');
+
+  if(!conTiempo.length){
+    result.style.display='block'; kpis.style.display='none';
+    tbody.innerHTML='<tr><td colspan="9">'+empty('Sin trabajos con hora de inicio en este período')+'</td></tr>';
+    document.getElementById('tm-count').textContent='0 registros';
+    return;
+  }
+
+  // Calcular duraciones
+  var duraciones=conTiempo.map(function(a){
+    return {a:a, dur:calcDuracionMin(a.horaInicio,a.horaFin)};
+  });
+  var conDur=duraciones.filter(function(x){return x.dur!==null;});
+  var totalMin=conDur.reduce(function(s,x){return s+x.dur;},0);
+  var promMin=conDur.length?Math.round(totalMin/conDur.length):null;
+  var minMin=conDur.length?Math.min.apply(null,conDur.map(function(x){return x.dur;})):null;
+  var maxMin=conDur.length?Math.max.apply(null,conDur.map(function(x){return x.dur;})):null;
+
+  document.getElementById('tm-kpi-total').textContent=conTiempo.length;
+  document.getElementById('tm-kpi-prom').textContent=fmtDuracion(promMin);
+  document.getElementById('tm-kpi-min').textContent=fmtDuracion(minMin);
+  document.getElementById('tm-kpi-max').textContent=fmtDuracion(maxMin);
+  kpis.style.display='grid';
+
+  conTiempo.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
+  document.getElementById('tm-count').textContent=conTiempo.length+' registros';
+  tbody.innerHTML=conTiempo.map(function(a){
+    var cuad=getCuad(a.cuadrillaId);
+    var dur=calcDuracionMin(a.horaInicio,a.horaFin);
+    return '<tr>'
+      +'<td style="font-size:11px;white-space:nowrap">'+fmtDate(a.fecha)+'</td>'
+      +'<td><strong>'+(cuad?cuad.nombre:'—')+'</strong></td>'
+      +'<td style="font-size:12px">'+(a.cliente||'—')+'</td>'
+      +'<td style="font-size:12px">'+(a.ot||'—')+'</td>'
+      +'<td style="font-size:12px">'+(a.tecnico||'—')+'</td>'
+      +'<td style="font-size:12px;font-weight:600">'+(a.horaInicio||'—')+'</td>'
+      +'<td style="font-size:12px">'+(a.horaFin||'—')+'</td>'
+      +'<td><span class="badge '+(dur!==null?'badge-green':'badge-amber')+'">'+(dur!==null?fmtDuracion(dur):'Sin fin registrado')+'</span></td>'
+      +'<td><span class="badge badge-blue">'+(a.tipo||'—')+'</span></td>'
+      +'</tr>';
+  }).join('');
+  result.style.display='block';
+}
+
+function exportarTiemposCSV(){
+  var cid=document.getElementById('tm-cuadrilla').value||null;
+  var rango=getTmRango();
+  var asigs=asigList().filter(function(a){
+    if(a.anulada) return false;
+    var f=new Date(a.fecha);
+    if(f<rango.ini||f>rango.fin) return false;
+    if(cid && a.cuadrillaId!==cid) return false;
+    return a.horaInicio;
+  });
+  var rows=[['Fecha','Cuadrilla','Cliente','OT','Técnico','Hora Inicio','Hora Fin','Duración (min)','Duración Formato','Tipo']];
+  asigs.forEach(function(a){
+    var cuad=getCuad(a.cuadrillaId);
+    var dur=calcDuracionMin(a.horaInicio,a.horaFin);
+    rows.push([
+      fmtDate(a.fecha), cuad?cuad.nombre:'—', a.cliente||'—', a.ot||'—', a.tecnico||'—',
+      a.horaInicio||'—', a.horaFin||'—', dur!==null?dur:'', dur!==null?fmtDuracion(dur):'Sin fin', a.tipo||'—'
+    ]);
+  });
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var el=document.createElement('a');
+  el.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  el.download='BodegaNet_Tiempos_'+new Date().toISOString().slice(0,10)+'.csv';
+  el.click();
+  toast('CSV de tiempos descargado ('+( rows.length-1)+' registros)','success');
+}
+
+// ══════════════════════════════════════════════════════
+// 4. GRÁFICO TRABAJOS POR CUADRILLA (diario/semanal/mensual)
+// ══════════════════════════════════════════════════════
+function renderChartTrabajosXCuadrilla() {
+  var container = document.getElementById('chart-container');
+  if (!container) return;
+  var periodo = (document.getElementById('dash-chart-periodo')||{value:'hoy'}).value;
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini = new Date(); ini.setHours(0,0,0,0);
+  if (periodo==='semana') ini.setDate(ini.getDate()-7);
+  else if (periodo==='mes') ini = new Date(hoy.getFullYear(),hoy.getMonth(),1);
+
+  // Contar asignaciones por cuadrilla en el período
+  var totales = {};
+  asigList().filter(function(a){
+    return !a.anulada && new Date(a.fecha)>=ini && new Date(a.fecha)<=hoy;
+  }).forEach(function(a){
+    totales[a.cuadrillaId] = (totales[a.cuadrillaId]||0) + 1;
+  });
+
+  var cuads = cuadrillasList();
+  var items = cuads.map(function(c){
+    return { nombre: c.nombre, value: totales[c.id]||0 };
+  }).sort(function(a,b){ return b.value-a.value; });
+
+  if (!items.length || items.every(function(i){return i.value===0;})) {
+    container.innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:2rem;">Sin trabajos registrados en este período</p>';
+    return;
+  }
+
+  var COLORS = ['#e8440a','#1a7a4a','#1a5fa8','#b87800','#7b3fa8','#c92b2b','#0d8a8a','#e8840a'];
+  var maxVal = Math.max.apply(null, items.map(function(i){return i.value;})) || 1;
+
+  var html = '<div style="width:100%;">';
+  items.forEach(function(item, i) {
+    var pct  = Math.round(item.value / maxVal * 100);
+    var color = COLORS[i % COLORS.length];
+    html += '<div style="margin-bottom:14px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
+        + '<span style="font-size:13px;font-weight:500;color:var(--ink);">'+item.nombre+'</span>'
+        + '<strong style="font-size:14px;color:'+color+';">'+item.value+' trabajo(s)</strong>'
+      + '</div>'
+      + '<div style="height:26px;background:var(--bg3);border-radius:6px;overflow:hidden;">'
+        + '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:6px;display:flex;align-items:center;padding-left:8px;transition:width .5s ease;min-width:'+(item.value>0?'2':'0')+'%;">'
+          + (pct>15 ? '<span style="font-size:11px;color:#fff;font-weight:600;">'+item.value+'</span>' : '')
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════
 // FIREBASE — LISTENERS EN TIEMPO REAL
 // ══════════════════════════════════════════════════════
 function initFirebaseListeners() {
@@ -1496,14 +1955,23 @@ function startApp() {
   if (currentUser.tipo === 'admin') {
     tc.textContent = '★ Administrador'; tc.style.background = 'var(--ink)'; tc.style.color = '#fff';
     document.getElementById('admin-nav').style.display = 'block';
-    // Admin: ocultar alertas del nav (punto 4)
-    document.querySelector('[onclick*="showSection(\'alertas\'"]').closest('.nav-group') && null;
+    // Admin: mostrar btns admin en bottom nav, ocultar cuadrilla
+    document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='flex'; });
+    document.querySelectorAll('.bn-cuad').forEach(function(b){ b.style.display='none'; });
+    // 6. Ocultar alertas y visita fallida cuad del sidebar para admin
+    var navAlertas = document.getElementById('nav-alertas-cuad');
+    if (navAlertas) navAlertas.style.display = 'none';
+    var navVisitaCuad = document.getElementById('nav-visita-cuad');
+    if (navVisitaCuad) navVisitaCuad.style.display = 'none';
     document.getElementById('alert-bell-wrap') && (document.getElementById('alert-bell-wrap').style.display='none');
     showSection('dashboard');
   } else {
     var c = getCuad(currentUser.cuadrillaId);
     tc.textContent = c ? c.nombre : 'Cuadrilla';
     document.getElementById('admin-nav').style.display = 'none';
+    // Ocultar botones admin del bottom nav para cuadrilla
+    document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='none'; });
+    document.querySelectorAll('.bn-cuad').forEach(function(b){ b.style.display='flex'; });
     // Cuadrilla: ir al Dashboard propio (stock + asignaciones del día)
     showSection('dashboard');
   }
@@ -1637,14 +2105,11 @@ function renderDashboard() {
     new Date().toLocaleDateString('es-HN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
   if (esAdmin) {
-    // ── Vista ADMIN (igual que antes) ──
+    // ── Vista ADMIN ──
     document.getElementById('dash-admin-view').style.display = 'block';
     document.getElementById('dash-cuad-view').style.display = 'none';
     document.getElementById('dash-acciones').style.display = 'none';
     document.getElementById('dash-title').textContent = 'Dashboard';
-    // 6. Mostrar botón + Material en bottom nav para admin
-    var bnMat = document.getElementById('bn-nuevo-mat');
-    if (bnMat) bnMat.style.display = 'flex';
     var mats = materialesList();
     var bajo = mats.filter(function(m){ return getStockVis(null,m.id)<m.min; }).length;
     var asigHoy = asigList().filter(function(a){ return !a.anulada && fmtDate(a.fecha)===today; }).length;
@@ -1668,8 +2133,8 @@ function renderDashboard() {
             +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button></div>';
         }).join('');
     var bajos = mats.filter(function(m){return getStockVis(null,m.id)<m.min;});
-    // 5. Renderizar gráfico de materiales más usados
-    renderChartMateriales();
+    // 4. Renderizar gráfico trabajos por cuadrilla
+    renderChartTrabajosXCuadrilla();
 
   } else {
     // ── Vista CUADRILLA: stock + asignaciones del día ──
@@ -2121,7 +2586,18 @@ function renderKardex(){
 // ══════════════════════════════════════════════════════
 // ASIGNAR A CLIENTE
 // ══════════════════════════════════════════════════════
-function initAsignar(){if(!asigRows.length)asigRows=[{uid:uid(),matId:'',qty:1}];renderAsigRows();}
+function initAsignar(){
+  if(!asigRows.length)asigRows=[{uid:uid(),matId:'',qty:1}];
+  renderAsigRows();
+  // Auto-llenar hora de finalización con la hora actual del dispositivo
+  var horaFinEl=document.getElementById('cli-hora-fin');
+  if(horaFinEl){
+    var now=new Date();
+    var hh=String(now.getHours()).padStart(2,'0');
+    var mm=String(now.getMinutes()).padStart(2,'0');
+    horaFinEl.value=hh+':'+mm;
+  }
+}
 function addAsigRow(){if(asigRows.length>=15){toast('Máximo 15','info');return;}asigRows.push({uid:uid(),matId:'',qty:1});renderAsigRows();}
 function removeAsigRow(u){if(asigRows.length<=1)return;asigRows=asigRows.filter(function(r){return r.uid!==u;});renderAsigRows();}
 
@@ -2158,6 +2634,8 @@ function setARQ(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r)r.
 function registrarAsignacion(){
   var nombre=document.getElementById('cli-nombre').value.trim();
   if(!nombre){toast('Ingresa el nombre del cliente','error');return;}
+  var horaInicio=document.getElementById('cli-hora-inicio').value;
+  if(!horaInicio){toast('La hora de inicio es obligatoria','error');document.getElementById('cli-hora-inicio').focus();return;}
   var cid=currentUser.tipo==='admin'?(cuadrillasList()[0]&&cuadrillasList()[0].id):currentUser.cuadrillaId;
   var validos=asigRows.filter(function(r){return r.matId&&r.qty>0;});
   if(!validos.length){toast('Agrega al menos un material','error');return;}
@@ -2213,6 +2691,12 @@ function limpiarAsignacion(){
   ['cli-nombre','cli-tel','cli-dir','cli-municipio','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
   asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
+  // Re-auto-llenar hora de finalización tras limpiar
+  var horaFinEl=document.getElementById('cli-hora-fin');
+  if(horaFinEl){
+    var now=new Date();
+    horaFinEl.value=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  }
 }
 
 // ══════════════════════════════════════════════════════
