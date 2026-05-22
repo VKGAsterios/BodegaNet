@@ -260,12 +260,19 @@ tr:hover td{background:var(--bg3);}
       <div class="admin-link"><a onclick="showAdminLogin()">Acceso Administrador</a></div>
     </div>
     <div id="login-admin-area" style="display:none">
-      <label class="login-label">Clave de administrador</label>
+      <!-- Selector de rol -->
+      <label class="login-label">Acceso como</label>
+      <select class="login-select" id="admin-rol-sel" onchange="onAdminRolChange()" style="margin-bottom:.8rem;">
+        <option value="admin1">👔 Administrador — Sector 1</option>
+        <option value="admin2">👔 Administrador — Sector 2</option>
+        <option value="superadmin">⭐ SuperAdministrador</option>
+      </select>
+      <label class="login-label" id="admin-pass-label">Clave de Sector 1</label>
       <div class="pass-field">
         <input class="login-input" type="password" id="admin-pass" placeholder="••••••" style="padding-right:40px" onkeypress="if(event.key==='Enter'){loginAdmin();return false;}">
         <button class="pass-toggle" onclick="togglePass('admin-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
-      <button class="login-btn dark" onclick="loginAdmin()">Entrar como Administrador</button>
+      <button class="login-btn dark" onclick="loginAdmin()">Entrar</button>
       <div id="login-err-admin" style="display:none;background:var(--red-light);border:1px solid #f5c5c5;border-radius:var(--r);padding:9px 12px;font-size:13px;color:var(--red);margin-top:10px;text-align:center;font-weight:500;"></div>
       <div class="login-divider">o</div>
       <div class="admin-link"><a onclick="showCuadrillaLogin()">← Volver</a></div>
@@ -520,10 +527,28 @@ tr:hover td{background:var(--bg3);}
           <div><h2>Gestionar materiales</h2><p>Catálogo global — las cantidades se cargan desde Kardex</p></div>
           <button class="btn btn-accent" onclick="openMatModal()">+ Nuevo material</button>
         </div>
-        <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Unidad</th><th>Stock mín.</th><th>Acciones</th></tr></thead>
-          <tbody id="admin-mat-tbody"></tbody>
-        </table></div></div>
+        <div class="card">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+            <div style="position:relative;flex:1;min-width:200px;">
+              <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.45;pointer-events:none;" width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.8"/><path d="M14 14l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <input type="text" id="admin-mat-search" placeholder="Buscar por nombre, código o categoría..." oninput="renderAdminMateriales()"
+                style="width:100%;padding:8px 12px 8px 32px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+            <select id="admin-mat-filter-cat" onchange="renderAdminMateriales()"
+              style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;outline:none;background:var(--surface);color:var(--ink1);">
+              <option value="">Todas las categorías</option>
+              <option>Fibra Óptica</option><option>Cable Coaxial</option><option>Wireless / Radio</option>
+              <option>Conectores</option><option>Equipos Activos</option><option>Herramientas</option>
+              <option>Accesorios</option><option>Otro</option>
+            </select>
+            <span id="admin-mat-count" style="font-size:12px;color:var(--ink3);white-space:nowrap;"></span>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Unidad</th><th>Stock mín.</th><th>Acciones</th></tr></thead>
+            <tbody id="admin-mat-tbody"></tbody>
+          </table></div>
+        </div>
       </section>
 
       <!-- ADMIN CUADRILLAS -->
@@ -533,7 +558,7 @@ tr:hover td{background:var(--bg3);}
           <button class="btn btn-accent" onclick="openCuadrillaModal()">+ Nueva cuadrilla</button>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Nombre</th><th>Responsable</th><th>Zona</th><th>Contraseña</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>#</th><th>Nombre</th><th>Responsable</th><th>Zona</th><th>Sector</th><th>Contraseña</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody id="admin-cuad-tbody"></tbody>
         </table></div></div>
       </section>
@@ -641,10 +666,19 @@ tr:hover td{background:var(--bg3);}
             <div class="card-title">Filtros — Tiempos de trabajo por cuadrilla</div>
             <div class="form-grid">
               <div class="field"><label>Cuadrilla</label>
-                <select id="tm-cuadrilla"><option value="">Todas las cuadrillas</option></select>
+                <select id="tm-cuadrilla" onchange="renderTiemposTrabajo()"><option value="">Todas las cuadrillas</option></select>
+              </div>
+              <div class="field"><label>Tipo de trabajo</label>
+                <select id="tm-tipo" onchange="renderTiemposTrabajo()">
+                  <option value="">Todos los tipos</option>
+                  <option>Instalación nueva</option>
+                  <option>Reparación</option>
+                  <option>Ampliación</option>
+                  <option>Otro</option>
+                </select>
               </div>
               <div class="field"><label>Período</label>
-                <select id="tm-periodo" onchange="toggleTmFechas()">
+                <select id="tm-periodo" onchange="toggleTmFechas();renderTiemposTrabajo()">
                   <option value="hoy">Hoy</option>
                   <option value="semana">Esta semana</option>
                   <option value="mes" selected>Este mes</option>
@@ -653,8 +687,8 @@ tr:hover td{background:var(--bg3);}
               </div>
             </div>
             <div class="form-grid" id="tm-fechas" style="display:none;">
-              <div class="field"><label>Fecha inicio</label><input type="date" id="tm-fecha-ini"></div>
-              <div class="field"><label>Fecha fin</label><input type="date" id="tm-fecha-fin"></div>
+              <div class="field"><label>Fecha inicio</label><input type="date" id="tm-fecha-ini" onchange="renderTiemposTrabajo()"></div>
+              <div class="field"><label>Fecha fin</label><input type="date" id="tm-fecha-fin" onchange="renderTiemposTrabajo()"></div>
             </div>
             <div class="btn-row">
               <button class="btn btn-accent" onclick="renderTiemposTrabajo()">Generar reporte</button>
@@ -668,9 +702,19 @@ tr:hover td{background:var(--bg3);}
             <div class="kpi"><label>Tiempo mínimo</label><div class="val c-amber" id="tm-kpi-min">—</div></div>
             <div class="kpi"><label>Tiempo máximo</label><div class="val c-red" id="tm-kpi-max">—</div></div>
           </div>
+          <!-- Promedios por tipo -->
+          <div class="card" id="tm-por-tipo" style="display:none;">
+            <div class="card-title">⏱ Tiempo promedio por tipo de trabajo</div>
+            <div id="tm-tipo-tabla"></div>
+          </div>
+          <!-- Promedios por cuadrilla -->
+          <div class="card" id="tm-por-cuad" style="display:none;">
+            <div class="card-title">👷 Tiempo promedio por cuadrilla</div>
+            <div id="tm-cuad-tabla"></div>
+          </div>
           <div class="card" id="tm-result" style="display:none;">
             <div class="card-header">
-              <h3>Tiempos de trabajo registrados</h3>
+              <h3>Detalle de trabajos</h3>
               <span id="tm-count" style="font-size:13px;color:var(--ink3);"></span>
             </div>
             <div class="table-wrap"><table>
@@ -824,10 +868,25 @@ tr:hover td{background:var(--bg3);}
 
       <!-- ADMIN CONFIG -->
       <section class="section" id="sec-admin-config">
-        <div class="page-header"><div><h2>Configuración de administrador</h2><p>Contraseña y sesiones activas</p></div></div>
-        <!-- 6. Cambio de contraseña -->
+        <div class="page-header"><div><h2>Configuración</h2><p>Contraseñas, sectores y sesiones activas</p></div></div>
+
+        <!-- Nombres de sectores (solo SuperAdmin) -->
+        <div class="card" id="cfg-sectores-card" style="display:none;">
+          <div class="card-title">🗂 Nombres de sectores</div>
+          <div class="form-grid">
+            <div class="field"><label>Nombre Sector 1</label>
+              <input type="text" id="cfg-sector1-nombre" class="field-input" placeholder="Ej: Sector Norte" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field"><label>Nombre Sector 2</label>
+              <input type="text" id="cfg-sector2-nombre" class="field-input" placeholder="Ej: Sector Sur" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+          </div>
+          <button class="btn btn-accent" onclick="guardarNombresSectores()">Guardar nombres</button>
+        </div>
+
+        <!-- Cambio de contraseña Admin Sector 1 -->
         <div class="card">
-          <div class="card-title">Cambiar contraseña de administrador</div>
+          <div class="card-title" id="cfg-pass1-title">🔑 Cambiar contraseña — Admin Sector 1</div>
           <div class="form-grid g1">
             <div class="field"><label>Contraseña actual</label>
               <div class="pass-field"><input type="password" id="chpass-actual" class="field-input" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
@@ -843,6 +902,38 @@ tr:hover td{background:var(--bg3);}
             </div>
           </div>
           <button class="btn btn-accent" onclick="cambiarPassAdmin()">Actualizar contraseña</button>
+        </div>
+
+        <!-- Cambio de contraseña Admin Sector 2 (solo SuperAdmin) -->
+        <div class="card" id="cfg-pass2-card" style="display:none;">
+          <div class="card-title">🔑 Cambiar contraseña — Admin Sector 2</div>
+          <div class="form-grid g1">
+            <div class="field"><label>Nueva contraseña</label>
+              <div class="pass-field"><input type="password" id="chpass2-nueva" class="field-input" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <button class="pass-toggle" onclick="togglePass('chpass2-nueva')">👁</button></div>
+            </div>
+            <div class="field"><label>Confirmar contraseña</label>
+              <div class="pass-field"><input type="password" id="chpass2-confirmar" class="field-input" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <button class="pass-toggle" onclick="togglePass('chpass2-confirmar')">👁</button></div>
+            </div>
+          </div>
+          <button class="btn btn-green" onclick="cambiarPassAdmin2()">Actualizar contraseña Sector 2</button>
+        </div>
+
+        <!-- Cambio de contraseña SuperAdmin (solo SuperAdmin) -->
+        <div class="card" id="cfg-pass-super-card" style="display:none;">
+          <div class="card-title" style="color:#7B2FBE;">⭐ Cambiar contraseña — SuperAdmin</div>
+          <div class="form-grid g1">
+            <div class="field"><label>Nueva contraseña</label>
+              <div class="pass-field"><input type="password" id="chpassS-nueva" class="field-input" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <button class="pass-toggle" onclick="togglePass('chpassS-nueva')">👁</button></div>
+            </div>
+            <div class="field"><label>Confirmar contraseña</label>
+              <div class="pass-field"><input type="password" id="chpassS-confirmar" class="field-input" style="width:100%;padding:10px 40px 10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <button class="pass-toggle" onclick="togglePass('chpassS-confirmar')">👁</button></div>
+            </div>
+          </div>
+          <button class="btn" style="background:#7B2FBE;color:#fff;" onclick="cambiarPassSuper()">Actualizar contraseña SuperAdmin</button>
         </div>
         <!-- 7. Sesiones activas -->
         <div class="card">
@@ -934,7 +1025,13 @@ tr:hover td{background:var(--bg3);}
     <div class="form-grid g1"><div class="field"><label>Nombre *</label><input type="text" id="cuad-nombre" placeholder="Ej: Cuadrilla Norte"></div></div>
     <div class="form-grid">
       <div class="field"><label>Responsable</label><input type="text" id="cuad-resp" placeholder="Jefe de cuadrilla"></div>
-      <div class="field"><label>Zona / Sector</label><input type="text" id="cuad-zona" placeholder="Zona Norte..."></div>
+      <div class="field"><label>Zona</label><input type="text" id="cuad-zona" placeholder="Zona Norte..."></div>
+      <div class="field"><label>Sector *</label>
+        <select id="cuad-sector" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+          <option value="1">Sector 1</option>
+          <option value="2">Sector 2</option>
+        </select>
+      </div>
     </div>
     <div class="form-grid g1"><div class="field">
       <label>Contraseña de acceso *</label>
@@ -1101,7 +1198,11 @@ function puedeAccederCuadrilla(cid) {
 // ══════════════════════════════════════════════════════
 // ESTADO LOCAL (caché en memoria)
 // ══════════════════════════════════════════════════════
-var ADMIN_PASS = 'admin2024';
+var ADMIN_PASS       = 'admin2024';   // Admin Sector 1
+var ADMIN2_PASS      = 'admin2025';   // Admin Sector 2 (cambiar en Config)
+var SUPER_PASS       = 'super2024';   // SuperAdmin (cambiar en Config)
+var SECTOR1_NOMBRE   = 'Sector 1';
+var SECTOR2_NOMBRE   = 'Sector 2';
 var currentUser = null;
 var kardexTipo = 'ingreso';
 var kardexRows = [];
@@ -1127,9 +1228,31 @@ function setStock(cid, mid, val) {
   cache.stocks[cid][mid] = Math.max(0, val);
 }
 function cuadrillasList() { return Object.entries(cache.cuadrillas).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
+
+// Devuelve las cuadrillas visibles para el usuario actual según su sector
+function getCuadrillasFiltradas() {
+  var all = cuadrillasList();
+  if (!currentUser || currentUser.tipo !== 'admin') return all;
+  var sector = currentUser.sector; // '1', '2', o null (superadmin)
+  if (!sector) return all;
+  return all.filter(function(c) {
+    var cs = c.sector || '1'; // cuadrillas sin sector asignado pertenecen a Sector 1 (legado)
+    return cs === sector;
+  });
+}
 function materialesList() { return Object.entries(cache.materiales).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
 function kardexList() { return Object.entries(cache.kardex).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
 function asigList() { return Object.entries(cache.asignaciones).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
+
+// asigList filtrada por el sector del admin logueado
+function asigListFiltrada() {
+  var all = asigList();
+  if (!currentUser || currentUser.tipo !== 'admin') return all;
+  var sector = currentUser.sector;
+  if (!sector) return all; // superadmin ve todo
+  var cuadsDelSector = getCuadrillasFiltradas().map(function(c){ return c.id; });
+  return all.filter(function(a){ return cuadsDelSector.indexOf(a.cuadrillaId) > -1; });
+}
 function fmtDate(d) { return new Date(d).toLocaleDateString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric'}); }
 function fmtDT(d) { return new Date(d).toLocaleString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
 function nowISO() { return new Date().toISOString(); }
@@ -1486,6 +1609,7 @@ function switchRepTab(tab) {
   if (tab === 'kardex')  { renderRepKardex(); poblarSelKardexRep(); }
   if (tab === 'asignaciones') renderResumenMateriales();
   if (tab === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
+  if (tab === 'admin-config' || id === 'admin-config') { initConfigSeccion(); }
 }
 
 function poblarSelKardexRep() {
@@ -1503,7 +1627,7 @@ function poblarSelTiempos() {
   var sel = document.getElementById('tm-cuadrilla');
   if (!sel) return;
   sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
-  cuadrillasList().forEach(function(c) {
+  getCuadrillasFiltradas().forEach(function(c) {
     var o = document.createElement('option');
     o.value = c.id; o.textContent = c.nombre;
     sel.appendChild(o);
@@ -1611,48 +1735,109 @@ function fmtDuracion(min){
 }
 
 function renderTiemposTrabajo(){
-  var cid=document.getElementById('tm-cuadrilla').value||null;
-  var rango=getTmRango();
-  var asigs=asigList().filter(function(a){
+  var cid   = document.getElementById('tm-cuadrilla').value||null;
+  var tipo  = (document.getElementById('tm-tipo')||{value:''}).value||null;
+  var rango = getTmRango();
+
+  // Usar asigListFiltrada para respetar el sector del admin
+  var asigs = asigListFiltrada().filter(function(a){
     if(a.anulada) return false;
     var f=new Date(a.fecha);
     if(f<rango.ini||f>rango.fin) return false;
-    if(cid && a.cuadrillaId!==cid) return false;
+    if(cid  && a.cuadrillaId!==cid)  return false;
+    if(tipo && (a.tipo||'')!==tipo)  return false;
     return true;
   });
 
-  // Solo los que tienen hora inicio
-  var conTiempo=asigs.filter(function(a){return a.horaInicio;});
-  var tbody=document.getElementById('tm-tbody');
-  var result=document.getElementById('tm-result');
-  var kpis=document.getElementById('tm-kpis');
+  var conTiempo = asigs.filter(function(a){ return a.horaInicio; });
+  var tbody  = document.getElementById('tm-tbody');
+  var result = document.getElementById('tm-result');
+  var kpis   = document.getElementById('tm-kpis');
+  var porTipoEl = document.getElementById('tm-por-tipo');
+  var porCuadEl = document.getElementById('tm-por-cuad');
 
   if(!conTiempo.length){
     result.style.display='block'; kpis.style.display='none';
+    if(porTipoEl) porTipoEl.style.display='none';
+    if(porCuadEl) porCuadEl.style.display='none';
     tbody.innerHTML='<tr><td colspan="9">'+empty('Sin trabajos con hora de inicio en este período')+'</td></tr>';
     document.getElementById('tm-count').textContent='0 registros';
     return;
   }
 
-  // Calcular duraciones
-  var duraciones=conTiempo.map(function(a){
-    return {a:a, dur:calcDuracionMin(a.horaInicio,a.horaFin)};
-  });
-  var conDur=duraciones.filter(function(x){return x.dur!==null;});
-  var totalMin=conDur.reduce(function(s,x){return s+x.dur;},0);
-  var promMin=conDur.length?Math.round(totalMin/conDur.length):null;
-  var minMin=conDur.length?Math.min.apply(null,conDur.map(function(x){return x.dur;})):null;
-  var maxMin=conDur.length?Math.max.apply(null,conDur.map(function(x){return x.dur;})):null;
+  // ── KPIs globales ────────────────────────────────
+  var conDur = conTiempo.filter(function(a){ return calcDuracionMin(a.horaInicio,a.horaFin)!==null; });
+  var durs   = conDur.map(function(a){ return calcDuracionMin(a.horaInicio,a.horaFin); });
+  var total  = durs.reduce(function(s,d){ return s+d; },0);
+  var prom   = durs.length ? Math.round(total/durs.length) : null;
+  var minD   = durs.length ? Math.min.apply(null,durs) : null;
+  var maxD   = durs.length ? Math.max.apply(null,durs) : null;
+  document.getElementById('tm-kpi-total').textContent = conTiempo.length;
+  document.getElementById('tm-kpi-prom').textContent  = fmtDuracion(prom);
+  document.getElementById('tm-kpi-min').textContent   = fmtDuracion(minD);
+  document.getElementById('tm-kpi-max').textContent   = fmtDuracion(maxD);
+  kpis.style.display = 'grid';
 
-  document.getElementById('tm-kpi-total').textContent=conTiempo.length;
-  document.getElementById('tm-kpi-prom').textContent=fmtDuracion(promMin);
-  document.getElementById('tm-kpi-min').textContent=fmtDuracion(minMin);
-  document.getElementById('tm-kpi-max').textContent=fmtDuracion(maxMin);
-  kpis.style.display='grid';
+  // ── Promedios por tipo de trabajo ─────────────────
+  if(porTipoEl){
+    var byTipo = {};
+    conDur.forEach(function(a){
+      var t = a.tipo||'Sin tipo';
+      if(!byTipo[t]) byTipo[t]={sum:0,cnt:0,min:999999,max:0};
+      var d = calcDuracionMin(a.horaInicio,a.horaFin);
+      byTipo[t].sum+=d; byTipo[t].cnt++;
+      if(d<byTipo[t].min) byTipo[t].min=d;
+      if(d>byTipo[t].max) byTipo[t].max=d;
+    });
+    var tipoRows = Object.keys(byTipo).map(function(t){
+      var g=byTipo[t]; var pr=Math.round(g.sum/g.cnt);
+      return '<tr>'
+        +'<td><span class="badge badge-blue">'+t+'</span></td>'
+        +'<td style="font-weight:600;text-align:center">'+g.cnt+'</td>'
+        +'<td style="text-align:center;color:var(--green);font-weight:700">'+fmtDuracion(pr)+'</td>'
+        +'<td style="text-align:center;color:var(--amber)">'+fmtDuracion(g.min)+'</td>'
+        +'<td style="text-align:center;color:var(--red)">'+fmtDuracion(g.max)+'</td>'
+        +'</tr>';
+    }).join('');
+    document.getElementById('tm-tipo-tabla').innerHTML =
+      '<div class="table-wrap"><table>'
+      +'<thead><tr><th>Tipo</th><th style="text-align:center">Trabajos</th><th style="text-align:center">Prom.</th><th style="text-align:center">Mín.</th><th style="text-align:center">Máx.</th></tr></thead>'
+      +'<tbody>'+tipoRows+'</tbody></table></div>';
+    porTipoEl.style.display = 'block';
+  }
 
-  conTiempo.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
-  document.getElementById('tm-count').textContent=conTiempo.length+' registros';
-  tbody.innerHTML=conTiempo.map(function(a){
+  // ── Promedios por cuadrilla ───────────────────────
+  if(porCuadEl){
+    var byCuad = {};
+    conDur.forEach(function(a){
+      var cid2 = a.cuadrillaId||'sin-cuad';
+      if(!byCuad[cid2]) byCuad[cid2]={sum:0,cnt:0,min:999999,max:0};
+      var d = calcDuracionMin(a.horaInicio,a.horaFin);
+      byCuad[cid2].sum+=d; byCuad[cid2].cnt++;
+      if(d<byCuad[cid2].min) byCuad[cid2].min=d;
+      if(d>byCuad[cid2].max) byCuad[cid2].max=d;
+    });
+    var cuadRows = Object.keys(byCuad).map(function(cid2){
+      var g=byCuad[cid2]; var cuad=getCuad(cid2); var pr=Math.round(g.sum/g.cnt);
+      return '<tr>'
+        +'<td><strong>'+(cuad?cuad.nombre:cid2)+'</strong></td>'
+        +'<td style="font-weight:600;text-align:center">'+g.cnt+'</td>'
+        +'<td style="text-align:center;color:var(--green);font-weight:700">'+fmtDuracion(pr)+'</td>'
+        +'<td style="text-align:center;color:var(--amber)">'+fmtDuracion(g.min)+'</td>'
+        +'<td style="text-align:center;color:var(--red)">'+fmtDuracion(g.max)+'</td>'
+        +'</tr>';
+    }).join('');
+    document.getElementById('tm-cuad-tabla').innerHTML =
+      '<div class="table-wrap"><table>'
+      +'<thead><tr><th>Cuadrilla</th><th style="text-align:center">Trabajos</th><th style="text-align:center">Prom.</th><th style="text-align:center">Mín.</th><th style="text-align:center">Máx.</th></tr></thead>'
+      +'<tbody>'+cuadRows+'</tbody></table></div>';
+    porCuadEl.style.display = 'block';
+  }
+
+  // ── Tabla de detalle ──────────────────────────────
+  conTiempo.sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
+  document.getElementById('tm-count').textContent = conTiempo.length+' registros';
+  tbody.innerHTML = conTiempo.map(function(a){
     var cuad=getCuad(a.cuadrillaId);
     var dur=calcDuracionMin(a.horaInicio,a.horaFin);
     return '<tr>'
@@ -1663,7 +1848,7 @@ function renderTiemposTrabajo(){
       +'<td style="font-size:12px">'+(a.tecnico||'—')+'</td>'
       +'<td style="font-size:12px;font-weight:600">'+(a.horaInicio||'—')+'</td>'
       +'<td style="font-size:12px">'+(a.horaFin||'—')+'</td>'
-      +'<td><span class="badge '+(dur!==null?'badge-green':'badge-amber')+'">'+(dur!==null?fmtDuracion(dur):'Sin fin registrado')+'</span></td>'
+      +'<td><span class="badge '+(dur!==null?'badge-green':'badge-amber')+'">'+(dur!==null?fmtDuracion(dur):'Sin fin')+'</span></td>'
       +'<td><span class="badge badge-blue">'+(a.tipo||'—')+'</span></td>'
       +'</tr>';
   }).join('');
@@ -1671,13 +1856,15 @@ function renderTiemposTrabajo(){
 }
 
 function exportarTiemposCSV(){
-  var cid=document.getElementById('tm-cuadrilla').value||null;
-  var rango=getTmRango();
-  var asigs=asigList().filter(function(a){
+  var cid  = document.getElementById('tm-cuadrilla').value||null;
+  var tipo = (document.getElementById('tm-tipo')||{value:''}).value||null;
+  var rango= getTmRango();
+  var asigs= asigListFiltrada().filter(function(a){
     if(a.anulada) return false;
     var f=new Date(a.fecha);
     if(f<rango.ini||f>rango.fin) return false;
-    if(cid && a.cuadrillaId!==cid) return false;
+    if(cid  && a.cuadrillaId!==cid) return false;
+    if(tipo && (a.tipo||'')!==tipo) return false;
     return a.horaInicio;
   });
   var rows=[['Fecha','Cuadrilla','Cliente','OT','Técnico','Hora Inicio','Hora Fin','Duración (min)','Duración Formato','Tipo']];
@@ -1775,9 +1962,12 @@ function initFirebaseListeners() {
     cache.asignaciones = snap.val() || {};
     if (currentUser) renderCurrentSection();
   });
-  db.ref('config/adminPass').on('value', function(snap) {
-    if (snap.val()) ADMIN_PASS = snap.val();
-  });
+  // Listeners de config — protegidos para no romper si la ruta no existe aún
+  try { db.ref('config/adminPass').on('value',      function(snap){ if(snap.val()) ADMIN_PASS     = snap.val(); }); } catch(e){}
+  try { db.ref('config/admin2Pass').on('value',     function(snap){ if(snap.val()) ADMIN2_PASS    = snap.val(); }); } catch(e){}
+  try { db.ref('config/superPass').on('value',      function(snap){ if(snap.val()) SUPER_PASS     = snap.val(); }); } catch(e){}
+  try { db.ref('config/sector1Nombre').on('value',  function(snap){ if(snap.val()) SECTOR1_NOMBRE = snap.val(); }); } catch(e){}
+  try { db.ref('config/sector2Nombre').on('value',  function(snap){ if(snap.val()) SECTOR2_NOMBRE = snap.val(); }); } catch(e){}
   // 1. Escuchar visitas fallidas
   db.ref('visitas_fallidas').on('value', function(snap) {
     cache.visitas_fallidas = snap.val() || {};
@@ -1800,6 +1990,7 @@ function renderCurrentSection() {
     'visitas-fallidas-cuad': renderVisitasFallidasCuad
   };
   if (renders[currentSection]) renders[currentSection]();
+  if (currentSection === 'admin-config') initConfigSeccion();
   // Ajustar títulos del historial según el usuario
   if(currentSection==='historial' && currentUser){
     var esCuad = currentUser.tipo!=='admin';
@@ -1901,13 +2092,32 @@ function loginCuadrilla() {
   startApp();
 }
 
+function onAdminRolChange() {
+  var rol = document.getElementById('admin-rol-sel').value;
+  var lbl = document.getElementById('admin-pass-label');
+  if (rol === 'admin1')      lbl.textContent = 'Clave de ' + SECTOR1_NOMBRE;
+  else if (rol === 'admin2') lbl.textContent = 'Clave de ' + SECTOR2_NOMBRE;
+  else                       lbl.textContent = 'Clave de SuperAdministrador';
+  document.getElementById('admin-pass').value = '';
+  document.getElementById('login-err-admin').style.display = 'none';
+}
+
 function loginAdmin() {
   if (!checkLoginRateLimit()) return;
   var pass = document.getElementById('admin-pass').value;
-  if (!pass) { showLoginError('admin','Ingresa la contraseña de administrador.'); return; }
-  if (pass !== ADMIN_PASS) {
+  var rol  = document.getElementById('admin-rol-sel').value;
+  if (!pass) { showLoginError('admin','Ingresa la contraseña.'); return; }
+
+  var passEsperada = rol === 'admin1' ? ADMIN_PASS
+                   : rol === 'admin2' ? ADMIN2_PASS
+                   : SUPER_PASS;
+  var nombreRol    = rol === 'admin1' ? ('Admin ' + SECTOR1_NOMBRE)
+                   : rol === 'admin2' ? ('Admin ' + SECTOR2_NOMBRE)
+                   : 'SuperAdministrador';
+
+  if (pass !== passEsperada) {
     registrarIntentoFallido();
-    registrarLog('Administrador', 'admin', 'fallido');
+    registrarLog(nombreRol, 'admin', 'fallido');
     var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
     showLoginError('admin', '⚠ Clave incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
     if (navigator.vibrate) navigator.vibrate([100,50,100]);
@@ -1915,8 +2125,14 @@ function loginAdmin() {
   }
   clearLoginError('admin');
   resetLoginAttempts();
-  currentUser = { tipo: 'admin', cuadrillaId: null };
-  registrarLog('Administrador', 'admin', 'exitoso');
+  currentUser = {
+    tipo: 'admin',
+    rol: rol,              // 'admin1' | 'admin2' | 'superadmin'
+    sector: rol === 'admin1' ? '1' : rol === 'admin2' ? '2' : null,
+    cuadrillaId: null,
+    nombre: nombreRol
+  };
+  registrarLog(nombreRol, 'admin', 'exitoso');
   resetSessionTimer();
   startApp();
 }
@@ -1953,7 +2169,12 @@ function startApp() {
   app.style.display = 'flex';
   var tc = document.getElementById('topbar-cuadrilla');
   if (currentUser.tipo === 'admin') {
-    tc.textContent = '★ Administrador'; tc.style.background = 'var(--ink)'; tc.style.color = '#fff';
+    var rolLabel = currentUser.rol === 'superadmin' ? '⭐ SuperAdmin'
+                 : currentUser.rol === 'admin2'     ? ('★ Admin ' + SECTOR2_NOMBRE)
+                 :                                    ('★ Admin ' + SECTOR1_NOMBRE);
+    tc.textContent = rolLabel;
+    tc.style.background = currentUser.rol === 'superadmin' ? '#7B2FBE' : 'var(--ink)';
+    tc.style.color = '#fff';
     document.getElementById('admin-nav').style.display = 'block';
     // Admin: mostrar btns admin en bottom nav, ocultar cuadrilla
     document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='flex'; });
@@ -1983,8 +2204,12 @@ function startApp() {
   var sid = 'sess_'+Date.now();
   currentUser.sessionId = sid;
   db.ref('sessions/'+sid).set({
-    usuario: currentUser.tipo==='admin'?'Administrador':(getCuad(currentUser.cuadrillaId)||{nombre:'?'}).nombre,
+    usuario: currentUser.tipo==='admin'
+      ? (currentUser.nombre || 'Administrador')
+      : (getCuad(currentUser.cuadrillaId)||{nombre:'?'}).nombre,
     tipo: currentUser.tipo,
+    rol: currentUser.rol || '',
+    sector: currentUser.sector || '',
     cuadrillaId: currentUser.cuadrillaId||'',
     inicio: nowISO(),
     agente: navigator.userAgent.substring(0,80)
@@ -2032,26 +2257,96 @@ window.addEventListener('beforeunload', function() {
 });
 
 // 6. Cambio de contraseña admin
+function initConfigSeccion(){
+  if(!currentUser || currentUser.tipo !== 'admin') return;
+  var esSuperAdmin = currentUser.rol === 'superadmin';
+  // Mostrar/ocultar tarjetas según rol
+  ['cfg-sectores-card','cfg-pass2-card','cfg-pass-super-card'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = esSuperAdmin ? 'block' : 'none';
+  });
+  // Título del card de contraseña del sector actual
+  var t1 = document.getElementById('cfg-pass1-title');
+  if(t1) t1.textContent = '🔑 Cambiar contraseña — '
+    + (currentUser.rol==='admin2' ? ('Admin ' + SECTOR2_NOMBRE)
+       : currentUser.rol==='superadmin' ? 'Admin ' + SECTOR1_NOMBRE
+       : 'Admin ' + SECTOR1_NOMBRE);
+  // Pre-llenar nombres de sectores
+  var s1 = document.getElementById('cfg-sector1-nombre');
+  var s2 = document.getElementById('cfg-sector2-nombre');
+  if(s1) s1.value = SECTOR1_NOMBRE;
+  if(s2) s2.value = SECTOR2_NOMBRE;
+}
+
 function cambiarPassAdmin(){
-  var actual = document.getElementById('chpass-actual').value;
-  var nueva = document.getElementById('chpass-nueva').value;
+  var actual    = document.getElementById('chpass-actual').value;
+  var nueva     = document.getElementById('chpass-nueva').value;
   var confirmar = document.getElementById('chpass-confirmar').value;
-  if (actual !== ADMIN_PASS) { toast('Contraseña actual incorrecta','error'); return; }
+  // SuperAdmin puede cambiar pass del Sector 1 sin ingresar actual
+  var rolActual = currentUser ? currentUser.rol : 'admin1';
+  var passRef   = rolActual === 'admin2' ? ADMIN2_PASS : ADMIN_PASS;
+  var dbKey     = rolActual === 'admin2' ? 'config/admin2Pass' : 'config/adminPass';
+  if (actual !== passRef) { toast('Contraseña actual incorrecta','error'); return; }
   if (!nueva || nueva.length < 6) { toast('La nueva contraseña debe tener al menos 6 caracteres','error'); return; }
   if (nueva !== confirmar) { toast('Las contraseñas no coinciden','error'); return; }
-  showConfirm('Cambiar contraseña de administrador',
+  showConfirm('Cambiar contraseña',
     '¿Confirmas el cambio de contraseña?<br>La nueva contraseña entrará en vigor de inmediato.',
     function(){
-      ADMIN_PASS = nueva;
-      db.ref('config/adminPass').set(nueva).then(function(){
-        toast('Contraseña de administrador actualizada','success');
-        closeModal('modal-chpass');
+      if(rolActual === 'admin2') ADMIN2_PASS = nueva; else ADMIN_PASS = nueva;
+      db.ref(dbKey).set(nueva).then(function(){
+        toast('Contraseña actualizada','success');
         document.getElementById('chpass-actual').value='';
         document.getElementById('chpass-nueva').value='';
         document.getElementById('chpass-confirmar').value='';
       });
     }
   );
+}
+
+function cambiarPassAdmin2(){
+  var nueva     = document.getElementById('chpass2-nueva').value;
+  var confirmar = document.getElementById('chpass2-confirmar').value;
+  if (!nueva || nueva.length < 6) { toast('La contraseña debe tener al menos 6 caracteres','error'); return; }
+  if (nueva !== confirmar) { toast('Las contraseñas no coinciden','error'); return; }
+  showConfirm('Cambiar contraseña Admin Sector 2',
+    '¿Confirmas el cambio de contraseña para el Administrador de '+SECTOR2_NOMBRE+'?',
+    function(){
+      ADMIN2_PASS = nueva;
+      db.ref('config/admin2Pass').set(nueva).then(function(){
+        toast('Contraseña de Admin Sector 2 actualizada','success');
+        document.getElementById('chpass2-nueva').value='';
+        document.getElementById('chpass2-confirmar').value='';
+      });
+    }
+  );
+}
+
+function cambiarPassSuper(){
+  var nueva     = document.getElementById('chpassS-nueva').value;
+  var confirmar = document.getElementById('chpassS-confirmar').value;
+  if (!nueva || nueva.length < 6) { toast('La contraseña debe tener al menos 6 caracteres','error'); return; }
+  if (nueva !== confirmar) { toast('Las contraseñas no coinciden','error'); return; }
+  showConfirm('Cambiar contraseña SuperAdmin',
+    '⚠ Esta es la contraseña de máximo acceso.<br>¿Confirmas el cambio?',
+    function(){
+      SUPER_PASS = nueva;
+      db.ref('config/superPass').set(nueva).then(function(){
+        toast('Contraseña SuperAdmin actualizada','success');
+        document.getElementById('chpassS-nueva').value='';
+        document.getElementById('chpassS-confirmar').value='';
+      });
+    }
+  );
+}
+
+function guardarNombresSectores(){
+  var n1 = (document.getElementById('cfg-sector1-nombre').value||'').trim() || 'Sector 1';
+  var n2 = (document.getElementById('cfg-sector2-nombre').value||'').trim() || 'Sector 2';
+  db.ref('config/sector1Nombre').set(n1);
+  db.ref('config/sector2Nombre').set(n2).then(function(){
+    SECTOR1_NOMBRE = n1; SECTOR2_NOMBRE = n2;
+    toast('Nombres de sectores actualizados','success');
+  });
 }
 
 // 7. Gestión de sesiones activas
@@ -3089,16 +3384,34 @@ function exportCSV(){
 // ══════════════════════════════════════════════════════
 function renderAdminMateriales(){
   var tbody=document.getElementById('admin-mat-tbody');
+  var countEl=document.getElementById('admin-mat-count');
+  var q=(document.getElementById('admin-mat-search')||{value:''}).value.trim().toLowerCase();
+  var catF=(document.getElementById('admin-mat-filter-cat')||{value:''}).value;
   var mats=materialesList();
+  var filtered=mats.filter(function(m){
+    var matchQ=!q||(m.nombre||'').toLowerCase().indexOf(q)>-1
+               ||(m.codigo||'').toLowerCase().indexOf(q)>-1
+               ||(m.cat||'').toLowerCase().indexOf(q)>-1;
+    var matchCat=!catF||m.cat===catF;
+    return matchQ&&matchCat;
+  });
+  if(countEl) countEl.textContent=filtered.length+' de '+mats.length+' materiales';
   if(!mats.length){tbody.innerHTML='<tr><td colspan="6">'+empty('Sin materiales. Agrega el primero.')+'</td></tr>';return;}
-  tbody.innerHTML=mats.map(function(m){
-    return '<tr><td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
-      +'<td><strong>'+m.nombre+'</strong></td>'
-      +'<td><span class="badge badge-gray">'+m.cat+'</span></td>'
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="6">'+empty('Sin resultados para \''+q+'\'.')+'</td></tr>';return;}
+  function hl(text,q){
+    if(!q||!text)return text||'';
+    var idx=text.toLowerCase().indexOf(q);
+    if(idx<0)return text;
+    return text.substring(0,idx)+'<mark style="background:#FFF176;border-radius:2px;padding:0 1px;">'+text.substring(idx,idx+q.length)+'</mark>'+text.substring(idx+q.length);
+  }
+  tbody.innerHTML=filtered.map(function(m){
+    return '<tr><td style="font-family:monospace;font-size:12px">'+hl(m.codigo||'—',q)+'</td>'
+      +'<td><strong>'+hl(m.nombre,q)+'</strong></td>'
+      +'<td><span class="badge badge-gray">'+hl(m.cat,q)+'</span></td>'
       +'<td>'+m.unidad+'</td><td>'+m.min+'</td>'
       +'<td style="display:flex;gap:6px">'
-      +'<button class="btn btn-sm" onclick="editMat(\''+m.id+'\')">Editar</button>'
-      +'<button class="btn btn-sm btn-red" onclick="deleteMat(\''+m.id+'\')">Eliminar</button>'
+      +'<button class="btn btn-sm" onclick="editMat(''+m.id+'')">Editar</button>'
+      +'<button class="btn btn-sm btn-red" onclick="deleteMat(''+m.id+'')">Eliminar</button>'
       +'</td></tr>';
   }).join('');
 }
@@ -3132,9 +3445,31 @@ function editMat(id){
 
 function guardarMaterial(){
   var nombre=document.getElementById('mat-nombre').value.trim();
-  if(!nombre){toast('Ingresa el nombre','error');return;}
+  if(!nombre){toast('Ingresa el nombre del material','error');document.getElementById('mat-nombre').focus();return;}
+  var codigo=document.getElementById('mat-codigo').value.trim();
   var editId=document.getElementById('mat-edit-id').value;
-  var mat={codigo:document.getElementById('mat-codigo').value.trim(),nombre:nombre,
+  var mats=materialesList();
+
+  // ── Validación de duplicados ──────────────────────────
+  var dupNombre=mats.find(function(m){
+    return m.id!==editId && m.nombre.trim().toLowerCase()===nombre.toLowerCase();
+  });
+  if(dupNombre){
+    toast('Ya existe un material con el nombre "'+dupNombre.nombre+'"','error');
+    document.getElementById('mat-nombre').focus();
+    return;
+  }
+  var dupCodigo=codigo ? mats.find(function(m){
+    return m.id!==editId && (m.codigo||'').trim().toLowerCase()===codigo.toLowerCase();
+  }) : null;
+  if(dupCodigo){
+    toast('El código "'+codigo+'" ya está en uso por "'+dupCodigo.nombre+'"','error');
+    document.getElementById('mat-codigo').focus();
+    return;
+  }
+  // ─────────────────────────────────────────────────────
+
+  var mat={codigo:codigo,nombre:nombre,
     cat:document.getElementById('mat-cat').value,unidad:document.getElementById('mat-unidad').value,
     min:parseInt(document.getElementById('mat-min').value)||5};
   showConfirm(
@@ -3168,12 +3503,13 @@ function deleteMat(id){
 function renderAdminCuadrillas(){
   var tbody=document.getElementById('admin-cuad-tbody');
   var cuads=cuadrillasList();
-  if(!cuads.length){tbody.innerHTML='<tr><td colspan="7">'+empty('Sin cuadrillas. Agrega la primera.')+'</td></tr>';return;}
+  if(!cuads.length){tbody.innerHTML='<tr><td colspan="8">'+empty('Sin cuadrillas. Agrega la primera.')+'</td></tr>';return;}
   tbody.innerHTML=cuads.map(function(c,i){
     return '<tr><td style="font-family:monospace;font-size:12px">#'+String(i+1).padStart(2,'0')+'</td>'
       +'<td><strong>'+c.nombre+'</strong></td>'
       +'<td>'+(c.responsable||'—')+'</td>'
       +'<td>'+(c.zona?'<span class="badge badge-blue">'+c.zona+'</span>':'—')+'</td>'
+      +'<td><span class="badge '+(c.sector==='2'?'badge-green':'badge-blue')+'">Sector '+(c.sector||'1')+'</span></td>'
       +'<td><span style="font-family:monospace;font-size:12px;background:var(--bg3);padding:3px 8px;border-radius:6px;">'
         +(c.pass?'•••••• <span style="font-size:10px;color:var(--green)">✓</span>':'<span style="color:var(--red)">Sin contraseña</span>')+'</span>'
         +' <button class="btn btn-sm" style="padding:3px 8px;font-size:11px;" onclick="editCuad(\''+c.id+'\')">Editar</button></td>'
@@ -3192,8 +3528,11 @@ function openCuadrillaModal(){
 
 function editCuad(id){
   var c=getCuad(id);if(!c)return;
-  document.getElementById('cuad-nombre').value=c.nombre;document.getElementById('cuad-resp').value=c.responsable||'';
-  document.getElementById('cuad-zona').value=c.zona||'';document.getElementById('cuad-pass').value=c.pass||'';
+  document.getElementById('cuad-nombre').value=c.nombre;
+  document.getElementById('cuad-resp').value=c.responsable||'';
+  document.getElementById('cuad-zona').value=c.zona||'';
+  document.getElementById('cuad-pass').value=c.pass||'';
+  document.getElementById('cuad-sector').value=c.sector||'1';
   document.getElementById('cuad-edit-id').value=id;
   document.getElementById('cuad-modal-title').textContent='Editar cuadrilla';
   openModal('modal-cuadrilla');
@@ -3206,12 +3545,15 @@ function guardarCuadrilla(){
   if(!nombre){toast('Ingresa el nombre','error');return;}
   if(!pass||pass.length<4){toast('La contraseña debe tener al menos 4 caracteres','error');return;}
   if(!editId&&cuadrillasList().length>=30){toast('Máximo 30 cuadrillas','error');return;}
-  var cuad={nombre:nombre,responsable:document.getElementById('cuad-resp').value,zona:document.getElementById('cuad-zona').value,pass:pass};
+  var sector=document.getElementById('cuad-sector').value||'1';
+  var cuad={nombre:nombre,responsable:document.getElementById('cuad-resp').value,zona:document.getElementById('cuad-zona').value,sector:sector,pass:pass};
+  var sectorLabel='Sector '+sector;
   showConfirm(
     editId?'Confirmar actualización':'Confirmar nueva cuadrilla',
     '<strong>'+(editId?'Actualizar':'Crear')+':</strong> '+nombre+'<br>'
     +'<strong>Responsable:</strong> '+(cuad.responsable||'—')+'<br>'
-    +'<strong>Zona:</strong> '+(cuad.zona||'—'),
+    +'<strong>Zona:</strong> '+(cuad.zona||'—')+'<br>'
+    +'<strong>Sector:</strong> '+sectorLabel,
     function(){
       var ref=editId?db.ref('cuadrillas/'+editId):db.ref('cuadrillas').push();
       ref.set(cuad).then(function(){
@@ -3500,8 +3842,7 @@ document.querySelectorAll('.modal-overlay').forEach(function(ov){
 var loadMsg = document.getElementById('loading-msg');
 loadMsg.textContent = 'Conectando con Firebase...';
 
-// Esperar primera carga de datos antes de mostrar login
-var initialLoadDone = false;
+// ── Indicador de estado online/offline ────────────────
 db.ref('.info/connected').on('value', function(snap) {
   var connected = snap.val();
   var ind = document.getElementById('sync-indicator');
@@ -3511,30 +3852,121 @@ db.ref('.info/connected').on('value', function(snap) {
   }
 });
 
-// Carga inicial: esperar cuadrillas y materiales
-Promise.all([
-  db.ref('cuadrillas').once('value'),
-  db.ref('materiales').once('value'),
-  db.ref('stocks').once('value'),
-  db.ref('kardex').once('value'),
-  db.ref('asignaciones').once('value'),
-  db.ref('config/adminPass').once('value')
-]).then(function(snaps) {
-  cache.cuadrillas = snaps[0].val() || {};
-  cache.materiales = snaps[1].val() || {};
-  cache.stocks     = snaps[2].val() || {};
-  cache.kardex     = snaps[3].val() || {};
-  cache.asignaciones = snaps[4].val() || {};
-  if (snaps[5].val()) ADMIN_PASS = snaps[5].val();
-  // Ocultar loading, mostrar login
-  document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  populateLoginSelect();
-  // Activar listeners en tiempo real
-  initFirebaseListeners();
-}).catch(function(err) {
-  loadMsg.textContent = 'Error: ' + err.message + ' — Verifica tu conexión.';
-});
+// ── Función de carga inicial (reutilizable para reintentos) ──
+function cargarDatosIniciales() {
+  var loadScreen = document.getElementById('loading-screen');
+  loadMsg.textContent = 'Conectando con Firebase...';
+  // Limpiar mensaje de error anterior
+  var errBox = document.getElementById('firebase-error-box');
+  if (errBox) errBox.remove();
+
+  // Timeout de 15 segundos
+  var timedOut = false;
+  var timeoutId = setTimeout(function() {
+    timedOut = true;
+    mostrarErrorFirebase(
+      '⏱ Sin respuesta de Firebase',
+      'La base de datos no respondió en 15 segundos. Posibles causas:',
+      [
+        'Sin conexión a internet en este dispositivo',
+        'Las reglas de Firebase bloquean el acceso (Rules)',
+        'El proyecto Firebase está pausado o suspendido',
+        'La URL de la base de datos no es correcta'
+      ]
+    );
+  }, 15000);
+
+  // Las rutas opcionales (config/*) se protegen con .catch(null) para que
+  // un PERMISSION_DENIED en rutas vacías no rompa todo el Promise.all
+  function safeOnce(ref) {
+    return ref.once('value').catch(function(){ return { val: function(){ return null; } }; });
+  }
+
+  Promise.all([
+    db.ref('cuadrillas').once('value'),
+    db.ref('materiales').once('value'),
+    db.ref('stocks').once('value'),
+    db.ref('kardex').once('value'),
+    db.ref('asignaciones').once('value'),
+    safeOnce(db.ref('config/adminPass')),
+    safeOnce(db.ref('config/admin2Pass')),
+    safeOnce(db.ref('config/superPass')),
+    safeOnce(db.ref('config/sector1Nombre')),
+    safeOnce(db.ref('config/sector2Nombre'))
+  ]).then(function(snaps) {
+    clearTimeout(timeoutId);
+    if (timedOut) return;
+    cache.cuadrillas   = snaps[0].val() || {};
+    cache.materiales   = snaps[1].val() || {};
+    cache.stocks       = snaps[2].val() || {};
+    cache.kardex       = snaps[3].val() || {};
+    cache.asignaciones = snaps[4].val() || {};
+    if (snaps[5].val()) ADMIN_PASS     = snaps[5].val();
+    if (snaps[6].val()) ADMIN2_PASS    = snaps[6].val();
+    if (snaps[7].val()) SUPER_PASS     = snaps[7].val();
+    if (snaps[8].val()) SECTOR1_NOMBRE = snaps[8].val();
+    if (snaps[9].val()) SECTOR2_NOMBRE = snaps[9].val();
+    loadScreen.style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    populateLoginSelect();
+    initFirebaseListeners();
+  }).catch(function(err) {
+    clearTimeout(timeoutId);
+    if (timedOut) return;
+    var codigo = err.code || '';
+    var causas = [];
+    var titulo = '🔴 Error al conectar con Firebase';
+    if (codigo === 'PERMISSION_DENIED' || err.message.indexOf('permission') > -1) {
+      titulo = '🔒 Acceso denegado por Firebase';
+      causas = [
+        'Las reglas (Rules) de tu base de datos bloquean la lectura',
+        'Ve a Firebase Console → Realtime Database → Rules',
+        'Cambia las reglas a: { "rules": { ".read": true, ".write": true } } para pruebas',
+        'Código de error: ' + (codigo || err.message)
+      ];
+    } else if (err.message.indexOf('network') > -1 || err.message.indexOf('fetch') > -1) {
+      titulo = '📡 Sin conexión de red';
+      causas = [
+        'Verifica tu conexión a internet',
+        'Intenta abrir otra página web para confirmar',
+        'Error: ' + err.message
+      ];
+    } else {
+      causas = [
+        'Error: ' + err.message,
+        'Verifica que el archivo de configuración de Firebase sea correcto',
+        'Revisa la consola del navegador (F12 → Console) para más detalles'
+      ];
+    }
+    mostrarErrorFirebase(titulo, 'No se pudo cargar la aplicación. Posibles causas:', causas);
+  });
+}
+
+function mostrarErrorFirebase(titulo, subtitulo, causas) {
+  loadMsg.textContent = '';
+  var loadScreen = document.getElementById('loading-screen');
+  var box = document.createElement('div');
+  box.id = 'firebase-error-box';
+  box.style.cssText = 'max-width:460px;width:90%;background:#fff;border-radius:14px;padding:28px 24px;box-shadow:0 4px 32px rgba(0,0,0,.13);text-align:left;margin-top:12px;';
+  box.innerHTML =
+    '<div style="font-size:18px;font-weight:700;color:#c0392b;margin-bottom:8px;">'+titulo+'</div>'
+    +'<div style="font-size:13px;color:#555;margin-bottom:10px;">'+subtitulo+'</div>'
+    +'<ul style="font-size:12.5px;color:#444;margin:0 0 16px 18px;line-height:1.8;">'
+    + causas.map(function(c){ return '<li>'+c+'</li>'; }).join('')
+    +'</ul>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+    +'<button onclick="cargarDatosIniciales()" style="padding:10px 20px;background:var(--accent,#1A6DAF);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔄 Reintentar</button>'
+    +'<button onclick="location.reload()" style="padding:10px 20px;background:#f0f0f0;color:#333;border:none;border-radius:8px;font-size:13px;cursor:pointer;">↺ Recargar página</button>'
+    +'</div>'
+    +'<div style="margin-top:14px;padding:10px 12px;background:#f8f9fa;border-radius:8px;font-size:11.5px;color:#777;">'
+    +'💡 <strong>Reglas mínimas de Firebase para funcionar:</strong><br>'
+    +'<code style="font-size:11px;color:#c0392b;">{ "rules": { ".read": true, ".write": true } }</code>'
+    +'</div>';
+  loadScreen.appendChild(box);
+}
+
+cargarDatosIniciales();
 </script>
 </body>
 </html>
+
