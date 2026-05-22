@@ -3410,8 +3410,8 @@ function renderAdminMateriales(){
       +'<td><span class="badge badge-gray">'+hl(m.cat,q)+'</span></td>'
       +'<td>'+m.unidad+'</td><td>'+m.min+'</td>'
       +'<td style="display:flex;gap:6px">'
-      +'<button class="btn btn-sm" onclick="editMat(''+m.id+'')">Editar</button>'
-      +'<button class="btn btn-sm btn-red" onclick="deleteMat(''+m.id+'')">Eliminar</button>'
+      +'<button class="btn btn-sm" onclick="editMat(\''+m.id+'\')">Editar</button>'
+      +'<button class="btn btn-sm btn-red" onclick="deleteMat(\''+m.id+'\')">Eliminar</button>'
       +'</td></tr>';
   }).join('');
 }
@@ -3969,4 +3969,3 @@ cargarDatosIniciales();
 </script>
 </body>
 </html>
-
