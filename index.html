@@ -1910,9 +1910,12 @@ function getSectorActivo() {
 
 function kardexListFiltrada() {
   var all = kardexList();
-  if (!currentUser || currentUser.tipo !== 'admin') return all;
-  var sector = getSectorActivo();
-  if (!sector) return all;
+  if (!currentUser) return [];
+  // Cuadrilla: solo su propio kardex
+  if (currentUser.tipo === 'cuadrilla') {
+    return all.filter(function(k){ return k.cuadrillaId === currentUser.cuadrillaId; });
+  }
+  // Admin: solo cuadrillas de su sector
   var cuadsDelSector = getCuadrillasFiltradas().map(function(c){ return c.id; });
   return all.filter(function(k){ return cuadsDelSector.indexOf(k.cuadrillaId) > -1; });
 }
@@ -1924,12 +1927,26 @@ function setStock(cid, mid, val) {
 }
 function cuadrillasList() { return Object.entries(cache.cuadrillas).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
 
-// Devuelve las cuadrillas visibles para el usuario actual según su sector
+// Devuelve las cuadrillas visibles para el usuario actual según su rol y sector
 function getCuadrillasFiltradas() {
   var all = cuadrillasList();
-  if (!currentUser || currentUser.tipo !== 'admin') return all;
+  if (!currentUser) return [];
+  // Cuadrilla: solo ve su propia cuadrilla
+  if (currentUser.tipo === 'cuadrilla') {
+    return all.filter(function(c) { return c.id === currentUser.cuadrillaId; });
+  }
+  // SuperAdmin: ve todas
+  if (currentUser.rol === 'superadmin') {
+    var sector = getSectorActivo();
+    if (!sector) return all;
+    return all.filter(function(c) {
+      var cs = c.sectorId || c.sector || '1';
+      return cs === sector;
+    });
+  }
+  // Admin de sector: solo su sector
   var sector = getSectorActivo();
-  if (!sector) return all;
+  if (!sector) return [];
   return all.filter(function(c) {
     var cs = c.sectorId || c.sector || '1';
     return cs === sector;
@@ -1939,12 +1956,15 @@ function materialesList() { return Object.entries(cache.materiales).map(function
 function kardexList() { return Object.entries(cache.kardex).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
 function asigList() { return Object.entries(cache.asignaciones).map(function(e){return Object.assign({id:e[0]},e[1]);}); }
 
-// asigList filtrada por el sector del admin logueado
+// asigList filtrada por rol y sector
 function asigListFiltrada() {
   var all = asigList();
-  if (!currentUser || currentUser.tipo !== 'admin') return all;
-  var sector = getSectorActivo();
-  if (!sector) return all;
+  if (!currentUser) return [];
+  // Cuadrilla: solo sus propias asignaciones
+  if (currentUser.tipo === 'cuadrilla') {
+    return all.filter(function(a){ return a.cuadrillaId === currentUser.cuadrillaId; });
+  }
+  // Admin: solo cuadrillas de su sector
   var cuadsDelSector = getCuadrillasFiltradas().map(function(c){ return c.id; });
   return all.filter(function(a){ return cuadsDelSector.indexOf(a.cuadrillaId) > -1; });
 }
@@ -3548,6 +3568,7 @@ function renderRiMaterialRows() {
 
 // ── GUARDAR REGISTRO ──────────────────────────────────
 function guardarRedInterna() {
+  if (!currentUser) return;
   var orden  = document.getElementById('ri-orden').value.trim();
   var tipo   = document.getElementById('ri-tipo').value;
   var nodo   = document.getElementById('ri-nodo').value.trim();
@@ -3946,6 +3967,7 @@ function editarHerramienta(id) {
 }
 
 function guardarHerramienta() {
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
   var nombre  = document.getElementById('herr-nombre').value.trim();
   var cuadId  = document.getElementById('herr-cuadrilla').value;
   var estado  = document.getElementById('herr-estado-inicial').value;
@@ -3953,6 +3975,14 @@ function guardarHerramienta() {
   var editId  = document.getElementById('herr-edit-id').value;
   if (!nombre) { toast('Ingresa el nombre de la herramienta', 'error'); return; }
   if (!cuadId) { toast('Selecciona la cuadrilla', 'error'); return; }
+  // Admin de sector solo puede asignar herramientas a cuadrillas de su sector
+  if (currentUser.rol !== 'superadmin') {
+    var cuadObj = getCuad(cuadId);
+    if (cuadObj) {
+      var cs = cuadObj.sectorId || cuadObj.sector || '1';
+      if (cs !== currentUser.sector) { toast('Esa cuadrilla no pertenece a tu sector', 'error'); return; }
+    }
+  }
   var data = { nombre: nombre, cuadrillaId: cuadId, estado: estado, serie: serie,
     verificacion: 'verificado', historial: editId ? (cache.herramientas[editId].historial||[]) : [] };
   var ref = editId ? db.ref('herramientas/' + editId) : db.ref('herramientas').push();
@@ -3964,7 +3994,16 @@ function guardarHerramienta() {
 }
 
 function eliminarHerramienta(id) {
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
   var h = cache.herramientas[id]; if (!h) return;
+  // Admin de sector solo puede eliminar herramientas de su sector
+  if (currentUser.rol !== 'superadmin') {
+    var cuadObj = getCuad(h.cuadrillaId);
+    if (cuadObj) {
+      var cs = cuadObj.sectorId || cuadObj.sector || '1';
+      if (cs !== currentUser.sector) { toast('No puedes eliminar herramientas de otro sector', 'error'); return; }
+    }
+  }
   showConfirm('Eliminar herramienta',
     '\u00bfEliminar <strong>' + h.nombre + '</strong>? Se borrar\u00e1 todo su historial.',
     function() {
@@ -4224,6 +4263,7 @@ function editarSector(id) {
 }
 
 function guardarSector() {
+  if (!currentUser || currentUser.rol !== 'superadmin') { toast('Sin permisos', 'error'); return; }
   var nombre = document.getElementById('sector-nombre').value.trim();
   var pass   = document.getElementById('sector-pass').value;
   var editId = document.getElementById('sector-edit-id').value;
@@ -4293,8 +4333,31 @@ function cerrarSesion(sid){
 // NAVEGACIÓN
 // ══════════════════════════════════════════════════════
 function showSection(id) {
-  // Resetear bodega vista al cambiar de sección (opcional: mantenerla)
-  // adminBodegaVista = null;
+  if (!currentUser) return;
+
+  // ── Guardia de roles ─────────────────────────────────
+  var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
+                   'admin-logs','admin-config','admin-herramientas','admin-red-interna'];
+  var superOnly = ['admin-logs'];
+  var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas'];
+
+  // Cuadrilla intentando acceder a sección admin → bloquear
+  if (currentUser.tipo !== 'admin' && adminOnly.indexOf(id) > -1) {
+    console.warn('Acceso denegado: sección', id, 'requiere admin');
+    return;
+  }
+  // Admin intentando acceder a sección exclusiva de cuadrilla → bloquear
+  if (currentUser.tipo === 'admin' && cuadOnly.indexOf(id) > -1) {
+    console.warn('Acceso denegado: sección', id, 'es exclusiva de cuadrilla');
+    return;
+  }
+  // Admin de sector (no superadmin) intentando ver logs → bloquear
+  if (id === 'admin-logs' && currentUser.rol !== 'superadmin') {
+    console.warn('Acceso denegado: logs requiere superadmin');
+    return;
+  }
+  // ────────────────────────────────────────────────────
+
   currentSection = id;
   expandNavGroupForSection(id);
   document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
@@ -4361,6 +4424,9 @@ function renderDashboard() {
     document.getElementById('dash-cuad-view').style.display = 'block';
     document.getElementById('dash-acciones').style.display = 'flex';
     document.getElementById('dash-title').textContent = 'Mi Bodega';
+    // Ocultar selector de bodega — no aplica para cuadrilla
+    var dashBarCuad = document.getElementById('dash-bodega-bar');
+    if (dashBarCuad) dashBarCuad.style.display = 'none';
 
     // KPIs cuadrilla
     var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
@@ -4765,8 +4831,18 @@ function selectKardexTipo(t){
 }
 
 function registrarKardex(){
-  var cid=currentUser.tipo==='admin'?document.getElementById('km-cuadrilla-sel').value:currentUser.cuadrillaId;
-  if(currentUser.tipo==='admin'&&!cid){toast('Selecciona la cuadrilla destino','error');return;}
+  var cid = currentUser.tipo === 'cuadrilla'
+    ? currentUser.cuadrillaId
+    : document.getElementById('km-cuadrilla-sel').value;
+  if (!cid) { toast('Selecciona la cuadrilla destino', 'error'); return; }
+  // Admin de sector solo puede registrar en cuadrillas de su sector
+  if (currentUser.tipo === 'admin' && currentUser.rol !== 'superadmin') {
+    var cuadObj = getCuad(cid);
+    if (cuadObj) {
+      var cs = cuadObj.sectorId || cuadObj.sector || '1';
+      if (cs !== currentUser.sector) { toast('Esa cuadrilla no pertenece a tu sector', 'error'); return; }
+    }
+  }
   var validos=kardexRows.filter(function(r){return r.matId&&r.qty>0;});
   if(!validos.length){toast('Selecciona al menos un material','error');return;}
   // Validar MACs requeridas
@@ -4907,7 +4983,19 @@ function registrarAsignacion(){
   if(!nombre){toast('Ingresa el nombre del cliente','error');return;}
   var horaInicio=document.getElementById('cli-hora-inicio').value;
   if(!horaInicio){toast('La hora de inicio es obligatoria','error');document.getElementById('cli-hora-inicio').focus();return;}
-  var cid=currentUser.tipo==='admin'?(cuadrillasList()[0]&&cuadrillasList()[0].id):currentUser.cuadrillaId;
+  // Cuadrilla solo puede registrar en su propio cid — admin debe seleccionar cuadrilla explícitamente
+  var cid = currentUser.tipo === 'cuadrilla'
+    ? currentUser.cuadrillaId
+    : (document.getElementById('km-cuadrilla-sel') ? document.getElementById('km-cuadrilla-sel').value : null);
+  if (!cid) { toast('Selecciona la cuadrilla destino', 'error'); return; }
+  // Admin de sector solo puede asignar a cuadrillas de su sector
+  if (currentUser.tipo === 'admin' && currentUser.rol !== 'superadmin') {
+    var cuadObj = getCuad(cid);
+    if (cuadObj) {
+      var cs = cuadObj.sectorId || cuadObj.sector || '1';
+      if (cs !== currentUser.sector) { toast('Esa cuadrilla no pertenece a tu sector', 'error'); return; }
+    }
+  }
   var validos=asigRows.filter(function(r){return r.matId&&r.qty>0;});
   if(!validos.length){toast('Agrega al menos un material','error');return;}
   var errs=[];
@@ -5359,6 +5447,7 @@ function exportCSV(){
 // ADMIN — MATERIALES
 // ══════════════════════════════════════════════════════
 function renderAdminMateriales(){
+  if (!currentUser || currentUser.tipo !== 'admin') return;
   var tbody=document.getElementById('admin-mat-tbody');
   var countEl=document.getElementById('admin-mat-count');
   var q=(document.getElementById('admin-mat-search')||{value:''}).value.trim().toLowerCase();
@@ -5424,6 +5513,7 @@ function editMat(id){
 }
 
 function guardarMaterial(){
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
   var nombre=document.getElementById('mat-nombre').value.trim();
   if(!nombre){toast('Ingresa el nombre del material','error');document.getElementById('mat-nombre').focus();return;}
   var codigo=document.getElementById('mat-codigo').value.trim();
@@ -5483,6 +5573,7 @@ function deleteMat(id){
 // ADMIN — CUADRILLAS
 // ══════════════════════════════════════════════════════
 function renderAdminCuadrillas(){
+  if (!currentUser || currentUser.tipo !== 'admin') return;
   var tbody=document.getElementById('admin-cuad-tbody');
   // Admin solo ve cuadrillas de su sector
   var cuads = getCuadrillasFiltradas();
@@ -5549,6 +5640,7 @@ function editCuad(id){
 }
 
 function guardarCuadrilla(){
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
   var nombre=document.getElementById('cuad-nombre').value.trim();
   var username=(document.getElementById('cuad-username').value||'').trim().toLowerCase().replace(/\s+/g,'_');
   var pass=document.getElementById('cuad-pass').value;
@@ -5586,6 +5678,15 @@ function guardarCuadrilla(){
 }
 
 function deleteCuadrilla(id){
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
+  // Admin de sector solo puede eliminar cuadrillas de su sector
+  if (currentUser.rol !== 'superadmin') {
+    var c = getCuad(id);
+    if (c) {
+      var cs = c.sectorId || c.sector || '1';
+      if (cs !== currentUser.sector) { toast('No puedes eliminar cuadrillas de otro sector', 'error'); return; }
+    }
+  }
   var c=getCuad(id);
   showConfirm('Eliminar cuadrilla',
     '¿Eliminar <strong>'+(c?c.nombre:'esta cuadrilla')+'</strong> y todos sus datos?<br><br>Esta acción <strong>no se puede deshacer</strong>.',
@@ -5678,6 +5779,7 @@ function renderInventario(){
 // REPORTES — solo admin
 // ══════════════════════════════════════════════════════
 function renderAdminReportes(){
+  if (!currentUser || currentUser.tipo !== 'admin') return;
   var sel=document.getElementById('rep-cuadrilla');
   sel.innerHTML='<option value="">Todas las cuadrillas</option>';
   // Solo cuadrillas del sector del admin
@@ -5866,7 +5968,7 @@ function limpiarSesionesAntiguas() {
 }
 
 function renderSesionesActivasConfig(){
-  // Primero limpiar sesiones de más de 12 horas (solo superadmin)
+  if (!currentUser || currentUser.rol !== 'superadmin') return;
   limpiarSesionesAntiguas();
   var ahora = Date.now();
   db.ref('sessions').once('value', function(snap) {
@@ -5904,6 +6006,7 @@ function renderSesionesActivasConfig(){
 }
 
 function renderAdminLogs(){
+  if (!currentUser || currentUser.rol !== 'superadmin') return;
   db.ref('logs').orderByChild('fecha').once('value',function(snap){
     var rows=[['Fecha','Usuario','Tipo','Estado','Agente']];
     snap.forEach(function(c){
