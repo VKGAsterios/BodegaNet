@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="X-Frame-Options" content="DENY">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>BodegaNet — Control de Materiales ISP</title>
+<!-- Favicon inline para evitar 404 -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- jsPDF — carga diferida para no bloquear Firebase -->
+<!-- Firebase SDK v10 compat — más estable -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 :root{
   /* ── Light theme — Slate/Neutral professional ── */
@@ -3809,7 +3810,7 @@ function guardarHerramientaPropia() {
   }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
 }
 
-
+function abrirModalCambioEstado(herrId) {
   var h = cache.herramientas[herrId];
   if (!h) return;
   document.getElementById('herr-estado-id').value = herrId;
@@ -5938,7 +5939,28 @@ document.querySelectorAll('.modal-overlay').forEach(function(ov){
 var loadMsg = document.getElementById('loading-msg');
 loadMsg.textContent = 'Conectando con Firebase...';
 
-// ── Indicador de estado online/offline ────────────────
+// ── Detectar apertura como file:// ──────────────────────
+if (window.location.protocol === 'file:') {
+  mostrarErrorFirebase(
+    '⚠ Archivo abierto localmente',
+    'BodegaNet no puede conectarse a Firebase cuando se abre como archivo local.',
+    [
+      '<strong>Solución:</strong> Abre el archivo desde un servidor web, no directamente desde tu disco.',
+      'Opción 1: Sube el archivo a cualquier hosting (GitHub Pages, Netlify, tu servidor).',
+      'Opción 2: Usa la extensión <strong>Live Server</strong> en VS Code.',
+      'Opción 3: Abre una terminal en la carpeta y ejecuta: <code>npx serve .</code>',
+      'Los navegadores modernos bloquean conexiones externas desde <code>file://</code> por seguridad.'
+    ]
+  );
+} else {
+  // ── Cargar jsPDF de forma diferida (no bloquea Firebase) ──
+  var jsPDFScript = document.createElement('script');
+  jsPDFScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  jsPDFScript.onerror = function() { console.warn('jsPDF no cargó — PDF deshabilitado'); };
+  document.head.appendChild(jsPDFScript);
+
+  cargarDatosIniciales();
+}
 db.ref('.info/connected').on('value', function(snap) {
   var connected = snap.val();
   var ind = document.getElementById('sync-indicator');
@@ -6103,7 +6125,6 @@ function mostrarErrorFirebase(titulo, subtitulo, causas) {
   loadScreen.appendChild(box);
 }
 
-cargarDatosIniciales();
 </script>
 </body>
 </html>
