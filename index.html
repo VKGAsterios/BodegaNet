@@ -4993,30 +4993,52 @@ var trazMatId = null; // material actualmente buscado
 function filtrarSugerenciasMaterial(q) {
   var drop = document.getElementById('kardex-mat-dropdown');
   if (!drop) return;
-  var cuad = currentUser.tipo === 'cuadrilla' ? currentUser.cuadrillaId : null;
-  // Obtener materiales que tienen al menos un movimiento visible para este usuario
+
+  // Para admin: materiales con movimientos en la bodega seleccionada o todos
+  var cidFiltro = currentUser.tipo === 'cuadrilla'
+    ? currentUser.cuadrillaId
+    : (adminBodegaVista || null);
+
   var usados = {};
   kardexListFiltrada().forEach(function(k) {
-    if (cuad && k.cuadrillaId !== cuad) return;
+    if (cidFiltro && k.cuadrillaId !== cidFiltro) return;
     if (k.matId) usados[k.matId] = true;
   });
-  // También incluir materiales del inventario
+  asigListFiltrada().forEach(function(a) {
+    if (cidFiltro && a.cuadrillaId !== cidFiltro) return;
+    (a.materiales || []).forEach(function(m) { if (m.matId) usados[m.matId] = true; });
+  });
+  // Incluir todos los materiales del catálogo también
   Object.keys(cache.materiales || {}).forEach(function(id) { usados[id] = true; });
 
   var term = (q || '').toLowerCase().trim();
   var matches = Object.keys(usados).map(function(id) {
-    return getMat(id);
+    var m = getMat(id); return m ? Object.assign({ id: id }, m) : null;
   }).filter(function(m) {
-    return m && (!term || m.nombre.toLowerCase().indexOf(term) > -1);
-  }).slice(0, 10);
+    if (!m) return false;
+    if (!term) return true;
+    // Buscar en nombre, codigo y categoria
+    return (m.nombre || '').toLowerCase().indexOf(term) > -1
+        || (m.codigo || '').toLowerCase().indexOf(term) > -1
+        || (m.categoria || '').toLowerCase().indexOf(term) > -1;
+  }).slice(0, 12);
 
   if (!matches.length) { drop.style.display = 'none'; return; }
   drop.style.display = 'block';
   drop.innerHTML = matches.map(function(m) {
+    var highlight = function(text) {
+      if (!term) return esc(text);
+      var idx = text.toLowerCase().indexOf(term);
+      if (idx === -1) return esc(text);
+      return esc(text.slice(0, idx))
+        + '<strong style="color:var(--accent);">' + esc(text.slice(idx, idx + term.length)) + '</strong>'
+        + esc(text.slice(idx + term.length));
+    };
     return '<div onclick="seleccionarMaterialBusqueda(\'' + m.id + '\',\'' + esc(m.nombre) + '\')"'
       + ' style="padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;"'
       + ' onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
-      + '<strong>' + esc(m.nombre) + '</strong>'
+      + highlight(m.nombre)
+      + (m.codigo ? ' <span style="font-size:10px;color:var(--ink3);font-family:monospace;">[' + esc(m.codigo) + ']</span>' : '')
       + ' <span style="font-size:11px;color:var(--ink3);">— ' + esc(m.unidad || '') + '</span>'
       + '</div>';
   }).join('');
@@ -5034,112 +5056,128 @@ function buscarUsoMaterial() {
   var drop = document.getElementById('kardex-mat-dropdown');
   if (drop) drop.style.display = 'none';
 
-  // Si aún no seleccionaron de la lista, intentar buscar por texto exacto
+  // Resolver matId si no viene del dropdown
   if (!trazMatId) {
     var q = (document.getElementById('kardex-mat-search').value || '').toLowerCase().trim();
     if (!q) { toast('Escribe el nombre de un material', 'info'); return; }
-    var found = Object.values(cache.materiales || {}).find(function(m) {
-      return m && m.nombre.toLowerCase().indexOf(q) > -1;
+    var foundId = null;
+    Object.entries(cache.materiales || {}).forEach(function(e) {
+      var m = e[1];
+      if (!m) return;
+      if ((m.nombre || '').toLowerCase().indexOf(q) > -1
+       || (m.codigo || '').toLowerCase().indexOf(q) > -1) {
+        if (!foundId) foundId = e[0];
+      }
     });
-    if (!found) { toast('Material no encontrado', 'error'); return; }
-    trazMatId = Object.keys(cache.materiales).find(function(id) {
-      return cache.materiales[id] === found;
-    });
-    document.getElementById('kardex-mat-search').value = found.nombre;
+    if (!foundId) { toast('Material no encontrado: "' + q + '"', 'error'); return; }
+    trazMatId = foundId;
+    document.getElementById('kardex-mat-search').value = cache.materiales[foundId].nombre;
   }
 
   var mat = getMat(trazMatId);
   if (!mat) { toast('Material no encontrado', 'error'); return; }
 
-  var cuad = currentUser.tipo === 'cuadrilla' ? currentUser.cuadrillaId : null;
+  // Filtro de cuadrilla:
+  // - Cuadrilla → solo su propio cid
+  // - Admin con bodega seleccionada → solo esa bodega
+  // - Admin sin selección / SuperAdmin → todo el sector visible
+  var cidFiltro = currentUser.tipo === 'cuadrilla'
+    ? currentUser.cuadrillaId
+    : (adminBodegaVista || null); // null = todas las cuadrillas visibles
 
-  // Filtrar egresos de kardex para este material, respetando permisos
+  // Egresos de kardex para este material
   var egresos = kardexListFiltrada().filter(function(k) {
-    return k.matId === trazMatId && k.tipo === 'egreso'
-      && (!cuad || k.cuadrillaId === cuad);
+    return k.matId === trazMatId
+      && k.tipo === 'egreso'
+      && (!cidFiltro || k.cuadrillaId === cidFiltro);
   }).sort(function(a, b) { return new Date(b.fecha) - new Date(a.fecha); });
 
-  // Filtrar asignaciones que usaron este material
+  // Asignaciones que usaron este material
   var asigs = asigListFiltrada().filter(function(a) {
-    if (cuad && a.cuadrillaId !== cuad) return false;
+    if (cidFiltro && a.cuadrillaId !== cidFiltro) return false;
     return (a.materiales || []).some(function(m) { return m.matId === trazMatId; });
   }).sort(function(a, b) { return new Date(b.fecha) - new Date(a.fecha); });
 
-  var totalUsado = egresos.reduce(function(s, k) { return s + (parseInt(k.qty) || 0); }, 0);
+  var totalEgresado = egresos.reduce(function(s, k) { return s + (parseInt(k.qty) || 0); }, 0);
   var totalAsignado = asigs.reduce(function(s, a) {
-    var mat_row = (a.materiales || []).find(function(m) { return m.matId === trazMatId; });
-    return s + (mat_row ? (parseInt(mat_row.qty) || 0) : 0);
+    var mr = (a.materiales || []).find(function(m) { return m.matId === trazMatId; });
+    return s + (mr ? (parseInt(mr.qty) || 0) : 0);
   }, 0);
 
-  // Mostrar panel
   var resultDiv = document.getElementById('kardex-traz-result');
   resultDiv.style.display = 'block';
 
-  // Header con resumen
-  document.getElementById('kardex-traz-header').innerHTML =
-    '<span style="font-family:var(--display);font-size:15px;font-weight:700;">' + esc(mat.nombre) + '</span>'
-    + '<span class="badge badge-blue">' + esc(mat.unidad || '') + '</span>'
-    + '<span class="badge badge-accent">Total egresado: ' + totalUsado + ' ' + esc(mat.unidad || '') + '</span>'
-    + (asigs.length ? '<span class="badge badge-green">En ' + asigs.length + ' asignación(es)</span>' : '')
-    + '<button onclick="limpiarBusquedaMaterial()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--ink3);font-size:18px;line-height:1;">×</button>';
+  // Encabezado del resultado
+  var headerHTML = '<span style="font-family:var(--display);font-size:15px;font-weight:700;">'
+    + esc(mat.nombre) + '</span>';
+  if (mat.codigo) headerHTML += ' <span style="font-family:monospace;font-size:11px;color:var(--ink3);">[' + esc(mat.codigo) + ']</span>';
+  headerHTML += ' <span class="badge badge-blue">' + esc(mat.unidad || '') + '</span>';
+  headerHTML += ' <span class="badge badge-accent">Total egresado: ' + totalEgresado + ' ' + esc(mat.unidad || '') + '</span>';
+  if (asigs.length) headerHTML += ' <span class="badge badge-green">En ' + asigs.length + ' asignación(es)</span>';
+  if (cidFiltro) {
+    var cuadNom = getCuad(cidFiltro) ? getCuad(cidFiltro).nombre : cidFiltro;
+    headerHTML += ' <span class="badge badge-gray">Bodega: ' + esc(cuadNom) + '</span>';
+  }
+  headerHTML += '<button onclick="limpiarBusquedaMaterial()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--ink3);font-size:20px;line-height:1;padding:0 4px;">×</button>';
+  document.getElementById('kardex-traz-header').innerHTML = headerHTML;
 
   var html = '';
+  var esAdmin = currentUser.tipo === 'admin';
 
-  // ── Tabla: asignaciones a clientes ──
+  // ── Tabla clientes ──
   if (asigs.length) {
     html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Clientes que recibieron este material</div>';
     html += '<div class="table-wrap" style="margin-bottom:1rem;"><table><thead><tr>'
       + '<th>Fecha</th><th>Cliente</th><th>Dirección</th><th>OT</th><th>Cantidad</th>'
-      + (currentUser.tipo === 'admin' ? '<th>Cuadrilla</th>' : '')
+      + (esAdmin ? '<th>Cuadrilla</th>' : '')
       + '<th>Técnico</th></tr></thead><tbody>';
     html += asigs.map(function(a) {
-      var mat_row = (a.materiales || []).find(function(m) { return m.matId === trazMatId; });
-      var qty = mat_row ? mat_row.qty : '—';
-      var cuadNombre = currentUser.tipo === 'admin' ? (getCuad(a.cuadrillaId) ? getCuad(a.cuadrillaId).nombre : '—') : '';
+      var mr = (a.materiales || []).find(function(m) { return m.matId === trazMatId; });
+      var qty = mr ? mr.qty : '—';
       return '<tr>'
         + '<td style="font-size:11px;white-space:nowrap">' + fmtDate(a.fecha) + '</td>'
         + '<td><strong>' + esc(a.cliente || '—') + '</strong>'
           + (a.telefono ? '<br><span style="font-size:10px;color:var(--ink3);">' + esc(a.telefono) + '</span>' : '')
           + '</td>'
-        + '<td style="font-size:11px;color:var(--ink2);">' + esc(a.direccion || '—') + '</td>'
+        + '<td style="font-size:11px;color:var(--ink2);">' + esc((a.direccion||'') + (a.municipio?', '+a.municipio:'')) + '</td>'
         + '<td style="font-size:11px;">' + esc(a.ot || '—') + '</td>'
         + '<td style="font-weight:600;color:var(--accent-dark);">' + qty + ' ' + esc(mat.unidad || '') + '</td>'
-        + (currentUser.tipo === 'admin' ? '<td><span class="badge badge-gray">' + esc(cuadNombre) + '</span></td>' : '')
+        + (esAdmin ? '<td><span class="badge badge-gray">' + esc(getCuad(a.cuadrillaId) ? getCuad(a.cuadrillaId).nombre : '—') + '</span></td>' : '')
         + '<td style="font-size:11px;">' + esc(a.tecnico || a.responsable || '—') + '</td>'
         + '</tr>';
     }).join('');
     html += '</tbody></table></div>';
   } else {
-    html += '<div style="padding:.75rem 1rem;background:var(--bg3);border-radius:var(--r);font-size:13px;color:var(--ink3);margin-bottom:.75rem;">Sin asignaciones a clientes con este material.</div>';
+    html += '<div style="padding:.75rem 1rem;background:var(--bg3);border-radius:var(--r);font-size:13px;color:var(--ink3);margin-bottom:.75rem;">Sin asignaciones a clientes con este material' + (cidFiltro ? ' en esta bodega' : '') + '.</div>';
   }
 
-  // ── Tabla: movimientos de kardex (egresos) ──
+  // ── Tabla egresos kardex ──
   if (egresos.length) {
-    html += '<div class="card-title" style="margin-bottom:.5rem;">📤 Egresos registrados en Kardex</div>';
+    html += '<div class="card-title" style="margin-bottom:.5rem;">📤 Egresos en Kardex</div>';
     html += '<div class="table-wrap"><table><thead><tr>'
       + '<th>Fecha</th><th>Cantidad</th><th>Referencia</th><th>Responsable</th>'
-      + (currentUser.tipo === 'admin' ? '<th>Cuadrilla</th>' : '')
+      + (esAdmin ? '<th>Cuadrilla</th>' : '')
       + '</tr></thead><tbody>';
     html += egresos.map(function(k) {
-      var cuadNombre = currentUser.tipo === 'admin' ? (getCuad(k.cuadrillaId) ? getCuad(k.cuadrillaId).nombre : '—') : '';
       return '<tr>'
         + '<td style="font-size:11px;white-space:nowrap">' + fmtDT(k.fecha) + '</td>'
         + '<td style="font-weight:600;color:var(--red);">-' + k.qty + ' ' + esc(mat.unidad || '') + '</td>'
         + '<td style="font-size:12px;">' + esc(k.ref || '—') + '</td>'
         + '<td style="font-size:12px;">' + esc(k.resp || '—') + '</td>'
-        + (currentUser.tipo === 'admin' ? '<td><span class="badge badge-gray">' + esc(cuadNombre) + '</span></td>' : '')
+        + (esAdmin ? '<td><span class="badge badge-gray">' + esc(getCuad(k.cuadrillaId) ? getCuad(k.cuadrillaId).nombre : '—') + '</span></td>' : '')
         + '</tr>';
     }).join('');
     html += '</tbody></table></div>';
   }
 
   if (!asigs.length && !egresos.length) {
-    html = '<div style="text-align:center;padding:1.5rem;color:var(--ink3);font-size:13px;">No se encontraron usos de <strong>' + esc(mat.nombre) + '</strong> en el período visible.</div>';
+    html = '<div style="text-align:center;padding:1.5rem;color:var(--ink3);font-size:13px;">'
+      + 'No se encontraron usos de <strong>' + esc(mat.nombre) + '</strong>'
+      + (cidFiltro ? ' en la bodega seleccionada' : ' en el período visible') + '.'
+      + '</div>';
   }
 
   document.getElementById('kardex-traz-tabla').innerHTML = html;
-
-  // Scroll suave al resultado
   resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
