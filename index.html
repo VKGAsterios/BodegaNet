@@ -14,8 +14,15 @@
 <script>
 (function(){
   var s = document.createElement('script');
-  s.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
-  s.onerror = function(){ console.warn('ZXing no cargó — escáner deshabilitado'); };
+  // jsdelivr no es bloqueado por Tracking Prevention de Edge
+  s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js';
+  s.onerror = function(){
+    // Fallback a unpkg si jsdelivr falla
+    var s2 = document.createElement('script');
+    s2.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
+    s2.onerror = function(){ console.warn('ZXing no disponible — escáner manual activo'); };
+    document.head.appendChild(s2);
+  };
   document.head.appendChild(s);
 })();
 </script>
@@ -5547,7 +5554,8 @@ function cerrarScanner() {
   scannerCtx = null; scannerRowUid = null; scannerResult = null;
 }
 
-
+// Cerrar dropdowns al hacer clic fuera
+document.addEventListener('click', function(e) {
   var wrap = document.getElementById('kardex-mat-search');
   var drop = document.getElementById('kardex-mat-dropdown');
   if (drop && wrap && !wrap.contains(e.target) && !drop.contains(e.target)) {
