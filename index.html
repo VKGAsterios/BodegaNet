@@ -5693,7 +5693,68 @@ function registrarAsignacion(){
         obs:document.getElementById('cli-obs').value,
         materiales:matsData,cuadrillaId:cid};
       updates['asignaciones/'+aid]=asig;
-      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
+      updates['_lastUpdate']=Date.now();
+
+      // ── SYNC → CuadriControl ─────────────────────────────
+      // Mapea el tipo de trabajo de BodegaNet a la key de CuadriControl
+      var TIPO_MAP = {
+        'Instalaciones':          'inst',
+        'Cambio a FO':            'cfo',
+        'Sin conexión':           'sincon',
+        'Link Loss':              'linkloss',
+        'Visita Repetidor':       'repetidor',
+        'Instalación TV':         'tv-inst',
+        'Problemas TV':           'tv-prob',
+        'Problema FO':            'fo-prob',
+        'Fallas VoIP':            'voip',
+        'Reconf. Caja Digital':   'caja',
+        'Internet lento':         'lento',
+        'Cámara Repetidor':       'camara',
+        'Cambio Contraseña':      'contrasena',
+        'Retiros Traslado':       'traslados',
+        'Retiro de equipo cliente': 'retiros'
+      };
+      var cuadObj  = getCuad(cid);
+      var cuadNombre = cuadObj ? cuadObj.nombre : cid;
+      var tipoKey  = TIPO_MAP[asig.tipo] || 'inst';
+      var fechaISO = asig.fecha ? asig.fecha.slice(0,10) : new Date().toISOString().slice(0,10);
+      var sectorNombre = cuadObj ? (cuadObj.sector || cuadObj.sectorId || '') : '';
+      // Buscar si ya existe un registro de ese cuadrilla+fecha en cuadricontrol_registros
+      var ccRef = db.ref('cuadricontrol_registros');
+      ccRef.orderByChild('_key').equalTo(cuadNombre + '_' + fechaISO).once('value', function(snap) {
+        var existing = null; var existingId = null;
+        snap.forEach(function(child) { existing = child.val(); existingId = child.key; });
+        if (existing) {
+          // Incrementa el campo correspondiente
+          var upd = {};
+          upd['cuadricontrol_registros/' + existingId + '/' + tipoKey] = (existing[tipoKey] || 0) + 1;
+          upd['cuadricontrol_registros/' + existingId + '/totalProg']   = (existing.totalProg || 0) + 1;
+          upd['cuadricontrol_registros/' + existingId + '/_lastAsig']   = Date.now();
+          db.ref().update(upd);
+        } else {
+          // Crear nuevo registro del día para esa cuadrilla
+          var newRec = {
+            _key:      cuadNombre + '_' + fechaISO,
+            fecha:     fechaISO,
+            cuadrilla: cuadNombre,
+            sector:    sectorNombre,
+            fuente:    'bodeganet',
+            _lastAsig: Date.now(),
+            totalProg: 1, totalDem: 0, totalReasig: 0
+          };
+          // Inicializar todos los campos en 0
+          ['inst','cfo','sincon','linkloss','repetidor','tv-inst','tv-prob','fo-prob','voip','caja',
+           'cortesia','lento','inestable','camara','cobertura','contrasena','traslados','retiros',
+           'red','inst-dem','rep-dem',
+           'nocontesta','postergo','noesta','nodeja','sincob','tiempo','otros','extra','asignadas'
+          ].forEach(function(k){ newRec[k] = 0; });
+          newRec[tipoKey] = 1;
+          ccRef.push(newRec);
+        }
+      });
+      // ── FIN SYNC ─────────────────────────────────────────
+
+      db.ref().update(updates).then(function(){
         toast('Asignación registrada. Generando PDF...','success');
         generarPDF(asig);
         // 2. Limpieza automática completa al confirmar
