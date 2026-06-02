@@ -351,14 +351,15 @@ select option{background:var(--bg3);color:var(--ink);}
           <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div class="nav-group-body">
-          <button class="nav-item active" onclick="showSection('dashboard')">
+          <button class="nav-item active bn-cuad-only" id="nav-dashboard" onclick="showSection('dashboard')">
             <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Dashboard
           </button>
-          <button class="nav-item" onclick="showSection('kardex')">
-            <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex / Bodega
-          </button>
-          <button class="nav-item" onclick="showSection('asignar')">
+          <button class="nav-item bn-cuad-only" id="nav-asignar" onclick="showSection('asignar')">
             <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar a cliente
+          </button>
+          <button class="nav-item" id="nav-mi-rendimiento" onclick="showSection('mi-rendimiento')" style="display:none">
+            <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="7" y="8" width="3" height="10" rx="1"/><rect x="12" y="4" width="3" height="14" rx="1"/><rect x="17" y="1" width="3" height="17" rx="1"/></svg>Mi Rendimiento
+            <span id="nav-rend-badge" style="display:none;background:var(--accent);color:#000;font-size:9px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:auto">●</span>
           </button>
         </div>
       </div>
@@ -378,7 +379,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="nav-item" onclick="showSection('historial')">
             <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Historial
           </button>
-          <button class="nav-item" onclick="showSection('herramientas')">
+          <button class="nav-item bn-cuad-only" id="nav-herramientas" onclick="showSection('herramientas')">
             <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l-3 3-2-2 3-3a4 4 0 00-5.5 5.5L3 11a1.41 1.41 0 002 2l4-4a4 4 0 005.5-5.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Herramientas
           </button>
           <button class="nav-item" id="nav-red-interna" onclick="showSection('red-interna')" style="display:none;">
@@ -1375,113 +1376,144 @@ select option{background:var(--bg3);color:var(--ink);}
       <!-- HERRAMIENTAS (cuadrilla) -->
       <section class="section" id="sec-herramientas">
         <div class="page-header">
-          <div><h2>Mis herramientas</h2><p id="herr-subtitle">Estado del equipamiento</p></div>
+          <div><h2>Mis herramientas</h2><p id="herr-subtitle">Confirma el estado de tu equipamiento al inicio del día</p></div>
+          <button class="btn btn-accent" onclick="abrirModalReporteHerr()">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Registrar reporte de estado
+          </button>
         </div>
+
+        <!-- Último reporte -->
+        <div class="card" id="herr-ultimo-reporte" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div style="font-size:13px;font-weight:700;color:var(--ink)">Último reporte registrado</div>
+            <span id="herr-reporte-fecha" style="font-size:12px;color:var(--ink3);font-family:monospace"></span>
+          </div>
+          <div id="herr-reporte-items" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px"></div>
+        </div>
+
+        <!-- Catálogo asignado a esta cuadrilla -->
         <div class="card">
-          <div id="herr-lista"><p style="color:var(--ink3);font-size:13px;">Cargando...</p></div>
+          <div style="font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Catálogo de herramientas disponibles</div>
+          <div id="herr-catalogo-cuad"><p style="color:var(--ink3);font-size:13px;">Cargando catálogo…</p></div>
+        </div>
+
+        <!-- Historial de reportes de la cuadrilla -->
+        <div class="card">
+          <div style="font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Historial de reportes</div>
+          <div id="herr-historial-cuad"><p style="color:var(--ink3);font-size:13px;">Sin reportes registrados.</p></div>
         </div>
       </section>
+
+      <!-- MODAL: Reporte de estado de herramientas (cuadrilla) -->
+      <div class="modal-overlay" id="modal-reporte-herr">
+        <div class="modal" style="max-width:540px;">
+          <button class="modal-close" onclick="closeModal('modal-reporte-herr')">&#x2715;</button>
+          <h3 style="margin-bottom:.25rem;">Reporte de estado de herramientas</h3>
+          <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">Indica el estado actual de cada herramienta de tu catálogo.</p>
+          <div id="modal-reporte-herr-items" style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;margin-bottom:1rem;"></div>
+          <div class="field">
+            <label>Observaciones generales (opcional)</label>
+            <input type="text" id="reporte-herr-obs" placeholder="Ej: Falta escalera, entregada a almacén…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="closeModal('modal-reporte-herr')">Cancelar</button>
+            <button class="btn btn-accent" onclick="guardarReporteHerr()">Guardar reporte</button>
+          </div>
+        </div>
+      </div>
 
       <!-- CONTROL HERRAMIENTAS (admin) -->
       <section class="section" id="sec-admin-herramientas">
         <div class="page-header">
-          <div><h2>Control de herramientas</h2><p>Verificación de cambios de estado</p></div>
+          <div><h2>Control de herramientas</h2><p>Catálogo maestro y seguimiento de reportes por cuadrilla</p></div>
           <button class="btn btn-green" onclick="exportarHerramientasCSV()">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             Exportar CSV
           </button>
         </div>
-        <!-- Filtros -->
-        <div class="card">
-          <div class="form-grid">
-            <div class="field"><label>Cuadrilla</label>
-              <select id="hadm-cuadrilla" onchange="renderAdminHerramientas()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                <option value="">Todas las cuadrillas</option>
-              </select>
-            </div>
-            <div class="field"><label>Estado</label>
-              <select id="hadm-estado" onchange="renderAdminHerramientas()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                <option value="">Todos</option>
-                <option value="Buen Estado">Buen Estado</option>
-                <option value="Mal Estado">Mal Estado</option>
-                <option value="Dañada">Dañada</option>
-              </select>
-            </div>
-            <div class="field"><label>Verificación</label>
-              <select id="hadm-verificado" onchange="renderAdminHerramientas()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                <option value="">Todos</option>
-                <option value="pendiente">Pendiente verificar</option>
-                <option value="verificado">Verificado ✓</option>
-                <option value="invalido">Kardex inválido ✗</option>
-              </select>
+
+        <!-- Tabs -->
+        <div class="tabs" style="margin-bottom:1rem;">
+          <button class="tab-btn active" id="htab-catalogo-btn" onclick="switchHerrTab('catalogo',this)">📋 Catálogo de herramientas</button>
+          <button class="tab-btn" id="htab-asignaciones-btn" onclick="switchHerrTab('asignaciones',this)">📊 Reportes por cuadrilla</button>
+        </div>
+
+        <!-- TAB: Catálogo maestro -->
+        <div id="htab-catalogo">
+          <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+              <div style="font-size:13px;font-weight:600;color:var(--ink)">Herramientas disponibles para asignación a cuadrillas</div>
+              <button class="btn btn-accent" onclick="abrirModalCatalogo()">
+                <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Nueva herramienta
+              </button>
             </div>
           </div>
+          <div class="card">
+            <div id="hadm-catalogo-lista"><p style="color:var(--ink3);font-size:13px;">Cargando catálogo…</p></div>
+          </div>
         </div>
-        <div class="card">
-          <div id="hadm-lista"><p style="color:var(--ink3);font-size:13px;">Cargando...</p></div>
+
+        <!-- TAB: Reportes / Asignaciones -->
+        <div id="htab-asignaciones" style="display:none">
+          <div class="card" style="margin-bottom:12px">
+            <div class="form-grid">
+              <div class="field"><label>Cuadrilla</label>
+                <select id="hadm-rep-cuadrilla" onchange="renderAdminReportesHerr()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                  <option value="">Todas las cuadrillas</option>
+                </select>
+              </div>
+              <div class="field"><label>Estado reportado</label>
+                <select id="hadm-rep-estado" onchange="renderAdminReportesHerr()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                  <option value="">Todos</option>
+                  <option value="Buen Estado">Buen Estado</option>
+                  <option value="Mal Estado">Mal Estado</option>
+                  <option value="Dañada">Dañada</option>
+                  <option value="No disponible">No disponible</option>
+                </select>
+              </div>
+              <div class="field"><label>Fecha</label>
+                <input type="date" id="hadm-rep-fecha" onchange="renderAdminReportesHerr()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;color-scheme:light">
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div id="hadm-reportes-lista"><p style="color:var(--ink3);font-size:13px;">Cargando reportes…</p></div>
+          </div>
         </div>
       </section>
 
-      <!-- MODAL: Agregar herramienta (admin) -->
-      <div class="modal-overlay" id="modal-herramienta">
-        <div class="modal" style="max-width:460px;">
-          <button class="modal-close" onclick="closeModal('modal-herramienta')">&#x2715;</button>
-          <h3 id="herr-modal-title" style="margin-bottom:1rem;">Nueva herramienta</h3>
+      <!-- MODAL: Nueva/editar herramienta del catálogo (admin) -->
+      <div class="modal-overlay" id="modal-catalogo-herr">
+        <div class="modal" style="max-width:480px;">
+          <button class="modal-close" onclick="closeModal('modal-catalogo-herr')">&#x2715;</button>
+          <h3 id="catalogo-herr-title" style="margin-bottom:1rem;">Nueva herramienta</h3>
           <div class="form-grid g1">
             <div class="field"><label>Nombre de la herramienta *</label>
-              <input type="text" id="herr-nombre" placeholder="Ej: Escalera 8 metros" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <input type="text" id="cat-herr-nombre" placeholder="Ej: Escalera 8 metros" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
             </div>
-            <div class="field"><label>Cuadrilla asignada *</label>
-              <select id="herr-cuadrilla" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                <option value="">-- Seleccionar --</option>
+            <div class="field"><label>Categoría</label>
+              <select id="cat-herr-cat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <option>Herramienta de mano</option>
+                <option>Herramienta eléctrica</option>
+                <option>Equipo de medición</option>
+                <option>Seguridad / EPP</option>
+                <option>Vehicular</option>
+                <option>Otro</option>
               </select>
             </div>
-            <div class="field"><label>Estado inicial</label>
-              <select id="herr-estado-inicial" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                <option value="Buen Estado">Buen Estado</option>
-                <option value="Mal Estado">Mal Estado</option>
-                <option value="Dañada">Dañada</option>
-              </select>
+            <div class="field"><label>Descripción (opcional)</label>
+              <input type="text" id="cat-herr-desc" placeholder="Detalles adicionales…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
             </div>
-            <div class="field"><label>Serie / Identificador (opcional)</label>
-              <input type="text" id="herr-serie" placeholder="Ej: HRR-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            <div class="field"><label>Cantidad disponible</label>
+              <input type="number" id="cat-herr-qty" min="1" value="1" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
             </div>
           </div>
-          <input type="hidden" id="herr-edit-id">
+          <input type="hidden" id="cat-herr-edit-id">
           <div class="btn-row">
-            <button class="btn btn-ghost" onclick="closeModal('modal-herramienta')">Cancelar</button>
-            <button class="btn btn-accent" onclick="guardarHerramienta()">Guardar</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- MODAL: Cambiar estado herramienta (cuadrilla) -->
-      <div class="modal-overlay" id="modal-herr-estado">
-        <div class="modal" style="max-width:420px;">
-          <button class="modal-close" onclick="closeModal('modal-herr-estado')">&#x2715;</button>
-          <h3 style="margin-bottom:.25rem;">Cambiar estado</h3>
-          <p id="herr-estado-nombre" style="font-size:13px;color:var(--ink2);margin-bottom:1rem;"></p>
-          <div class="form-grid g1">
-            <div class="field"><label>Nuevo estado *</label>
-              <select id="herr-nuevo-estado" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                <option value="Buen Estado">Buen Estado</option>
-                <option value="Mal Estado">Mal Estado</option>
-                <option value="Dañada">Dañada</option>
-              </select>
-            </div>
-            <div class="field">
-              <label># de Kardex de respaldo *</label>
-              <input type="text" id="herr-kardex-ref" placeholder="Ej: K-20240523-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-              <span style="font-size:11px;color:var(--ink3);">Ingresa el # de referencia del movimiento en Kardex que respalda este cambio</span>
-            </div>
-            <div class="field"><label>Observaciones</label>
-              <input type="text" id="herr-estado-obs" placeholder="Descripción del daño o motivo..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-            </div>
-          </div>
-          <input type="hidden" id="herr-estado-id">
-          <div class="btn-row">
-            <button class="btn btn-ghost" onclick="closeModal('modal-herr-estado')">Cancelar</button>
-            <button class="btn btn-accent" onclick="confirmarCambioEstado()">Registrar cambio</button>
+            <button class="btn btn-ghost" onclick="closeModal('modal-catalogo-herr')">Cancelar</button>
+            <button class="btn btn-accent" onclick="guardarCatalogoHerr()">Guardar</button>
           </div>
         </div>
       </div>
@@ -1611,6 +1643,59 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
       </div>
+    <!-- ═══ MI RENDIMIENTO (CuadriControl dashboard replicado) ═══ -->
+    <section class="section" id="sec-mi-rendimiento" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+        <div>
+          <h2 style="margin:0">Mi Rendimiento</h2>
+          <p style="margin:0;font-size:13px;color:var(--ink3)" id="mr-subtitulo">Cargando datos…</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;background:rgba(255,255,255,.5);border:1px solid var(--border2);border-radius:8px;padding:2px;gap:2px">
+            <button id="mr-btn-dia" onclick="mrSetVista('dia')" style="padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:var(--accent);color:#000;font-family:var(--sans)">Hoy</button>
+            <button id="mr-btn-mes" onclick="mrSetVista('mes')" style="padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:none;color:var(--ink2);font-family:var(--sans)">Mes</button>
+          </div>
+          <input type="date" id="mr-fecha" onchange="renderMiRendimiento()" style="padding:6px 10px;border:1.5px solid var(--border2);border-radius:8px;font-family:var(--sans);font-size:12px;background:rgba(255,255,255,.7);color:var(--ink);outline:none">
+          <input type="month" id="mr-mes" onchange="renderMiRendimiento()" style="display:none;padding:6px 10px;border:1.5px solid var(--border2);border-radius:8px;font-family:var(--sans);font-size:12px;background:rgba(255,255,255,.7);color:var(--ink);outline:none">
+          <div id="mr-live" style="display:flex;align-items:center;gap:5px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);border-radius:20px;padding:4px 10px">
+            <span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;animation:bnPulse 1.6s ease-in-out infinite"></span>
+            <span style="font-size:10px;font-weight:600;color:#16a34a">EN VIVO</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px" id="mr-kpis">
+        <div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Trabajos</div><div style="font-size:26px;font-weight:700;color:var(--blue)">—</div></div>
+        <div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Efectividad</div><div style="font-size:26px;font-weight:700;color:#16a34a">—</div></div>
+        <div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Demoras</div><div style="font-size:26px;font-weight:700;color:#d97706">—</div></div>
+        <div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Reasignaciones</div><div style="font-size:26px;font-weight:700;color:#dc2626">—</div></div>
+      </div>
+
+      <!-- Barra progreso meta -->
+      <div class="card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:600;color:var(--ink)">Progreso hacia meta del día</span>
+          <span id="mr-pct-badge" style="font-size:13px;font-weight:700;color:var(--blue)">—%</span>
+        </div>
+        <div style="background:var(--border2);border-radius:8px;height:10px;overflow:hidden">
+          <div id="mr-prog-bar" style="height:100%;background:var(--accent);border-radius:8px;width:0%;transition:width .6s ease"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--ink3)">
+          <span id="mr-prog-label">0 trabajos realizados</span>
+          <span id="mr-meta-label">Meta: —</span>
+        </div>
+      </div>
+
+      <!-- Desglose por tipo -->
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Desglose de trabajos</div>
+        <div id="mr-desglose" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+          <div style="text-align:center;color:var(--ink3);padding:24px;grid-column:1/-1">Sin datos para el período seleccionado.</div>
+        </div>
+      </div>
+    </section>
+
     </main>
   </div>
   <nav class="bottom-nav" id="bottom-nav">
@@ -1618,6 +1703,7 @@ select option{background:var(--bg3);color:var(--ink);}
     <!-- Cuadrilla -->
     <button class="bn-item bn-cuad" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
     <button class="bn-item bn-cuad" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
+    <button class="bn-item bn-cuad" id="bn-mi-rendimiento" onclick="showSection('mi-rendimiento')" style="display:none"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="7" y="8" width="3" height="10" rx="1"/><rect x="12" y="4" width="3" height="14" rx="1"/></svg>Rendimiento</button>
     <button class="bn-item bn-cuad" onclick="showSection('historial')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mi día</button>
     <!-- 1. Visita Fallida visible para cuadrilla en móvil -->
     <!-- Botón Fallida oculto — no implementado actualmente -->
@@ -2056,6 +2142,8 @@ var cache = {
   asignaciones: {}, // {id: {fecha, cliente, tel, dir, municipio, ot, tipo, tecnico, obs, materiales, cuadrillaId}}
   sectores: {},     // {id: {nombre, pass}}
   herramientas: {}, // {id: {nombre, cuadrillaId, estado, serie, historial:[]}}
+  catalogoHerr:  {}, // {id: {nombre, categoria, desc, qty}} — maestro creado por admin
+  reportesHerr:  {}, // {id: {cuadrillaId, fecha, items:[{herrId,estado}], obs}}
   redInterna: {}    // {id: {orden, tipo, nodo, tecnico, horaIni, horaFin, obs, materiales, cuadrillaId, fecha}}
 };
 
@@ -3081,12 +3169,24 @@ function initFirebaseListeners() {
       if (currentUser.tipo==='admin' && currentSection==='admin-red-interna') renderAdminRedInterna();
     }
   });
-  // Herramientas
+  // Herramientas (legacy — se mantiene para retrocompatibilidad)
   db.ref('herramientas').on('value', function(snap) {
     cache.herramientas = snap.val() || {};
+  });
+  // Catálogo maestro de herramientas (creado por admin)
+  db.ref('catalogo_herramientas').on('value', function(snap) {
+    cache.catalogoHerr = snap.val() || {};
     if (currentUser) {
       if (currentUser.tipo === 'cuadrilla' && currentSection === 'herramientas') renderHerramientas();
-      if (currentUser.tipo === 'admin' && currentSection === 'admin-herramientas') renderAdminHerramientas();
+      if (currentUser.tipo === 'admin' && currentSection === 'admin-herramientas') renderAdminCatalogoHerr();
+    }
+  });
+  // Reportes de herramientas por cuadrilla
+  db.ref('reportes_herramientas').on('value', function(snap) {
+    cache.reportesHerr = snap.val() || {};
+    if (currentUser) {
+      if (currentUser.tipo === 'cuadrilla' && currentSection === 'herramientas') renderHerramientas();
+      if (currentUser.tipo === 'admin' && currentSection === 'admin-herramientas') renderAdminReportesHerr();
     }
   });
   // Sectores dinamicos
@@ -3116,7 +3216,7 @@ function renderCurrentSection() {
     'admin-logs': renderAdminLogs,
     'admin-config': function(){ renderSesionesActivasConfig(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); },
     'herramientas': renderHerramientas,
-    'admin-herramientas': renderAdminHerramientas,
+    'admin-herramientas': renderAdminCatalogoHerr,
     'red-interna': renderRedInterna,
     'admin-red-interna': renderAdminRedInterna,
     'visitas-fallidas': renderVisitasFallidas,
@@ -3383,16 +3483,10 @@ function startApp() {
     // Admin: mostrar btns admin en bottom nav, ocultar cuadrilla
     document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='flex'; });
     document.querySelectorAll('.bn-cuad').forEach(function(b){ b.style.display='none'; });
-    // 6. Ocultar alertas y visita fallida cuad del sidebar para admin
-    var navAlertas = document.getElementById('nav-alertas-cuad');
-    if (navAlertas) navAlertas.style.display = 'none';
-    var navVisitaCuad = document.getElementById('nav-visita-cuad');
-    if (navVisitaCuad) navVisitaCuad.style.display = 'none';
-    document.getElementById('alert-bell-wrap') && (document.getElementById('alert-bell-wrap').style.display='none');
-    // Ocultar logs de acceso para admin no-superadmin
-    var navLogs = document.getElementById('nav-admin-logs');
-    if (navLogs) navLogs.style.display = currentUser.rol === 'superadmin' ? 'flex' : 'none';
-    showSection('dashboard');
+    // Ocultar items de nav marcados como solo-cuadrilla
+    document.querySelectorAll('.bn-cuad-only').forEach(function(b){ b.style.display='none'; });
+    // Admin empieza en kardex/inventario, no en dashboard
+    showSection('kardex');
   } else {
     var c = getCuad(currentUser.cuadrillaId);
     tc.textContent = c ? c.nombre : 'Cuadrilla';
@@ -3400,6 +3494,13 @@ function startApp() {
     // Ocultar botones admin del bottom nav para cuadrilla
     document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='none'; });
     document.querySelectorAll('.bn-cuad').forEach(function(b){ b.style.display='flex'; });
+    // Mostrar items de nav solo-cuadrilla
+    document.querySelectorAll('.bn-cuad-only').forEach(function(b){ b.style.display='flex'; });
+    // Mostrar Mi Rendimiento
+    var navMR = document.getElementById('nav-mi-rendimiento');
+    if (navMR) navMR.style.display = 'flex';
+    var bnMR = document.getElementById('bn-mi-rendimiento');
+    if (bnMR) bnMR.style.display = 'flex';
     // Mostrar/ocultar Red Interna según permiso de la cuadrilla
     var cuadData = getCuad(currentUser.cuadrillaId);
     var tieneRI = cuadData && cuadData.redInterna === true;
@@ -3932,128 +4033,236 @@ function herrList() {
 }
 
 // ── VISTA CUADRILLA ──────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  HERRAMIENTAS — NUEVO SISTEMA CON CATÁLOGO MAESTRO
+// ══════════════════════════════════════════════════════
+
+var BADGE_HERR = {
+  'Buen Estado':'badge-green',
+  'Mal Estado':'badge-amber',
+  'Dañada':'badge-red',
+  'No disponible':'badge-gray'
+};
+
+// ── Cuadrilla: renderizar sección herramientas ─────────
 function renderHerramientas() {
   if (!currentUser || currentUser.tipo !== 'cuadrilla') return;
-  var cid = currentUser.cuadrillaId;
-  var cuad = getCuad(cid);
-  var sub = document.getElementById('herr-subtitle');
-  if (sub && cuad) sub.textContent = cuad.nombre;
-  var lista = document.getElementById('herr-lista');
-  if (!lista) return;
-  var items = herrList().filter(function(h){ return h.cuadrillaId === cid; });
-  if (!items.length) {
-    lista.innerHTML = '<div style="text-align:center;padding:2rem 1rem;">'
-      + '<p style="color:var(--ink3);font-size:14px;margin-bottom:1rem;">No hay herramientas asignadas a esta cuadrilla a\u00fan.</p>'
-      + '<p style="color:var(--ink3);font-size:12px;margin-bottom:1.25rem;">Puedes registrar tus primeras herramientas para llevar el control de su estado.</p>'
-      + '<button class="btn btn-accent" onclick="abrirModalRegistrarPrimeraHerramienta()">'
-      + '<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
-      + ' Registrar primera herramienta'
-      + '</button>'
+  var cid   = currentUser.cuadrillaId;
+  var cuad  = getCuad(cid);
+  var sub   = document.getElementById('herr-subtitle');
+  if (sub && cuad) sub.textContent = cuad.nombre + ' — Confirma el estado de tu equipamiento';
+
+  var catalogo = Object.entries(cache.catalogoHerr || {})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
+    .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+
+  // Mostrar catálogo disponible
+  var catDiv = document.getElementById('herr-catalogo-cuad');
+  if (catDiv) {
+    if (!catalogo.length) {
+      catDiv.innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">El administrador aún no ha creado el catálogo de herramientas.</p>';
+    } else {
+      catDiv.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">'
+        + catalogo.map(function(h) {
+            var badge = h.categoria === 'Seguridad / EPP' ? 'badge-amber' : 'badge-blue';
+            return '<div style="background:rgba(0,0,0,.03);border:1.5px solid var(--border2);border-radius:10px;padding:12px">'
+              + '<div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">' + esc(h.nombre) + '</div>'
+              + '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">' + esc(h.categoria||'General') + (h.desc ? ' · ' + esc(h.desc) : '') + '</div>'
+              + '<div style="font-size:11px;color:var(--ink3)">Disponibles: <strong>' + (h.qty||1) + '</strong></div>'
+              + '</div>';
+          }).join('')
+        + '</div>';
+    }
+  }
+
+  // Último reporte de esta cuadrilla
+  var reportes = Object.entries(cache.reportesHerr || {})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
+    .filter(function(r){ return r.cuadrillaId === cid; })
+    .sort(function(a,b){ return b.fecha.localeCompare(a.fecha); });
+
+  var ultDiv = document.getElementById('herr-ultimo-reporte');
+  var rItems = document.getElementById('herr-reporte-items');
+  if (reportes.length && ultDiv && rItems) {
+    var ult = reportes[0];
+    ultDiv.style.display = '';
+    document.getElementById('herr-reporte-fecha').textContent = fmtDate(ult.fecha);
+    rItems.innerHTML = (ult.items||[]).map(function(it) {
+      var h = (cache.catalogoHerr||{})[it.herrId];
+      return '<div style="background:rgba(0,0,0,.03);border:1.5px solid var(--border2);border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+        + '<span style="font-size:12px;font-weight:600;color:var(--ink)">' + esc(h?h.nombre:it.herrId) + '</span>'
+        + '<span class="badge ' + (BADGE_HERR[it.estado]||'badge-gray') + '">' + it.estado + '</span>'
+        + '</div>';
+    }).join('') + (ult.obs ? '<div style="grid-column:1/-1;font-size:12px;color:var(--ink3);margin-top:4px">📝 ' + esc(ult.obs) + '</div>' : '');
+  } else if (ultDiv) {
+    ultDiv.style.display = 'none';
+  }
+
+  // Historial de reportes
+  var histDiv = document.getElementById('herr-historial-cuad');
+  if (histDiv) {
+    if (!reportes.length) {
+      histDiv.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin reportes registrados aún.</p>';
+    } else {
+      histDiv.innerHTML = '<div class="table-wrap"><table>'
+        + '<thead><tr><th>Fecha</th><th>Herramientas</th><th>Alertas</th><th>Observaciones</th></tr></thead><tbody>'
+        + reportes.map(function(r) {
+            var alertas = (r.items||[]).filter(function(it){ return it.estado !== 'Buen Estado'; }).length;
+            return '<tr>'
+              + '<td style="font-size:12px;font-family:monospace">' + fmtDate(r.fecha) + '</td>'
+              + '<td style="font-size:12px">' + (r.items||[]).length + ' ítems</td>'
+              + '<td>' + (alertas ? '<span class="badge badge-red">⚠ ' + alertas + ' alertas</span>' : '<span class="badge badge-green">✓ Todo OK</span>') + '</td>'
+              + '<td style="font-size:12px;color:var(--ink3)">' + esc(r.obs||'—') + '</td>'
+              + '</tr>';
+          }).join('')
+        + '</tbody></table></div>';
+    }
+  }
+}
+
+// ── Modal reporte de estado (cuadrilla) ───────────────
+function abrirModalReporteHerr() {
+  var catalogo = Object.entries(cache.catalogoHerr || {})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
+    .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  if (!catalogo.length) {
+    toast('El administrador aún no ha creado el catálogo de herramientas.', 'info');
+    return;
+  }
+  var container = document.getElementById('modal-reporte-herr-items');
+  container.innerHTML = catalogo.map(function(h) {
+    return '<div style="background:var(--bg);border:1.5px solid var(--border2);border-radius:10px;padding:12px">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px">' + esc(h.nombre) + '</div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin-bottom:8px">' + esc(h.categoria||'General') + '</div>'
+      + '<select id="herr-estado-' + h.id + '" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">'
+      + '<option value="Buen Estado">✅ Buen Estado</option>'
+      + '<option value="Mal Estado">⚠️ Mal Estado</option>'
+      + '<option value="Dañada">❌ Dañada</option>'
+      + '<option value="No disponible">🚫 No disponible</option>'
+      + '</select>'
       + '</div>';
+  }).join('');
+  document.getElementById('reporte-herr-obs').value = '';
+  openModal('modal-reporte-herr');
+}
+
+function guardarReporteHerr() {
+  var cid = currentUser && currentUser.cuadrillaId;
+  if (!cid) return;
+  var catalogo = Object.entries(cache.catalogoHerr || {})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); });
+  if (!catalogo.length) { toast('Sin catálogo disponible', 'error'); return; }
+  var items = catalogo.map(function(h) {
+    var sel = document.getElementById('herr-estado-' + h.id);
+    return { herrId: h.id, nombre: h.nombre, estado: sel ? sel.value : 'Buen Estado' };
+  });
+  var obs = document.getElementById('reporte-herr-obs').value.trim();
+  var alertas = items.filter(function(it){ return it.estado !== 'Buen Estado'; });
+  var reporte = {
+    cuadrillaId:  cid,
+    cuadrillaNombre: (getCuad(cid)||{nombre:'?'}).nombre,
+    fecha:        nowISO(),
+    items:        items,
+    obs:          obs,
+    alertas:      alertas.length,
+    verificado:   false
+  };
+  db.ref('reportes_herramientas').push(reporte).then(function() {
+    closeModal('modal-reporte-herr');
+    toast(alertas.length
+      ? '⚠ Reporte guardado — ' + alertas.length + ' alerta(s) enviada(s) al administrador.'
+      : '✅ Reporte guardado correctamente.', alertas.length ? 'info' : 'success');
+    renderHerramientas();
+  }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
+}
+
+// ── Admin: tabs de control herramientas ───────────────
+function switchHerrTab(tab, btn) {
+  document.querySelectorAll('#htab-catalogo,#htab-asignaciones').forEach(function(el){ el.style.display='none'; });
+  document.querySelectorAll('#htab-catalogo-btn,#htab-asignaciones-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('htab-' + tab).style.display = '';
+  if (btn) btn.classList.add('active');
+  if (tab === 'catalogo')    renderAdminCatalogoHerr();
+  if (tab === 'asignaciones') renderAdminReportesHerr();
+}
+
+// ── Admin: render catálogo maestro ─────────────────────
+function renderAdminCatalogoHerr() {
+  var lista = document.getElementById('hadm-catalogo-lista');
+  if (!lista) return;
+  var items = Object.entries(cache.catalogoHerr || {})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
+    .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  if (!items.length) {
+    lista.innerHTML = '<div style="text-align:center;padding:2rem;">'
+      + '<p style="color:var(--ink3);font-size:14px;margin-bottom:1rem;">El catálogo está vacío. Agrega la primera herramienta.</p>'
+      + '<button class="btn btn-accent" onclick="abrirModalCatalogo()">+ Nueva herramienta</button></div>';
     return;
   }
   lista.innerHTML = '<div class="table-wrap"><table>'
-    + '<thead><tr><th>Herramienta</th><th>Serie</th><th>Estado actual</th><th>\u00daltimo cambio</th><th></th></tr></thead>'
-    + '<tbody>'
+    + '<thead><tr><th>Herramienta</th><th>Categoría</th><th>Descripción</th><th>Cant.</th><th></th></tr></thead><tbody>'
     + items.map(function(h) {
-        var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
         return '<tr>'
           + '<td><strong>' + esc(h.nombre) + '</strong></td>'
-          + '<td style="font-family:monospace;font-size:12px;">' + esc(h.serie||'') + '</td>'
-          + '<td><span class="badge ' + (BADGE_HERR[h.estado]||'badge-gray') + '">' + (h.estado||'\u2014') + '</span></td>'
-          + '<td style="font-size:12px;color:var(--ink3);">' + (ult ? fmtDate(ult.fecha) + ' &nbsp; <span style="font-family:monospace;">Ref: ' + (ult.kardexRef||'\u2014') + '</span>' : '\u2014') + '</td>'
-          + '<td><button class="btn btn-sm" onclick="abrirModalCambioEstado(\'' + h.id + '\')">Cambiar estado</button></td>'
-          + '</tr>';
+          + '<td><span class="badge badge-blue" style="font-size:10px">' + esc(h.categoria||'General') + '</span></td>'
+          + '<td style="font-size:12px;color:var(--ink3)">' + esc(h.desc||'—') + '</td>'
+          + '<td style="font-family:monospace;font-size:13px;text-align:center">' + (h.qty||1) + '</td>'
+          + '<td style="display:flex;gap:6px;flex-wrap:wrap;">'
+          + '<button class="btn btn-sm" onclick="editarCatalogoHerr(\'' + h.id + '\')">Editar</button>'
+          + '<button class="btn btn-sm btn-red" onclick="eliminarCatalogoHerr(\'' + h.id + '\')">Eliminar</button>'
+          + '</td></tr>';
       }).join('')
-    + '</tbody></table></div>';
+    + '</tbody></table></div>'
+    + '<div style="margin-top:.8rem"><button class="btn btn-accent" onclick="abrirModalCatalogo()">+ Nueva herramienta</button></div>';
 }
 
-function abrirModalRegistrarPrimeraHerramienta() {
-  // Cuadrilla puede registrar sus propias herramientas
-  var cid = currentUser && currentUser.cuadrillaId;
-  if (!cid) return;
-  document.getElementById('herr-propia-nombre').value = '';
-  document.getElementById('herr-propia-serie').value = '';
-  document.getElementById('herr-propia-estado-inicial').value = 'Buen Estado';
-  openModal('modal-herr-propia');
+function abrirModalCatalogo(id) {
+  var h = id ? (cache.catalogoHerr||{})[id] : null;
+  document.getElementById('cat-herr-nombre').value = h ? h.nombre : '';
+  document.getElementById('cat-herr-cat').value    = h ? (h.categoria||'Herramienta de mano') : 'Herramienta de mano';
+  document.getElementById('cat-herr-desc').value   = h ? (h.desc||'') : '';
+  document.getElementById('cat-herr-qty').value    = h ? (h.qty||1) : 1;
+  document.getElementById('cat-herr-edit-id').value= id || '';
+  document.getElementById('catalogo-herr-title').textContent = id ? 'Editar herramienta' : 'Nueva herramienta';
+  openModal('modal-catalogo-herr');
 }
 
-function guardarHerramientaPropia() {
-  var cid = currentUser && currentUser.cuadrillaId;
-  if (!cid) return;
-  var nombre = document.getElementById('herr-propia-nombre').value.trim();
-  var serie  = document.getElementById('herr-propia-serie').value.trim();
-  var estado = document.getElementById('herr-propia-estado-inicial').value;
+function editarCatalogoHerr(id) { abrirModalCatalogo(id); }
+
+function guardarCatalogoHerr() {
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
+  var nombre = document.getElementById('cat-herr-nombre').value.trim();
+  var cat    = document.getElementById('cat-herr-cat').value;
+  var desc   = document.getElementById('cat-herr-desc').value.trim();
+  var qty    = parseInt(document.getElementById('cat-herr-qty').value) || 1;
+  var editId = document.getElementById('cat-herr-edit-id').value;
   if (!nombre) { toast('Ingresa el nombre de la herramienta', 'error'); return; }
-  var hId = uid();
-  db.ref('herramientas/' + hId).set({
-    nombre: sanitizeAdvanced(nombre),
-    serie: sanitizeAdvanced(serie),
-    estado: estado,
-    cuadrillaId: cid,
-    verificacion: 'pendiente',
-    historial: []
-  }).then(function() {
-    toast('Herramienta registrada', 'success');
-    closeModal('modal-herr-propia');
-    renderHerramientas();
+  var data = { nombre: sanitizeAdvanced(nombre), categoria: cat, desc: sanitizeAdvanced(desc), qty: qty };
+  var ref = editId ? db.ref('catalogo_herramientas/' + editId) : db.ref('catalogo_herramientas').push();
+  ref.set(data).then(function() {
+    closeModal('modal-catalogo-herr');
+    toast(editId ? 'Herramienta actualizada en catálogo' : 'Herramienta agregada al catálogo', 'success');
+    renderAdminCatalogoHerr();
   }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
 }
 
-function abrirModalCambioEstado(herrId) {
-  var h = cache.herramientas[herrId];
-  if (!h) return;
-  document.getElementById('herr-estado-id').value = herrId;
-  document.getElementById('herr-estado-nombre').textContent = h.nombre + ' \u2014 Estado actual: ' + h.estado;
-  document.getElementById('herr-nuevo-estado').value = h.estado;
-  document.getElementById('herr-kardex-ref').value = '';
-  document.getElementById('herr-estado-obs').value = '';
-  openModal('modal-herr-estado');
+function eliminarCatalogoHerr(id) {
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
+  var h = (cache.catalogoHerr||{})[id]; if (!h) return;
+  showConfirm('Eliminar del catálogo',
+    '¿Eliminar <strong>' + esc(h.nombre) + '</strong> del catálogo? Las cuadrillas ya no verán esta herramienta.',
+    function() {
+      db.ref('catalogo_herramientas/' + id).remove().then(function(){
+        toast('Herramienta eliminada del catálogo', 'success');
+        renderAdminCatalogoHerr();
+      });
+    });
 }
 
-function confirmarCambioEstado() {
-  var herrId   = document.getElementById('herr-estado-id').value;
-  var nuevoEst = document.getElementById('herr-nuevo-estado').value;
-  var kardexRef = document.getElementById('herr-kardex-ref').value.trim();
-  var obs      = document.getElementById('herr-estado-obs').value.trim();
-  if (!herrId) return;
-  if (!kardexRef) { toast('Debes ingresar el # de Kardex de respaldo', 'error'); return; }
-  // Validar que el # de kardex existe en los movimientos de esta cuadrilla
-  var cid = currentUser.cuadrillaId;
-  var kardexMatch = kardexList().find(function(k) {
-    return (k.ref||'').trim().toLowerCase() === kardexRef.toLowerCase()
-      && k.cuadrillaId === cid;
-  });
-  var h = cache.herramientas[herrId];
-  var cambio = {
-    fecha: new Date().toISOString(),
-    estadoAnterior: h.estado,
-    estadoNuevo: nuevoEst,
-    kardexRef: kardexRef,
-    kardexValido: !!kardexMatch,
-    kardexId: kardexMatch ? kardexMatch.id : null,
-    obs: obs,
-    cuadrillaId: cid,
-    cuadrillaNombre: (getCuad(cid)||{nombre:'?'}).nombre
-  };
-  var historial = h.historial ? h.historial.slice() : [];
-  historial.push(cambio);
-  db.ref('herramientas/' + herrId).update({
-    estado: nuevoEst,
-    historial: historial,
-    verificacion: kardexMatch ? 'verificado' : 'pendiente'
-  }).then(function() {
-    closeModal('modal-herr-estado');
-    toast('Estado actualizado. ' + (kardexMatch ? '\u2705 Kardex verificado.' : '\u26a0 Kardex pendiente de verificaci\u00f3n por el admin.'), kardexMatch ? 'success' : 'info');
-    renderHerramientas();
-  }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
-}
-
-// ── VISTA ADMIN ──────────────────────────────────────
-function renderAdminHerramientas() {
-  if (!currentUser || currentUser.tipo !== 'admin') return;
-  // Poblar filtro de cuadrillas
-  var selC = document.getElementById('hadm-cuadrilla');
+// ── Admin: render reportes de cuadrillas ──────────────
+function renderAdminReportesHerr() {
+  // Poblar filtro cuadrillas
+  var selC = document.getElementById('hadm-rep-cuadrilla');
   if (selC) {
     var valC = selC.value;
     selC.innerHTML = '<option value="">Todas las cuadrillas</option>';
@@ -4063,190 +4272,83 @@ function renderAdminHerramientas() {
       selC.appendChild(o);
     });
   }
-  var filtroCuad   = (document.getElementById('hadm-cuadrilla')||{value:''}).value;
-  var filtroEstado = (document.getElementById('hadm-estado')||{value:''}).value;
-  var filtroVerif  = (document.getElementById('hadm-verificado')||{value:''}).value;
-  var items = herrList().filter(function(h) {
-    var cuad = getCuad(h.cuadrillaId);
-    var cuadDelSector = getCuadrillasFiltradas().find(function(c){ return c.id === h.cuadrillaId; });
-    if (!cuadDelSector) return false; // no pertenece al sector del admin
-    if (filtroCuad   && h.cuadrillaId !== filtroCuad)   return false;
-    if (filtroEstado && h.estado !== filtroEstado)       return false;
-    if (filtroVerif  && (h.verificacion||'pendiente') !== filtroVerif) return false;
-    return true;
-  });
-  var lista = document.getElementById('hadm-lista');
+  var filtroCuad  = (document.getElementById('hadm-rep-cuadrilla')||{value:''}).value;
+  var filtroEst   = (document.getElementById('hadm-rep-estado')||{value:''}).value;
+  var filtroFecha = (document.getElementById('hadm-rep-fecha')||{value:''}).value;
+
+  var reportes = Object.entries(cache.reportesHerr || {})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
+    .filter(function(r) {
+      var cuadOk = getCuadrillasFiltradas().find(function(c){ return c.id === r.cuadrillaId; });
+      if (!cuadOk) return false;
+      if (filtroCuad && r.cuadrillaId !== filtroCuad) return false;
+      if (filtroFecha && !r.fecha.startsWith(filtroFecha)) return false;
+      if (filtroEst) {
+        var tieneEst = (r.items||[]).some(function(it){ return it.estado === filtroEst; });
+        if (!tieneEst) return false;
+      }
+      return true;
+    })
+    .sort(function(a,b){ return b.fecha.localeCompare(a.fecha); });
+
+  var lista = document.getElementById('hadm-reportes-lista');
   if (!lista) return;
-  if (!items.length) { lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin herramientas para mostrar.</p>'; return; }
+  if (!reportes.length) {
+    lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin reportes para los filtros seleccionados.</p>';
+    return;
+  }
   lista.innerHTML = '<div class="table-wrap"><table>'
-    + '<thead><tr><th>Herramienta</th><th>Cuadrilla</th><th>Estado</th><th>Verificaci\u00f3n</th><th>\u00daltimo cambio</th><th></th></tr></thead>'
-    + '<tbody>'
-    + items.map(function(h) {
-        var cuad = getCuad(h.cuadrillaId);
-        var verif = h.verificacion || 'pendiente';
-        var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
-        var verifBadge = verif==='verificado' ? 'badge-green' : verif==='invalido' ? 'badge-red' : 'badge-amber';
-        var verifLabel = verif==='verificado' ? '\u2713 Verificado' : verif==='invalido' ? '\u2717 Inv\u00e1lido' : '\u23f3 Pendiente';
+    + '<thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Ítems</th><th>Alertas</th><th>Obs.</th><th></th></tr></thead><tbody>'
+    + reportes.map(function(r) {
+        var alertas = (r.items||[]).filter(function(it){ return it.estado !== 'Buen Estado'; });
         return '<tr>'
-          + '<td><strong>' + esc(h.nombre) + '</strong>' + (h.serie ? '<br><span style="font-family:monospace;font-size:11px;color:var(--ink3);">' + esc(h.serie) + '</span>' : '') + '</td>'
-          + '<td>' + (cuad ? cuad.nombre : '\u2014') + '</td>'
-          + '<td><span class="badge ' + (BADGE_HERR[h.estado]||'badge-gray') + '">' + (h.estado||'\u2014') + '</span></td>'
-          + '<td><span class="badge ' + verifBadge + '">' + verifLabel + '</span></td>'
-          + '<td style="font-size:12px;">' + (ult ? fmtDate(ult.fecha) + '<br><span style="font-family:monospace;font-size:11px;">Ref: ' + (ult.kardexRef||'\u2014') + (ult.kardexValido ? ' \u2705' : ' \u26a0') + '</span>' : '\u2014') + '</td>'
-          + '<td style="display:flex;gap:6px;flex-wrap:wrap;">'
-          + '<button class="btn btn-sm" onclick="verHistorialHerramienta(\'' + h.id + '\')">Historial</button>'
-          + (ult && !ult.kardexValido ? '<button class="btn btn-sm btn-green" onclick="verificarKardexManual(\'' + h.id + '\')">Verificar</button>' : '')
-          + '<button class="btn btn-sm" onclick="editarHerramienta(\'' + h.id + '\')">Editar</button>'
-          + '<button class="btn btn-sm btn-red" onclick="eliminarHerramienta(\'' + h.id + '\')">Eliminar</button>'
-          + '</td></tr>';
+          + '<td style="font-size:12px;font-family:monospace;white-space:nowrap">' + fmtDate(r.fecha) + '</td>'
+          + '<td style="font-size:13px;font-weight:600">' + esc(r.cuadrillaNombre||'?') + '</td>'
+          + '<td style="text-align:center;font-size:13px">' + (r.items||[]).length + '</td>'
+          + '<td>' + (alertas.length
+              ? '<span class="badge badge-red">⚠ ' + alertas.length + '</span>'
+              : '<span class="badge badge-green">✓ OK</span>') + '</td>'
+          + '<td style="font-size:12px;color:var(--ink3)">' + esc(r.obs||'—') + '</td>'
+          + '<td><button class="btn btn-sm" onclick="verDetalleReporteHerr(\'' + r.id + '\')">Ver detalle</button></td>'
+          + '</tr>';
       }).join('')
-    + '</tbody></table></div>'
-    + '<div style="margin-top:.8rem;">' + '<button class="btn btn-accent" onclick="abrirModalNuevaHerramienta()">+ Nueva herramienta</button></div>';
+    + '</tbody></table></div>';
 }
 
-function abrirModalNuevaHerramienta() {
-  var sel = document.getElementById('herr-cuadrilla');
-  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
-  getCuadrillasFiltradas().forEach(function(cu) {
-    var o = document.createElement('option'); o.value = cu.id; o.textContent = cu.nombre; sel.appendChild(o);
-  });
-  document.getElementById('herr-nombre').value = '';
-  document.getElementById('herr-serie').value = '';
-  document.getElementById('herr-estado-inicial').value = 'Buen Estado';
-  document.getElementById('herr-edit-id').value = '';
-  document.getElementById('herr-modal-title').textContent = 'Nueva herramienta';
-  openModal('modal-herramienta');
-}
-
-function editarHerramienta(id) {
-  var h = cache.herramientas[id]; if (!h) return;
-  var sel = document.getElementById('herr-cuadrilla');
-  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
-  getCuadrillasFiltradas().forEach(function(cu) {
-    var o = document.createElement('option'); o.value = cu.id; o.textContent = cu.nombre;
-    if (cu.id === h.cuadrillaId) o.selected = true;
-    sel.appendChild(o);
-  });
-  document.getElementById('herr-nombre').value = h.nombre;
-  document.getElementById('herr-serie').value = h.serie || '';
-  document.getElementById('herr-estado-inicial').value = h.estado || 'Buen Estado';
-  document.getElementById('herr-edit-id').value = id;
-  document.getElementById('herr-modal-title').textContent = 'Editar herramienta';
-  openModal('modal-herramienta');
-}
-
-function guardarHerramienta() {
-  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
-  var nombre  = document.getElementById('herr-nombre').value.trim();
-  var cuadId  = document.getElementById('herr-cuadrilla').value;
-  var estado  = document.getElementById('herr-estado-inicial').value;
-  var serie   = document.getElementById('herr-serie').value.trim();
-  var editId  = document.getElementById('herr-edit-id').value;
-  if (!nombre) { toast('Ingresa el nombre de la herramienta', 'error'); return; }
-  if (!cuadId) { toast('Selecciona la cuadrilla', 'error'); return; }
-  // Admin de sector solo puede asignar herramientas a cuadrillas de su sector
-  if (currentUser.rol !== 'superadmin') {
-    var cuadObj = getCuad(cuadId);
-    if (cuadObj) {
-      var cs = cuadObj.sectorId || cuadObj.sector || '1';
-      if (cs !== currentUser.sector) { toast('Esa cuadrilla no pertenece a tu sector', 'error'); return; }
-    }
-  }
-  var data = { nombre: nombre, cuadrillaId: cuadId, estado: estado, serie: serie,
-    verificacion: 'verificado', historial: editId ? (cache.herramientas[editId].historial||[]) : [] };
-  var ref = editId ? db.ref('herramientas/' + editId) : db.ref('herramientas').push();
-  ref.set(data).then(function() {
-    closeModal('modal-herramienta');
-    toast(editId ? 'Herramienta actualizada' : 'Herramienta registrada', 'success');
-    renderAdminHerramientas();
-  }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
-}
-
-function eliminarHerramienta(id) {
-  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
-  var h = cache.herramientas[id]; if (!h) return;
-  // Admin de sector solo puede eliminar herramientas de su sector
-  if (currentUser.rol !== 'superadmin') {
-    var cuadObj = getCuad(h.cuadrillaId);
-    if (cuadObj) {
-      var cs = cuadObj.sectorId || cuadObj.sector || '1';
-      if (cs !== currentUser.sector) { toast('No puedes eliminar herramientas de otro sector', 'error'); return; }
-    }
-  }
-  showConfirm('Eliminar herramienta',
-    '\u00bfEliminar <strong>' + h.nombre + '</strong>? Se borrar\u00e1 todo su historial.',
-    function() {
-      db.ref('herramientas/' + id).remove().then(function(){
-        toast('Herramienta eliminada', 'success'); renderAdminHerramientas();
-      });
-    }
-  );
-}
-
-function verificarKardexManual(herrId) {
-  var h = cache.herramientas[herrId]; if (!h) return;
-  var historial = h.historial ? h.historial.slice() : [];
-  var ult = historial.length ? historial[historial.length-1] : null;
-  if (!ult) { toast('Sin cambios registrados', 'info'); return; }
-  // Buscar el kardex por ref en toda la base (sin filtro de cuadrilla)
-  var ref = (ult.kardexRef||'').trim().toLowerCase();
-  var match = kardexList().find(function(k) {
-    return (k.ref||'').trim().toLowerCase() === ref && k.cuadrillaId === h.cuadrillaId;
-  });
-  var esValido = !!match;
-  ult.kardexValido = esValido;
-  ult.kardexId = match ? match.id : null;
-  ult.verificadoPorAdmin = true;
-  ult.fechaVerificacion = new Date().toISOString();
-  historial[historial.length-1] = ult;
-  db.ref('herramientas/' + herrId).update({
-    historial: historial,
-    verificacion: esValido ? 'verificado' : 'invalido'
-  }).then(function() {
-    toast(esValido ? '\u2705 Kardex verificado correctamente' : '\u274c Kardex NO encontrado \u2014 marcado como inv\u00e1lido', esValido ? 'success' : 'error');
-    renderAdminHerramientas();
-  });
-}
-
-function verHistorialHerramienta(herrId) {
-  var h = cache.herramientas[herrId]; if (!h) return;
-  var hist = h.historial || [];
-  var html = '<div style="max-height:60vh;overflow-y:auto;">'
-    + '<h3 style="margin-bottom:.75rem;">' + h.nombre + ' \u2014 Historial</h3>'
-    + (hist.length ? '<table><thead><tr><th>Fecha</th><th>Cambio</th><th>Ref. Kardex</th><th>Verif.</th><th>Cuadrilla</th><th>Obs.</th></tr></thead><tbody>'
-        + hist.slice().reverse().map(function(e) {
-            return '<tr>'
-              + '<td style="font-size:12px;white-space:nowrap;">' + fmtDate(e.fecha) + '</td>'
-              + '<td>' + (e.estadoAnterior||'\u2014') + ' \u2192 <span class="badge ' + (BADGE_HERR[e.estadoNuevo]||'badge-gray') + '">' + e.estadoNuevo + '</span></td>'
-              + '<td style="font-family:monospace;font-size:12px;">' + esc(e.kardexRef||'') + '</td>'
-              + '<td>' + (e.kardexValido ? '<span class="badge badge-green">\u2713 V\u00e1lido</span>' : '<span class="badge badge-amber">\u26a0 Pendiente</span>') + '</td>'
-              + '<td style="font-size:12px;">' + (e.cuadrillaNombre||'\u2014') + '</td>'
-              + '<td style="font-size:12px;">' + esc(e.obs||'') + '</td>'
-              + '</tr>';
-          }).join('') + '</tbody></table>'
-      : '<p style="color:var(--ink3);font-size:13px;">Sin cambios registrados a\u00fan.</p>')
-    + '</div>';
-  // Reutilizar modal confirm como visor
+function verDetalleReporteHerr(rId) {
+  var r = (cache.reportesHerr||{})[rId]; if (!r) return;
+  var alertas = (r.items||[]).filter(function(it){ return it.estado !== 'Buen Estado'; });
+  var html = '<h3 style="margin-bottom:.5rem">Reporte — ' + esc(r.cuadrillaNombre||'?') + '</h3>'
+    + '<p style="font-size:12px;color:var(--ink3);margin-bottom:1rem">' + fmtDate(r.fecha) + (r.obs ? ' · ' + esc(r.obs) : '') + '</p>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;max-height:55vh;overflow-y:auto">'
+    + (r.items||[]).map(function(it) {
+        return '<div style="border:1.5px solid var(--border2);border-radius:8px;padding:10px">'
+          + '<div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:5px">' + esc(it.nombre||it.herrId) + '</div>'
+          + '<span class="badge ' + (BADGE_HERR[it.estado]||'badge-gray') + '">' + it.estado + '</span>'
+          + '</div>';
+      }).join('')
+    + '</div>'
+    + '<div class="btn-row" style="margin-top:1rem"><button class="btn btn-ghost" onclick="closeConfirm()">Cerrar</button></div>';
   var overlay = document.getElementById('confirm-overlay');
   var box = document.getElementById('confirm-box');
-  if (overlay && box) {
-    box.innerHTML = html + '<div class="btn-row" style="margin-top:1rem;"><button class="btn btn-ghost" onclick="closeConfirm()">Cerrar</button></div>';
-    overlay.style.display = 'flex';
-  }
+  if (overlay && box) { box.innerHTML = html; overlay.style.display = 'flex'; }
 }
 
+function renderAdminHerramientas() { renderAdminCatalogoHerr(); }
+
 function exportarHerramientasCSV() {
-  var rows = [['Herramienta','Serie','Cuadrilla','Estado','Verificaci\u00f3n','Fecha \u00falt. cambio','Ref. Kardex','Obs.']];
-  herrList().forEach(function(h) {
-    var cuad = getCuad(h.cuadrillaId);
-    var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
-    rows.push([h.nombre, h.serie||'', cuad?cuad.nombre:'', h.estado||'',
-      h.verificacion||'pendiente', ult?fmtDate(ult.fecha):'', ult?(ult.kardexRef||''):'', ult?(ult.obs||''):'']);
+  var rows = [['Fecha','Cuadrilla','Herramienta','Estado','Observaciones']];
+  Object.values(cache.reportesHerr||{}).forEach(function(r) {
+    (r.items||[]).forEach(function(it) {
+      rows.push([r.fecha, r.cuadrillaNombre||'', it.nombre||it.herrId, it.estado, r.obs||'']);
+    });
   });
-  var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'\"')+'"'; }).join(','); }).join('\n');
+  var csv = rows.map(function(row){
+    return row.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
+  }).join('\n');
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'herramientas_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = 'reportes_herramientas_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
 }
 
@@ -7231,6 +7333,8 @@ function cargarDatosIniciales() {
     safeOnce(db.ref('asignaciones')),
     safeOnce(db.ref('sectores')),
     safeOnce(db.ref('herramientas')),
+    safeOnce(db.ref('catalogo_herramientas')),
+    safeOnce(db.ref('reportes_herramientas')),
     safeOnce(db.ref('redInterna')),
     safeOnce(db.ref('visitas_fallidas')),
     safeOnce(db.ref('config/adminPass')),
@@ -7346,6 +7450,155 @@ function mostrarErrorFirebase(titulo, subtitulo, causas) {
     +'</div>';
   loadScreen.appendChild(box);
 }
+
+// ══════════════════════════════════════════════════════
+//  MI RENDIMIENTO — Dashboard CuadriControl en BodegaNet
+// ══════════════════════════════════════════════════════
+var mrVista = 'dia';
+var mrCcDb  = null;
+var mrListener = null;
+
+var MR_TIPO_MAP = {
+  'Instalaciones':'inst','Cambio a FO':'cfo','Sin conexión':'sincon',
+  'Link Loss':'linkloss','Visita Repetidor':'repetidor','Instalación TV':'tv-inst',
+  'Problemas TV':'tv-prob','Problema FO':'fo-prob','Fallas VoIP':'voip',
+  'Reconf. Caja Digital':'caja','Internet lento':'lento','Cámara Repetidor':'camara',
+  'Cambio Contraseña':'contrasena','Retiros Traslado':'traslados','Retiro de equipo cliente':'retiros'
+};
+var MR_KEY_LABELS = {
+  inst:'Instalaciones',cfo:'Cambio FO',sincon:'Sin conexión',linkloss:'Link Loss',
+  repetidor:'Repetidor',lento:'Internet lento',camara:'Cámara',contrasena:'Contraseña',
+  traslados:'Traslados',retiros:'Retiros','tv-inst':'TV Inst.','tv-prob':'TV Prob.',
+  'fo-prob':'FO Prob.',voip:'VoIP',caja:'Caja Digital',cortesia:'Cortesía',
+  inestable:'Inestable',cobertura:'Cobertura',red:'Red interna',
+  'inst-dem':'Inst. demora','rep-dem':'Rep. demora'
+};
+
+function mrInitDb() {
+  if (mrCcDb) return;
+  try {
+    var app = firebase.apps.find(function(a){ return a.name === '[DEFAULT]'; }) || firebase.app();
+    mrCcDb = firebase.database(app);
+  } catch(e) { console.warn('MR DB error',e); }
+}
+
+function mrSetVista(v) {
+  mrVista = v;
+  var hoy = new Date().toISOString().slice(0,10);
+  document.getElementById('mr-btn-dia').style.background = v==='dia' ? 'var(--accent)' : 'none';
+  document.getElementById('mr-btn-dia').style.color      = v==='dia' ? '#000' : 'var(--ink2)';
+  document.getElementById('mr-btn-mes').style.background = v==='mes' ? 'var(--accent)' : 'none';
+  document.getElementById('mr-btn-mes').style.color      = v==='mes' ? '#000' : 'var(--ink2)';
+  document.getElementById('mr-fecha').style.display = v==='dia' ? '' : 'none';
+  document.getElementById('mr-mes').style.display   = v==='mes' ? '' : 'none';
+  var isHoy = v==='dia' && document.getElementById('mr-fecha').value === hoy;
+  document.getElementById('mr-live').style.display = isHoy ? 'flex' : 'none';
+  renderMiRendimiento();
+}
+
+function renderMiRendimiento() {
+  if (!currentUser || currentUser.tipo !== 'cuadrilla') return;
+  mrInitDb();
+  if (!mrCcDb) return;
+  var cuad = getCuad(currentUser.cuadrillaId);
+  if (!cuad) return;
+  var cuadNombre = cuad.nombre;
+  var hoy = new Date().toISOString().slice(0,10);
+  var fecha = mrVista==='dia' ? (document.getElementById('mr-fecha').value || hoy) : null;
+  var mes   = mrVista==='mes' ? (document.getElementById('mr-mes').value || hoy.slice(0,7)) : null;
+  var isHoy = mrVista==='dia' && fecha===hoy;
+  document.getElementById('mr-live').style.display = isHoy ? 'flex' : 'none';
+  document.getElementById('mr-subtitulo').textContent = cuadNombre + ' · ' + (mrVista==='dia' ? fecha : mes);
+
+  // Escuchar en tiempo real
+  if (mrListener) { mrCcDb.ref('cuadricontrol_registros').off('value', mrListener); }
+  mrListener = mrCcDb.ref('cuadricontrol_registros').on('value', function(snap) {
+    var all = snap.val() || {};
+    var recs = Object.values(all).filter(function(r) {
+      if (!r || r.cuadrilla !== cuadNombre) return false;
+      if (mrVista==='dia') return r.fecha === fecha;
+      return r.fecha && r.fecha.startsWith(mes);
+    });
+    mrRenderData(recs, cuad);
+  });
+}
+
+function mrRenderData(recs, cuad) {
+  var totProg = recs.reduce(function(s,r){ return s+(r.totalProg||0); },0);
+  var totDem  = recs.reduce(function(s,r){ return s+(r.totalDem||0); },0);
+  var totReasig=recs.reduce(function(s,r){ return s+(r.totalReasig||0); },0);
+  var total   = totProg + totDem;
+  var meta    = mrVista==='dia' ? (cuad.meta||10) : (cuad.meta||10) * recs.length;
+  var pct     = meta>0 ? Math.min(Math.round(total/meta*100),100) : 0;
+  var colEfic = pct>=100?'#16a34a':pct>=70?'#d97706':'#dc2626';
+  var colBar  = pct>=100?'#4ade80':pct>=70?'#f59e0b':'#f87171';
+
+  // KPIs
+  document.getElementById('mr-kpis').innerHTML =
+    mrKpi('Trabajos',total,'var(--blue)') +
+    mrKpi('Efectividad',pct+'%',colEfic) +
+    mrKpi('Demoras',totDem,'#d97706') +
+    mrKpi('Reasignaciones',totReasig,'#dc2626');
+
+  // Progress bar
+  document.getElementById('mr-prog-bar').style.width  = pct+'%';
+  document.getElementById('mr-prog-bar').style.background = colBar;
+  document.getElementById('mr-pct-badge').textContent = pct+'%';
+  document.getElementById('mr-pct-badge').style.color = colEfic;
+  document.getElementById('mr-prog-label').textContent = total+' trabajos realizados';
+  document.getElementById('mr-meta-label').textContent = 'Meta: '+meta;
+
+  // Desglose
+  var campos = ['inst','cfo','sincon','linkloss','repetidor','tv-inst','tv-prob','fo-prob',
+    'voip','caja','cortesia','lento','inestable','camara','cobertura','contrasena','traslados','retiros'];
+  var des = document.getElementById('mr-desglose');
+  var items = campos.map(function(k){
+    return { k:k, v:recs.reduce(function(s,r){ return s+(r[k]||0); },0) };
+  }).filter(function(x){ return x.v>0; });
+  if (!items.length) {
+    des.innerHTML = '<div style="text-align:center;color:var(--ink3);padding:24px;grid-column:1/-1">Sin datos para el período seleccionado.</div>';
+    return;
+  }
+  des.innerHTML = items.map(function(x) {
+    return '<div style="background:rgba(255,255,255,.5);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:center">'
+      +'<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">'+(MR_KEY_LABELS[x.k]||x.k)+'</div>'
+      +'<div style="font-size:22px;font-weight:700;color:var(--blue)">'+x.v+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function mrKpi(label, val, color) {
+  return '<div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">'+label+'</div>'
+    +'<div style="font-size:26px;font-weight:700;color:'+color+'">'+val+'</div></div>';
+}
+
+// Hook en showSection para inicializar Mi Rendimiento
+var _origShowSection = typeof showSection === 'function' ? showSection : null;
+showSection = function(sec) {
+  if (_origShowSection) _origShowSection(sec);
+  if (sec === 'mi-rendimiento') {
+    var hoy = new Date().toISOString().slice(0,10);
+    document.getElementById('mr-fecha').value = document.getElementById('mr-fecha').value || hoy;
+    document.getElementById('mr-mes').value   = document.getElementById('mr-mes').value || hoy.slice(0,7);
+    mrSetVista('dia');
+  }
+  // Mostrar/ocultar la section correctamente
+  document.querySelectorAll('.section').forEach(function(s){ s.style.display='none'; });
+  var el = document.getElementById('sec-'+sec);
+  if (el) el.style.display='';
+};
+
+// Mostrar nav Mi Rendimiento solo para cuadrillas al iniciar sesión
+var _origStartApp = typeof startApp === 'function' ? startApp : null;
+startApp = function() {
+  if (_origStartApp) _origStartApp();
+  if (currentUser && currentUser.tipo === 'cuadrilla') {
+    var el = document.getElementById('nav-mi-rendimiento');
+    if (el) el.style.display = '';
+    var bn = document.getElementById('bn-mi-rendimiento');
+    if (bn) bn.style.display = '';
+  }
+};
 
 </script>
 </body>
