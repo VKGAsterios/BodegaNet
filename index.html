@@ -11,6 +11,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- jsPDF — carga diferida para no bloquear Firebase -->
 <!-- ZXing barcode/QR scanner — carga diferida -->
+<!-- jsQR — decodificación QR desde imagen estática -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js" defer></script>
 <script>
 (function(){
   var s = document.createElement('script');
@@ -1071,55 +1073,6 @@ select option{background:var(--bg3);color:var(--ink);}
           <div id="ri-result-wrap" style="display:none;"></div>
         </div><!-- /reptab-reincidencias -->
 
-        <!-- Pestaña: Visitas Fallidas (contenido oculto — no activo) -->
-        <div id="reptab-visitas-fallidas" style="display:none;">
-          <div class="card">
-            <div class="card-title">Filtros de visitas fallidas</div>
-            <div class="form-grid">
-              <div class="field"><label>Cuadrilla</label>
-                <select id="vf-cuadrilla" onchange="renderVisitasFallidas()"><option value="">Todas</option></select>
-              </div>
-              <div class="field"><label>Período</label>
-                <select id="vf-periodo" onchange="toggleVFFechas();renderVisitasFallidas()">
-                  <option value="hoy">Hoy</option>
-                  <option value="semana">Esta semana</option>
-                  <option value="mes" selected>Este mes</option>
-                  <option value="personalizado">Personalizado</option>
-                </select>
-              </div>
-              <div class="field" id="vf-fechas" style="display:none;">
-                <label>Fecha</label>
-                <input type="date" id="vf-fecha" onchange="renderVisitasFallidas()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
-              </div>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-green" onclick="exportarVisitasFallidas()">Descargar CSV</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-header">
-              <h3>Registros</h3>
-              <span id="vf-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
-            </div>
-            <div class="table-wrap"><table>
-              <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>Motivo</th><th>OT</th><th>Técnico</th><th>Observaciones</th></tr></thead>
-              <tbody id="vf-tbody"></tbody>
-            </table></div>
-          </div>
-          <div class="card">
-            <div class="card-title">Resumen y gráfico de motivos</div>
-            <div id="vf-resumen" style="margin-bottom:1rem;"></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
-              <select id="vf-chart-tipo" onchange="renderGraficosVisitasFallidas()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;background:var(--bg);">
-                <option value="motivos">Por motivo</option>
-                <option value="cuadrilla">Por cuadrilla</option>
-              </select>
-              <button class="btn btn-sm btn-green" onclick="descargarGraficoVisitas()">Descargar gráfico</button>
-            </div>
-            <div id="vf-chart-container"></div>
-          </div>
-        </div><!-- /reptab-visitas-fallidas -->
-
       </section><!-- /sec-admin-reportes -->
 
       <!-- ADMIN LOGS DE ACCESO -->
@@ -1969,36 +1922,65 @@ select option{background:var(--bg3);color:var(--ink);}
   <div class="modal" style="max-width:440px;">
     <button class="modal-close" onclick="cerrarScanner()">✕</button>
     <h3>📷 Escanear código</h3>
-    <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">
-      Apunta la cámara al código de barras o QR del equipo. También puedes escribir la MAC manualmente.
+    <p style="font-size:13px;color:var(--ink2);margin-bottom:10px;">
+      Apunta la cámara al código o sube una foto para extraer la MAC automáticamente.
     </p>
 
-    <!-- Selector de cámara -->
-    <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
-      <label style="font-size:12px;font-weight:600;color:var(--ink2);white-space:nowrap;">Cámara:</label>
-      <select id="scanner-cam-sel" onchange="cambiarCamaraScanner(this.value)"
-        style="flex:1;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;"></select>
+    <!-- Tabs cámara / foto -->
+    <div style="display:flex;background:rgba(0,0,0,.06);border-radius:8px;padding:3px;gap:2px;margin-bottom:12px;">
+      <button id="scan-tab-cam" onclick="setScanTab('cam')" style="flex:1;padding:6px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;font-family:var(--sans);">📷 Cámara en vivo</button>
+      <button id="scan-tab-foto" onclick="setScanTab('foto')" style="flex:1;padding:6px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:none;color:var(--ink2);font-family:var(--sans);">🖼 Subir foto / capturar</button>
     </div>
 
-    <!-- Visor de cámara -->
-    <div style="position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:10px;aspect-ratio:4/3;">
-      <video id="scanner-video" style="width:100%;height:100%;object-fit:cover;" playsinline muted></video>
-      <!-- Guía de encuadre -->
-      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-        <div style="width:60%;height:60%;border:2px solid rgba(59,130,246,.8);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);">
-          <div style="position:absolute;top:0;left:0;width:20px;height:20px;border-top:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:3px 0 0 0;"></div>
-          <div style="position:absolute;top:0;right:0;width:20px;height:20px;border-top:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 3px 0 0;"></div>
-          <div style="position:absolute;bottom:0;left:0;width:20px;height:20px;border-bottom:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:0 0 0 3px;"></div>
-          <div style="position:absolute;bottom:0;right:0;width:20px;height:20px;border-bottom:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 0 3px 0;"></div>
+    <!-- Panel: cámara en vivo -->
+    <div id="scan-panel-cam">
+      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
+        <label style="font-size:12px;font-weight:600;color:var(--ink2);white-space:nowrap;">Cámara:</label>
+        <select id="scanner-cam-sel" onchange="cambiarCamaraScanner(this.value)"
+          style="flex:1;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;"></select>
+      </div>
+      <div style="position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:10px;aspect-ratio:4/3;">
+        <video id="scanner-video" style="width:100%;height:100%;object-fit:cover;" playsinline muted></video>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+          <div style="width:60%;height:60%;border:2px solid rgba(59,130,246,.8);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);">
+            <div style="position:absolute;top:0;left:0;width:20px;height:20px;border-top:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:3px 0 0 0;"></div>
+            <div style="position:absolute;top:0;right:0;width:20px;height:20px;border-top:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 3px 0 0;"></div>
+            <div style="position:absolute;bottom:0;left:0;width:20px;height:20px;border-bottom:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:0 0 0 3px;"></div>
+            <div style="position:absolute;bottom:0;right:0;width:20px;height:20px;border-bottom:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 0 3px 0;"></div>
+          </div>
+        </div>
+        <div id="scanner-status" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;text-align:center;padding:6px;font-size:12px;">
+          Iniciando cámara...
         </div>
       </div>
-      <!-- Estado del escáner -->
-      <div id="scanner-status" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;text-align:center;padding:6px;font-size:12px;">
-        Iniciando cámara...
-      </div>
     </div>
 
-    <!-- Resultado detectado -->
+    <!-- Panel: foto / captura -->
+    <div id="scan-panel-foto" style="display:none;">
+      <!-- Preview de imagen -->
+      <div id="scan-foto-preview-wrap" style="display:none;margin-bottom:10px;border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border2);background:#000;aspect-ratio:4/3;position:relative;">
+        <img id="scan-foto-preview" style="width:100%;height:100%;object-fit:contain;">
+        <canvas id="scan-foto-canvas" style="display:none;"></canvas>
+      </div>
+      <div id="scan-foto-placeholder" style="margin-bottom:10px;border:2px dashed var(--border2);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer;background:rgba(0,0,0,.02);" onclick="document.getElementById('scan-foto-input').click()">
+        <div style="font-size:32px;margin-bottom:8px;">🖼</div>
+        <div style="font-size:13px;font-weight:600;color:var(--ink2);">Toca aquí para seleccionar foto</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px;">JPG, PNG, WEBP — o captura con la cámara</div>
+      </div>
+      <input type="file" id="scan-foto-input" accept="image/*" capture="environment" style="display:none;" onchange="procesarFotoQR(this)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <button class="btn" onclick="document.getElementById('scan-foto-input').click()" style="font-size:12px;">
+          📁 Elegir archivo
+        </button>
+        <button class="btn btn-accent" onclick="capturarFotoCamara()" style="font-size:12px;">
+          📸 Tomar foto
+        </button>
+      </div>
+      <!-- Status foto -->
+      <div id="scan-foto-status" style="display:none;border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:13px;"></div>
+    </div>
+
+    <!-- Resultado detectado (compartido) -->
     <div id="scanner-result-box" style="display:none;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.4);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;">
       <div style="font-size:11px;font-weight:700;color:var(--green-dark);margin-bottom:4px;">✓ Código detectado</div>
       <div id="scanner-result-val" style="font-family:monospace;font-size:14px;color:var(--ink);word-break:break-all;"></div>
@@ -5863,16 +5845,133 @@ var scannerReader = null;
 var scannerStream = null;
 var scannerResult = null;
 
+// ── Tab switcher escáner ─────────────────────────────
+function setScanTab(tab) {
+  var isCam = tab === 'cam';
+  document.getElementById('scan-panel-cam').style.display  = isCam ? '' : 'none';
+  document.getElementById('scan-panel-foto').style.display = isCam ? 'none' : '';
+  document.getElementById('scan-tab-cam').style.background  = isCam ? 'var(--accent)' : 'none';
+  document.getElementById('scan-tab-cam').style.color       = isCam ? '#fff' : 'var(--ink2)';
+  document.getElementById('scan-tab-foto').style.background = isCam ? 'none' : 'var(--accent)';
+  document.getElementById('scan-tab-foto').style.color      = isCam ? 'var(--ink2)' : '#fff';
+  if (isCam) {
+    iniciarCamaraScanner();
+  } else {
+    pararCamaraScanner();
+    document.getElementById('scan-foto-status').style.display = 'none';
+  }
+}
+
+// ── Procesar foto para extraer QR/MAC ────────────────
+function procesarFotoQR(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = document.getElementById('scan-foto-preview');
+    img.src = e.target.result;
+    document.getElementById('scan-foto-preview-wrap').style.display = '';
+    document.getElementById('scan-foto-placeholder').style.display  = 'none';
+    // Decode QR/barcode from image using ZXing
+    var statusEl = document.getElementById('scan-foto-status');
+    statusEl.style.display   = '';
+    statusEl.style.background = 'rgba(59,130,246,.08)';
+    statusEl.style.border     = '1.5px solid rgba(59,130,246,.3)';
+    statusEl.style.color      = 'var(--blue)';
+    statusEl.innerHTML        = '🔍 Analizando imagen…';
+    img.onload = function() {
+      var canvas = document.getElementById('scan-foto-canvas');
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // Try jsQR first (lightweight)
+      var mac = null;
+      if (window.jsQR) {
+        var code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+        if (code) mac = extraerMACdeTexto(code.data);
+      }
+      // Try ZXing if jsQR didn't find it
+      if (!mac && window.ZXing) {
+        try {
+          var hints = new Map();
+          var formats = [ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.CODE_128,
+                         ZXing.BarcodeFormat.DATA_MATRIX, ZXing.BarcodeFormat.CODE_39];
+          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+          var reader2 = new ZXing.MultiFormatReader();
+          reader2.setHints(hints);
+          var lum = new ZXing.RGBLuminanceSource(imageData.data, canvas.width, canvas.height);
+          var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
+          var result = reader2.decode(bmp);
+          if (result) mac = extraerMACdeTexto(result.getText());
+        } catch(e) { /* not found */ }
+      }
+      if (mac) {
+        statusEl.style.background = 'rgba(34,197,94,.1)';
+        statusEl.style.border     = '1.5px solid rgba(34,197,94,.4)';
+        statusEl.style.color      = '#15803d';
+        statusEl.innerHTML        = '✅ MAC detectada en la imagen';
+        usarMACEscaneada(mac);
+      } else {
+        statusEl.style.background = 'rgba(239,68,68,.08)';
+        statusEl.style.border     = '1.5px solid rgba(239,68,68,.3)';
+        statusEl.style.color      = 'var(--red)';
+        statusEl.innerHTML        = '❌ No se detectó código en la imagen. Intenta con mejor iluminación o escribe la MAC manualmente.';
+      }
+    };
+  };
+  reader.readAsDataURL(file);
+  // Reset input so same file can be re-selected
+  input.value = '';
+}
+
+// ── Capturar foto con cámara trasera (modo foto) ─────
+var scanFotoStream = null;
+function capturarFotoCamara() {
+  // Reutilizar input file con capture=environment para foto inmediata en móvil
+  var input = document.getElementById('scan-foto-input');
+  input.setAttribute('capture','environment');
+  input.click();
+}
+
+// ── Extraer MAC de texto (QR / código de barras) ─────
+function extraerMACdeTexto(txt) {
+  if (!txt) return null;
+  // MAC address pattern: XX:XX:XX:XX:XX:XX o XX-XX-XX-XX-XX-XX o XXXXXXXXXXXX
+  var mac = null;
+  var m1 = txt.match(/([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}/);
+  if (m1) { mac = m1[0].replace(/-/g,':').toUpperCase(); }
+  if (!mac) {
+    var m2 = txt.replace(/[^0-9A-Fa-f]/g,'').match(/^([0-9A-Fa-f]{12})/);
+    if (m2) {
+      var hex = m2[0].toUpperCase();
+      mac = hex.match(/.{2}/g).join(':');
+    }
+  }
+  return mac;
+}
+
+function usarMACEscaneada(mac) {
+  scannerResult = mac;
+  document.getElementById('scanner-result-box').style.display = '';
+  document.getElementById('scanner-result-val').textContent   = mac;
+  document.getElementById('scanner-confirm-btn').style.display = '';
+}
+
 function abrirScanner(ctx, rowUid) {
   scannerCtx    = ctx;
   scannerRowUid = rowUid;
   scannerResult = null;
-  document.getElementById('scanner-result-box').style.display  = 'none';
-  document.getElementById('scanner-confirm-btn').style.display = 'none';
-  document.getElementById('scanner-manual-input').value        = '';
-  document.getElementById('scanner-status').textContent        = 'Iniciando cámara...';
+  document.getElementById('scanner-result-box').style.display   = 'none';
+  document.getElementById('scanner-confirm-btn').style.display  = 'none';
+  document.getElementById('scanner-manual-input').value         = '';
+  document.getElementById('scan-foto-placeholder').style.display  = '';
+  document.getElementById('scan-foto-preview-wrap').style.display = 'none';
+  document.getElementById('scan-foto-status').style.display       = 'none';
+  document.getElementById('scanner-status').textContent = 'Iniciando cámara...';
   openModal('modal-scanner');
-  iniciarCamaraScanner();
+  setScanTab('cam');
 }
 
 function iniciarCamaraScanner() {
@@ -5997,6 +6096,7 @@ function detenerStreamCamara() {
   var video = document.getElementById('scanner-video');
   if (video) video.srcObject = null;
 }
+function pararCamaraScanner() { detenerStreamCamara(); }
 
 function cerrarScanner() {
   detenerStreamCamara();
