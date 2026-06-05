@@ -213,6 +213,7 @@ tr:hover td{background:rgba(59,130,246,.05);}
 .toast.t-info{border-left:3px solid var(--blue);background:rgba(30,58,95,.06);}
 @keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 @keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(20px)}}
 #login-cuadrilla-area{animation:slideIn .4s ease;}
@@ -1429,24 +1430,6 @@ select option{background:var(--bg3);color:var(--ink);}
         </div>
       </section>
 
-      <!-- MODAL: Reporte de estado de herramientas (cuadrilla) -->
-      <div class="modal-overlay" id="modal-reporte-herr">
-        <div class="modal" style="max-width:540px;">
-          <button class="modal-close" onclick="closeModal('modal-reporte-herr')">&#x2715;</button>
-          <h3 style="margin-bottom:.25rem;">Reporte de estado de herramientas</h3>
-          <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">Indica el estado actual de cada herramienta de tu catálogo.</p>
-          <div id="modal-reporte-herr-items" style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;margin-bottom:1rem;"></div>
-          <div class="field">
-            <label>Observaciones generales (opcional)</label>
-            <input type="text" id="reporte-herr-obs" placeholder="Ej: Falta escalera, entregada a almacén…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-          </div>
-          <div class="btn-row">
-            <button class="btn btn-ghost" onclick="closeModal('modal-reporte-herr')">Cancelar</button>
-            <button class="btn btn-accent" onclick="guardarReporteHerr()">Guardar reporte</button>
-          </div>
-        </div>
-      </div>
-
       <!-- CONTROL HERRAMIENTAS (admin) -->
       <section class="section" id="sec-admin-herramientas">
         <div class="page-header">
@@ -1507,40 +1490,6 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
       </section>
-
-      <!-- MODAL: Nueva/editar herramienta del catálogo (admin) -->
-      <div class="modal-overlay" id="modal-catalogo-herr">
-        <div class="modal" style="max-width:480px;">
-          <button class="modal-close" onclick="closeModal('modal-catalogo-herr')">&#x2715;</button>
-          <h3 id="catalogo-herr-title" style="margin-bottom:1rem;">Nueva herramienta</h3>
-          <div class="form-grid g1">
-            <div class="field"><label>Nombre de la herramienta *</label>
-              <input type="text" id="cat-herr-nombre" placeholder="Ej: Escalera 8 metros" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-            </div>
-            <div class="field"><label>Categoría</label>
-              <select id="cat-herr-cat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                <option>Herramienta de mano</option>
-                <option>Herramienta eléctrica</option>
-                <option>Equipo de medición</option>
-                <option>Seguridad / EPP</option>
-                <option>Vehicular</option>
-                <option>Otro</option>
-              </select>
-            </div>
-            <div class="field"><label>Descripción (opcional)</label>
-              <input type="text" id="cat-herr-desc" placeholder="Detalles adicionales…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-            </div>
-            <div class="field"><label>Cantidad disponible</label>
-              <input type="number" id="cat-herr-qty" min="1" value="1" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-            </div>
-          </div>
-          <input type="hidden" id="cat-herr-edit-id">
-          <div class="btn-row">
-            <button class="btn btn-ghost" onclick="closeModal('modal-catalogo-herr')">Cancelar</button>
-            <button class="btn btn-accent" onclick="guardarCatalogoHerr()">Guardar</button>
-          </div>
-        </div>
-      </div>
 
       <!-- RED INTERNA (cuadrilla) -->
       <section class="section" id="sec-red-interna">
@@ -1613,60 +1562,6 @@ select option{background:var(--bg3);color:var(--ink);}
         </div>
       </section>
 
-      <!-- MODAL: Nuevo registro Red Interna -->
-      <div class="modal-overlay" id="modal-red-interna">
-        <div class="modal" style="max-width:560px;">
-          <button class="modal-close" onclick="closeModal('modal-red-interna')">&#x2715;</button>
-          <h3 id="ri-modal-title" style="margin-bottom:1rem;">🖧 Nuevo trabajo en red</h3>
-          <div class="form-grid">
-            <div class="field"><label># de Orden *</label>
-              <input type="text" id="ri-orden" placeholder="Ej: RI-20240523-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-            </div>
-            <div class="field"><label>Tipo de trabajo *</label>
-              <select id="ri-tipo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                <option value="">-- Seleccionar --</option>
-                <option value="Cambio de SPL">Cambio de SPL</option>
-                <option value="Cambio de CTO">Cambio de CTO</option>
-                <option value="PON Elevado">PON Elevado</option>
-                <option value="Corte de PON">Corte de PON</option>
-                <option value="CTO sin Potencia">CTO sin Potencia</option>
-                <option value="Corte Troncal">Corte Troncal</option>
-              </select>
-            </div>
-            <div class="field"><label>Nodo / Headend *</label>
-              <input type="text" id="ri-nodo" placeholder="Ej: Nodo Norte / HE Central" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-            </div>
-            <div class="field"><label>Técnico responsable *</label>
-              <input type="text" id="ri-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-            </div>
-            <div class="field"><label>Hora de inicio *</label>
-              <input type="time" id="ri-hora-ini" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-            </div>
-            <div class="field"><label>Hora de fin <span style="font-size:11px;color:var(--ink3);">(auto al guardar)</span></label>
-              <input type="time" id="ri-hora-fin" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-              <span id="ri-duracion" style="font-size:11px;color:var(--ink3);margin-top:2px;"></span>
-            </div>
-          </div>
-          <div class="form-grid g1" style="margin-top:.5rem;">
-            <div class="field"><label>Observaciones</label>
-              <textarea id="ri-obs" rows="2" placeholder="Descripción del trabajo realizado..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;"></textarea>
-            </div>
-          </div>
-          <!-- Materiales usados -->
-          <div style="margin-top:.75rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
-              <label style="font-size:13px;font-weight:600;">Materiales utilizados</label>
-              <button class="btn btn-sm" onclick="addRiMaterialRow()">+ Agregar</button>
-            </div>
-            <div id="ri-materiales-rows"></div>
-          </div>
-          <input type="hidden" id="ri-edit-id">
-          <div class="btn-row" style="margin-top:1rem;">
-            <button class="btn btn-ghost" onclick="closeModal('modal-red-interna')">Cancelar</button>
-            <button class="btn btn-accent" onclick="guardarRedInterna()">Guardar registro</button>
-          </div>
-        </div>
-      </div>
     <!-- ═══ MI RENDIMIENTO (CuadriControl dashboard replicado) ═══ -->
     <section class="section" id="sec-mi-rendimiento" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
@@ -1722,6 +1617,106 @@ select option{background:var(--bg3);color:var(--ink);}
 
     </main>
   </div>
+
+<!-- ══ MODALES HERRAMIENTAS Y RED INTERNA (fuera de main) ══ -->
+<div class="modal-overlay" id="modal-reporte-herr">
+  <div class="modal" style="max-width:540px;">
+    <button class="modal-close" onclick="closeModal('modal-reporte-herr')">&#x2715;</button>
+    <h3 style="margin-bottom:.25rem;">Reporte de estado de herramientas</h3>
+    <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">Indica el estado actual de cada herramienta de tu catálogo.</p>
+    <div id="modal-reporte-herr-items" style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;margin-bottom:1rem;"></div>
+    <div class="field">
+      <label>Observaciones generales (opcional)</label>
+      <input type="text" id="reporte-herr-obs" placeholder="Ej: Falta escalera, entregada a almacén…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('modal-reporte-herr')">Cancelar</button>
+      <button class="btn btn-accent" onclick="guardarReporteHerr()">Guardar reporte</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-catalogo-herr">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeModal('modal-catalogo-herr')">&#x2715;</button>
+    <h3 id="catalogo-herr-title" style="margin-bottom:1rem;">Nueva herramienta</h3>
+    <div class="form-grid g1">
+      <div class="field"><label>Nombre de la herramienta *</label>
+        <input type="text" id="cat-herr-nombre" placeholder="Ej: Escalera 8 metros" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
+      <div class="field"><label>Categoría</label>
+        <select id="cat-herr-cat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+          <option>Herramienta de mano</option><option>Herramienta eléctrica</option>
+          <option>Equipo de medición</option><option>Seguridad / EPP</option>
+          <option>Vehicular</option><option>Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>Descripción (opcional)</label>
+        <input type="text" id="cat-herr-desc" placeholder="Detalles adicionales…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
+      <div class="field"><label>Cantidad disponible</label>
+        <input type="number" id="cat-herr-qty" min="1" value="1" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
+    </div>
+    <input type="hidden" id="cat-herr-edit-id">
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('modal-catalogo-herr')">Cancelar</button>
+      <button class="btn btn-accent" onclick="guardarCatalogoHerr()">Guardar</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-red-interna">
+  <div class="modal" style="max-width:560px;">
+    <button class="modal-close" onclick="closeModal('modal-red-interna')">&#x2715;</button>
+    <h3 id="ri-modal-title" style="margin-bottom:1rem;">&#x1F5A7; Nuevo trabajo en red</h3>
+    <div class="form-grid">
+      <div class="field"><label># de Orden *</label>
+        <input type="text" id="ri-orden" placeholder="Ej: RI-20240523-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
+      <div class="field"><label>Tipo de trabajo *</label>
+        <select id="ri-tipo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+          <option value="">-- Seleccionar --</option>
+          <option value="Cambio de SPL">Cambio de SPL</option>
+          <option value="Cambio de CTO">Cambio de CTO</option>
+          <option value="PON Elevado">PON Elevado</option>
+          <option value="Corte de PON">Corte de PON</option>
+          <option value="CTO sin Potencia">CTO sin Potencia</option>
+          <option value="Corte Troncal">Corte Troncal</option>
+        </select>
+      </div>
+      <div class="field"><label>Nodo / Headend *</label>
+        <input type="text" id="ri-nodo" placeholder="Ej: Nodo Norte / HE Central" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
+      <div class="field"><label>Técnico responsable *</label>
+        <input type="text" id="ri-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
+      <div class="field"><label>Hora de inicio</label>
+        <input type="time" id="ri-hora-ini" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
+      <div class="field"><label>Hora de fin</label>
+        <input type="time" id="ri-hora-fin" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+        <span id="ri-duracion" style="font-size:11px;color:var(--ink3);margin-top:2px;"></span>
+      </div>
+    </div>
+    <div class="form-grid g1" style="margin-top:.5rem;">
+      <div class="field"><label>Observaciones</label>
+        <textarea id="ri-obs" rows="2" placeholder="Descripción del trabajo realizado..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:.75rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+        <label style="font-size:13px;font-weight:600;">Materiales utilizados</label>
+        <button class="btn btn-sm" onclick="addRiMaterialRow()">+ Agregar</button>
+      </div>
+      <div id="ri-materiales-rows"></div>
+    </div>
+    <input type="hidden" id="ri-edit-id">
+    <div class="btn-row" style="margin-top:1rem;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-red-interna')">Cancelar</button>
+      <button class="btn btn-accent" onclick="guardarRedInterna()">Guardar registro</button>
+    </div>
+  </div>
+</div>
+
   <nav class="bottom-nav" id="bottom-nav">
     <button class="bn-item active" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
     <!-- Cuadrilla -->
@@ -3611,22 +3606,35 @@ function loginCuadrilla() {
   var username = (document.getElementById('login-cuad-user').value || '').trim().toLowerCase();
   var pass = document.getElementById('login-cuad-pass').value;
   if (!username) { showLoginError('cuad', 'Ingresa tu nombre de usuario.'); return; }
-  if (!pass) { showLoginError('cuad', 'Ingresa tu contraseña.'); return; }
+  if (!pass)     { showLoginError('cuad', 'Ingresa tu contraseña.'); return; }
+
   var cuads = cuadrillasList();
+  // Guardia: si Firebase aún no cargó datos, mostrar mensaje apropiado
+  if (!cuads.length && !cache._loaded) {
+    showLoginError('cuad', '⏳ Cargando datos del sistema, intenta en un momento…');
+    return;
+  }
+
   var match = null;
   for (var i = 0; i < cuads.length; i++) {
     var u = (cuads[i].username || '').trim().toLowerCase();
     if (u === username) { match = cuads[i]; break; }
   }
-  if (!match) { showLoginError('cuad', 'Usuario no encontrado. Contacta al administrador.'); return; }
-  if (!match.pass) { showLoginError('cuad', 'Esta cuenta no tiene contraseña configurada.'); return; }
+  if (!match) { showLoginError('cuad', 'Usuario no encontrado. Verifica tu usuario o contacta al administrador.'); return; }
+  if (!match.pass) { showLoginError('cuad', 'Esta cuenta no tiene contraseña configurada. Contacta al administrador.'); return; }
+
+  // Deshabilitar botón mientras verifica
+  var btn = document.querySelector('#login-cuadrilla-area .login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verificando…'; }
+
   verifyPass(pass, match.pass).then(function(ok) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Ingresar'; }
     if (!ok) {
       registrarIntentoFallido();
       registrarLog(match.nombre, 'cuadrilla', 'fallido');
-      var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
-      showLoginError('cuad', '⚠ Contraseña incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
-      if (navigator.vibrate) navigator.vibrate([100,50,100]);
+      var rest = MAX_LOGIN_ATTEMPTS - (_getRLState().attempts || 0);
+      showLoginError('cuad', '⚠ Contraseña incorrecta.' + (rest > 0 ? ' Intentos restantes: ' + rest + '.' : ' Acceso bloqueado 5 min.'));
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       return;
     }
     clearLoginError('cuad');
@@ -3635,6 +3643,10 @@ function loginCuadrilla() {
     registrarLog(match.nombre, 'cuadrilla', 'exitoso');
     resetSessionTimer();
     startApp();
+  }).catch(function(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Ingresar'; }
+    showLoginError('cuad', 'Error al verificar contraseña. Intenta nuevamente.');
+    console.error('loginCuadrilla error:', e);
   });
 }
 
@@ -3711,59 +3723,84 @@ function loginAdmin() {
   if (!checkLoginRateLimit()) return;
   var pass = document.getElementById('admin-pass').value;
   var rol  = document.getElementById('admin-rol-sel').value;
-  if (!pass) { showLoginError('admin','Ingresa la contraseña.'); return; }
+  if (!pass) { showLoginError('admin', 'Ingresa la contraseña.'); return; }
 
   var passEsperada, nombreRol, sectorId;
   if (rol === 'superadmin') {
     passEsperada = SUPER_PASS;
-    nombreRol = 'SuperAdministrador';
-    sectorId = null;
+    nombreRol    = 'SuperAdministrador';
+    sectorId     = null;
   } else {
     var sec = getSector(rol);
-    if (!sec) { showLoginError('admin', 'Sector no válido.'); return; }
+    if (!sec) { showLoginError('admin', 'Sector no válido. Recarga la página e intenta de nuevo.'); return; }
     passEsperada = sec.pass;
-    nombreRol = 'Admin ' + sec.nombre;
-    sectorId = rol;
+    nombreRol    = 'Admin ' + sec.nombre;
+    sectorId     = rol;
   }
 
+  // Deshabilitar botón mientras verifica
+  var btn = document.querySelector('#login-admin-area .login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verificando…'; }
+
   verifyPass(pass, passEsperada).then(function(ok) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
     if (!ok) {
       registrarIntentoFallido();
       registrarLog(nombreRol, 'admin', 'fallido');
-      var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
-      showLoginError('admin', '⚠ Clave incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
-      if (navigator.vibrate) navigator.vibrate([100,50,100]);
+      var rest = MAX_LOGIN_ATTEMPTS - (_getRLState().attempts || 0);
+      showLoginError('admin', '⚠ Clave incorrecta.' + (rest > 0 ? ' Intentos restantes: ' + rest + '.' : ' Acceso bloqueado 5 min.'));
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       return;
     }
     clearLoginError('admin');
     resetLoginAttempts();
     currentUser = {
-      tipo: 'admin',
-      rol: rol === 'superadmin' ? 'superadmin' : 'admin',
-      sector: sectorId,
+      tipo:        'admin',
+      rol:         rol === 'superadmin' ? 'superadmin' : 'admin',
+      sector:      sectorId,
       cuadrillaId: null,
-      nombre: nombreRol
+      nombre:      nombreRol
     };
     if (rol === 'superadmin') SECTOR_ACTIVO_SUPER = null;
     registrarLog(nombreRol, 'admin', 'exitoso');
     resetSessionTimer();
     startApp();
+  }).catch(function(e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+    showLoginError('admin', 'Error al verificar contraseña. Intenta nuevamente.');
+    console.error('loginAdmin error:', e);
   });
 }
 
 function showLoginError(tipo, msg) {
-  var id = tipo==='cuad' ? 'login-err-cuad' : 'login-err-admin';
-  var inp = tipo==='cuad' ? 'login-cuad-pass' : 'admin-pass';
-  var el = document.getElementById(id);
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  var id  = tipo === 'cuad' ? 'login-err-cuad' : 'login-err-admin';
+  var inp = tipo === 'cuad' ? 'login-cuad-pass' : 'admin-pass';
+  var el  = document.getElementById(id);
+  if (el) {
+    el.innerHTML = '<span style="margin-right:6px;">⚠</span>' + msg;
+    el.style.display = 'block';
+    // Pulso para llamar la atención
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = 'shake .4s ease';
+  }
   var iEl = document.getElementById(inp);
-  if (iEl) { iEl.style.borderColor='var(--red)'; iEl.style.animation='shake .4s ease'; setTimeout(function(){ iEl.style.animation=''; },500); }
+  if (iEl) {
+    iEl.style.borderColor = 'var(--red)';
+    iEl.style.animation   = 'shake .4s ease';
+    setTimeout(function() { iEl.style.animation = ''; }, 500);
+    iEl.focus();
+    iEl.select();
+  }
+  // También mostrar toast para asegurar visibilidad
+  toast(msg, 'error');
 }
+
 function clearLoginError(tipo) {
-  var id = tipo==='cuad' ? 'login-err-cuad' : 'login-err-admin';
-  var inp = tipo==='cuad' ? 'login-cuad-pass' : 'admin-pass';
-  var el = document.getElementById(id); if (el) el.style.display='none';
-  var iEl = document.getElementById(inp); if (iEl) iEl.style.borderColor='';
+  var id  = tipo === 'cuad' ? 'login-err-cuad' : 'login-err-admin';
+  var inp = tipo === 'cuad' ? 'login-cuad-pass' : 'admin-pass';
+  var el  = document.getElementById(id); if (el) { el.style.display = 'none'; el.textContent = ''; }
+  var iEl = document.getElementById(inp); if (iEl) { iEl.style.borderColor = ''; iEl.style.animation = ''; }
 }
 
 function registrarLog(usuario, tipo, estado) {
@@ -7738,11 +7775,25 @@ function renderAdminLogs(){
 // ══════════════════════════════════════════════════════
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-function toast(msg,type){
-  var c=document.getElementById('toasts'),icons={success:'✓',error:'✕',info:'i'};
-  var el=document.createElement('div');el.className='toast t-'+(type||'info');
-  el.innerHTML='<span style="font-weight:700;font-size:14px">'+(icons[type]||'i')+'</span><span>'+msg+'</span>';
-  c.appendChild(el);setTimeout(function(){el.remove();},3500);
+function toast(msg, type) {
+  // Auto-crear el contenedor si no existe (necesario en pantalla de login)
+  var c = document.getElementById('toasts');
+  if (!c) {
+    c = document.createElement('div');
+    c.id = 'toasts';
+    c.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;max-width:340px;';
+    document.body.appendChild(c);
+  }
+  var icons = { success:'✓', error:'✕', info:'ℹ' };
+  var colors = { success:'#16a34a', error:'#dc2626', info:'#2563eb' };
+  var el = document.createElement('div');
+  el.className = 'toast t-' + (type || 'info');
+  el.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fff;border-radius:10px;padding:11px 14px;box-shadow:0 4px 16px rgba(0,0,0,.15);font-size:13px;font-family:var(--sans,"system-ui",sans-serif);color:#1a202c;border-left:4px solid '+(colors[type]||colors.info)+';animation:slideIn .25s ease;min-width:200px;';
+  el.innerHTML = '<span style="font-weight:700;font-size:15px;color:'+(colors[type]||colors.info)+'">'+(icons[type]||'ℹ')+'</span><span style="flex:1">'+msg+'</span>';
+  // Cerrar al hacer clic
+  el.onclick = function() { el.remove(); };
+  c.appendChild(el);
+  setTimeout(function() { if (el.parentNode) el.remove(); }, 3800);
 }
 document.querySelectorAll('.modal-overlay').forEach(function(ov){
   ov.addEventListener('click',function(e){if(e.target===ov)ov.classList.remove('open');});
@@ -7884,6 +7935,7 @@ function cargarDatosIniciales() {
     }
 
     loadScreen.style.display = 'none';
+    cache._loaded = true;
     document.getElementById('login-screen').style.display = 'flex';
     populateLoginSelect();
     initFirebaseListeners();
