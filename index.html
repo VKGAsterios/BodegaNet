@@ -1563,7 +1563,7 @@ select option{background:var(--bg3);color:var(--ink);}
       </section>
 
     <!-- ═══ MI RENDIMIENTO (CuadriControl dashboard replicado) ═══ -->
-    <section class="section" id="sec-mi-rendimiento" style="display:none">
+    <section class="section" id="sec-mi-rendimiento">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
         <div>
           <h2 style="margin:0">Mi Rendimiento</h2>
@@ -3536,7 +3536,15 @@ function renderCurrentSection() {
     'red-interna': renderRedInterna,
     'admin-red-interna': renderAdminRedInterna,
     'visitas-fallidas': renderVisitasFallidas,
-    'visitas-fallidas-cuad': renderVisitasFallidasCuad
+    'visitas-fallidas-cuad': renderVisitasFallidasCuad,
+    'mi-rendimiento': function() {
+      var hoy = new Date().toISOString().slice(0,10);
+      var mrFecha = document.getElementById('mr-fecha');
+      var mrMes   = document.getElementById('mr-mes');
+      if (mrFecha && !mrFecha.value) mrFecha.value = hoy;
+      if (mrMes   && !mrMes.value)   mrMes.value   = hoy.slice(0,7);
+      if (typeof mrSetVista === 'function') mrSetVista('dia');
+    }
   };
   if (renders[currentSection]) renders[currentSection]();
   if (currentSection === 'admin-config') initConfigSeccion();
@@ -3691,7 +3699,7 @@ function expandNavGroupForSection(section) {
   var sectionToGroup = {
     'dashboard':'navg-principal','kardex':'navg-principal','asignar':'navg-principal',
     'inventario':'navg-inventario','alertas':'navg-inventario','historial':'navg-inventario',
-    'herramientas':'navg-inventario','red-interna':'navg-inventario',
+    'herramientas':'navg-inventario','red-interna':'navg-inventario','mi-rendimiento':'navg-principal',
     'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion',
     'admin-herramientas':'navg-control','admin-red-interna':'navg-control',
     'admin-logs':'navg-sistema','admin-config':'navg-sistema'
@@ -3855,6 +3863,11 @@ function startApp() {
     // Mostrar items de nav solo-cuadrilla
     document.querySelectorAll('.bn-cuad-only').forEach(function(b){ b.style.display='flex'; });
     // Mostrar Mi Rendimiento
+    var navMR = document.getElementById('nav-mi-rendimiento');
+    if (navMR) navMR.style.display = 'flex';
+    var bnMR = document.getElementById('bn-mi-rendimiento');
+    if (bnMR) bnMR.style.display = 'flex';
+    // Mostrar Mi Rendimiento nav items para cuadrilla
     var navMR = document.getElementById('nav-mi-rendimiento');
     if (navMR) navMR.style.display = 'flex';
     var bnMR = document.getElementById('bn-mi-rendimiento');
@@ -4977,7 +4990,7 @@ function showSection(id) {
   var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
                    'admin-logs','admin-config','admin-herramientas','admin-red-interna'];
   var superOnly = ['admin-logs'];
-  var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas'];
+  var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas','mi-rendimiento'];
 
   // Cuadrilla intentando acceder a sección admin → bloquear
   if (currentUser.tipo !== 'admin' && adminOnly.indexOf(id) > -1) {
@@ -8116,33 +8129,8 @@ function mrKpi(label, val, color) {
 }
 
 // Hook en showSection para inicializar Mi Rendimiento
-var _origShowSection = typeof showSection === 'function' ? showSection : null;
-showSection = function(sec) {
-  if (_origShowSection) _origShowSection(sec);
-  if (sec === 'mi-rendimiento') {
-    var hoy = new Date().toISOString().slice(0,10);
-    document.getElementById('mr-fecha').value = document.getElementById('mr-fecha').value || hoy;
-    document.getElementById('mr-mes').value   = document.getElementById('mr-mes').value || hoy.slice(0,7);
-    mrSetVista('dia');
-  }
-  // Mostrar/ocultar la section correctamente
-  document.querySelectorAll('.section').forEach(function(s){ s.style.display='none'; });
-  var el = document.getElementById('sec-'+sec);
-  if (el) el.style.display='';
-};
-
-// Mostrar nav Mi Rendimiento solo para cuadrillas al iniciar sesión
-var _origStartApp = typeof startApp === 'function' ? startApp : null;
-startApp = function() {
-  if (_origStartApp) _origStartApp();
-  if (currentUser && currentUser.tipo === 'cuadrilla') {
-    var el = document.getElementById('nav-mi-rendimiento');
-    if (el) el.style.display = '';
-    var bn = document.getElementById('bn-mi-rendimiento');
-    if (bn) bn.style.display = '';
-  }
-};
-
+// ── Mi Rendimiento: inicialización al navegar ────────
+// (integrado en renderCurrentSection — no necesita override de showSection)
 </script>
 </body>
 </html>
