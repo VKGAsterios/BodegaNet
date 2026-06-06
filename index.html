@@ -5,29 +5,13 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet — Control de Materiales ISP</title>
+<title>BodegaNet v2.18 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- jsPDF — carga diferida para no bloquear Firebase -->
-<!-- ZXing barcode/QR scanner — carga diferida -->
-<!-- jsQR — decodificación QR desde imagen estática -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js" defer></script>
-<script>
-(function(){
-  var s = document.createElement('script');
-  // jsdelivr no es bloqueado por Tracking Prevention de Edge
-  s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js';
-  s.onerror = function(){
-    // Fallback a unpkg si jsdelivr falla
-    var s2 = document.createElement('script');
-    s2.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
-    s2.onerror = function(){ console.warn('ZXing no disponible — escáner manual activo'); };
-    document.head.appendChild(s2);
-  };
-  document.head.appendChild(s);
-})();
-</script>
+<!-- Tesseract.js OCR — escáner de MAC por foto -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <!-- Firebase SDK v10 compat — más estable -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -213,7 +197,6 @@ tr:hover td{background:rgba(59,130,246,.05);}
 .toast.t-info{border-left:3px solid var(--blue);background:rgba(30,58,95,.06);}
 @keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 @keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(20px)}}
 #login-cuadrilla-area{animation:slideIn .4s ease;}
@@ -276,6 +259,21 @@ select option{background:var(--bg3);color:var(--ink);}
 .remove-row-btn:hover{background:rgba(239,68,68,.16);}
 /* ── Stock label ── */
 .stock-label{font-size:11px;font-family:monospace;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.6);}
+/* ── OCR Scanner ── */
+@keyframes ocr-scan{0%{top:36%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:64%;opacity:0}}
+#scanner-capture-btn:disabled{opacity:.45;cursor:not-allowed;}
+/* ── Herramientas ── */
+.herr-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:0;overflow:hidden;margin-bottom:.6rem;transition:border-color .15s;}
+.herr-card:hover{border-color:var(--border2);}
+.herr-card-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none;}
+.herr-card-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.herr-card-body{padding:0 14px 14px;border-top:1px solid var(--border);}
+.herr-historial-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.herr-historial-row:last-child{border-bottom:none;}
+.kherr-tipo-lbl.sel{border-color:var(--accent)!important;background:var(--accent-light)!important;color:var(--accent)!important;}
+.herr-kpi-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 14px;text-align:center;}
+.herr-kpi-num{font-size:22px;font-weight:700;line-height:1;}
+.herr-kpi-lbl{font-size:11px;color:var(--ink3);margin-top:3px;}
 </style>
 </head>
 <body>
@@ -354,15 +352,14 @@ select option{background:var(--bg3);color:var(--ink);}
           <svg class="nav-group-chevron" width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div class="nav-group-body">
-          <button class="nav-item active bn-cuad-only" id="nav-dashboard" onclick="showSection('dashboard')">
+          <button class="nav-item active" onclick="showSection('dashboard')">
             <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Dashboard
           </button>
-          <button class="nav-item bn-cuad-only" id="nav-asignar" onclick="showSection('asignar')">
-            <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar a cliente
+          <button class="nav-item" onclick="showSection('kardex')">
+            <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex / Bodega
           </button>
-          <button class="nav-item" id="nav-mi-rendimiento" onclick="showSection('mi-rendimiento')" style="display:none">
-            <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="7" y="8" width="3" height="10" rx="1"/><rect x="12" y="4" width="3" height="14" rx="1"/><rect x="17" y="1" width="3" height="17" rx="1"/></svg>Mi Rendimiento
-            <span id="nav-rend-badge" style="display:none;background:var(--accent);color:#000;font-size:9px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:auto">●</span>
+          <button class="nav-item" onclick="showSection('asignar')">
+            <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar a cliente
           </button>
         </div>
       </div>
@@ -382,7 +379,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="nav-item" onclick="showSection('historial')">
             <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Historial
           </button>
-          <button class="nav-item bn-cuad-only" id="nav-herramientas" onclick="showSection('herramientas')">
+          <button class="nav-item" onclick="showSection('herramientas')">
             <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l-3 3-2-2 3-3a4 4 0 00-5.5 5.5L3 11a1.41 1.41 0 002 2l4-4a4 4 0 005.5-5.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Herramientas
           </button>
           <button class="nav-item" id="nav-red-interna" onclick="showSection('red-interna')" style="display:none;">
@@ -575,56 +572,74 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
-        <!-- ── Búsqueda por MAC ── -->
-        <div class="card" style="margin-bottom:1rem;">
-          <div class="card-header" style="margin-bottom:.75rem;">
-            <h3 style="font-size:14px;">
-              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="vertical-align:middle;margin-right:4px;"><rect x="2" y="5" width="16" height="10" rx="2" stroke="var(--accent)" stroke-width="1.5"/><path d="M6 10h.01M10 10h.01M14 10h.01" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
-              Buscar por MAC
-            </h3>
-            <span style="font-size:12px;color:var(--ink3);">¿A qué cliente fue asignado este equipo?</span>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <div style="position:relative;flex:1;min-width:200px;">
-              <input type="text" id="mac-search-input" placeholder="AA:BB:CC:DD:EE:FF"
-                maxlength="17" autocomplete="off" spellcheck="false"
-                oninput="autoFormatMACSearch(this)"
-                onkeydown="if(event.key==='Enter')buscarPorMAC()"
-                style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:monospace;background:var(--bg3);color:var(--ink);outline:none;">
-              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:12px;pointer-events:none;">MAC</span>
+        <!-- ── Acceso rápido Ingreso/Egreso (solo cuadrilla) ── -->
+        <div id="kardex-cuad-quickbar" style="display:none;margin-bottom:1rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div onclick="openKardexModalTipo('ingreso')" style="background:rgba(34,197,94,.08);border:2px solid rgba(34,197,94,.3);border-radius:var(--r-lg);padding:1.25rem;cursor:pointer;text-align:center;transition:all .15s;" onmouseover="this.style.borderColor='var(--green)';this.style.background='rgba(34,197,94,.14)'" onmouseout="this.style.borderColor='rgba(34,197,94,.3)';this.style.background='rgba(34,197,94,.08)'">
+              <div style="font-size:28px;margin-bottom:6px;">📦</div>
+              <div style="font-weight:700;color:var(--green-dark);font-size:15px;">Ingreso</div>
+              <div style="font-size:12px;color:var(--ink3);margin-top:2px;">Entrada de materiales</div>
             </div>
-            <button class="btn btn-accent" onclick="buscarPorMAC()">Buscar</button>
-            <button class="btn" style="border-color:var(--accent);color:var(--accent);" onclick="abrirScanner('search',null)" title="Escanear MAC con cámara">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M2 7V4a1 1 0 011-1h3M2 17v3a1 1 0 001 1h3M22 7V4a1 1 0 00-1-1h-3M22 17v3a1 1 0 01-1 1h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="7" y="7" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
-              Escanear
-            </button>
-            <button class="btn btn-ghost" onclick="limpiarBusquedaMAC()">✕ Limpiar</button>
+            <div onclick="openKardexModalTipo('egreso')" style="background:rgba(59,130,246,.08);border:2px solid rgba(59,130,246,.25);border-radius:var(--r-lg);padding:1.25rem;cursor:pointer;text-align:center;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.background='rgba(59,130,246,.14)'" onmouseout="this.style.borderColor='rgba(59,130,246,.25)';this.style.background='rgba(59,130,246,.08)'">
+              <div style="font-size:28px;margin-bottom:6px;">🚚</div>
+              <div style="font-weight:700;color:var(--accent-dark,var(--accent));font-size:15px;">Egreso</div>
+              <div style="font-size:12px;color:var(--ink3);margin-top:2px;">Salida de materiales</div>
+            </div>
           </div>
-          <div id="mac-search-result" style="display:none;margin-top:1rem;"></div>
         </div>
-        <div class="card" style="margin-bottom:1rem;">
-          <div class="card-header" style="margin-bottom:.75rem;">
-            <h3 style="font-size:14px;">🔍 Buscar uso de material</h3>
-            <span style="font-size:12px;color:var(--ink3);">¿En qué clientes se usó este material?</span>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <div style="position:relative;flex:1;min-width:200px;">
-              <input type="text" id="kardex-mat-search" placeholder="Escribe el nombre del material..."
-                oninput="filtrarSugerenciasMaterial(this.value)"
-                onfocus="filtrarSugerenciasMaterial(this.value)"
-                autocomplete="off"
-                style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink);outline:none;">
-              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:14px;pointer-events:none;">🔍</span>
-              <!-- Sugerencias dropdown -->
-              <div id="kardex-mat-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg4);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 var(--r) var(--r);z-index:300;max-height:200px;overflow-y:auto;box-shadow:0 6px 16px rgba(30,35,50,.12);"></div>
+
+        <!-- ── Búsqueda por MAC (admin/superadmin) ── -->
+        <div id="kardex-admin-tools" style="display:none;">
+          <div class="card" style="margin-bottom:1rem;">
+            <div class="card-header" style="margin-bottom:.75rem;">
+              <h3 style="font-size:14px;">
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="vertical-align:middle;margin-right:4px;"><rect x="2" y="5" width="16" height="10" rx="2" stroke="var(--accent)" stroke-width="1.5"/><path d="M6 10h.01M10 10h.01M14 10h.01" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
+                Buscar por MAC
+              </h3>
+              <span style="font-size:12px;color:var(--ink3);">¿A qué cliente fue asignado este equipo?</span>
             </div>
-            <button class="btn btn-accent" onclick="buscarUsoMaterial()" style="white-space:nowrap;">Ver usos</button>
-            <button class="btn btn-ghost" onclick="limpiarBusquedaMaterial()" style="white-space:nowrap;">✕ Limpiar</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div style="position:relative;flex:1;min-width:200px;">
+                <input type="text" id="mac-search-input" placeholder="AA:BB:CC:DD:EE:FF"
+                  maxlength="17" autocomplete="off" spellcheck="false"
+                  oninput="autoFormatMACSearch(this)"
+                  onkeydown="if(event.key==='Enter')buscarPorMAC()"
+                  style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:monospace;background:var(--bg3);color:var(--ink);outline:none;">
+                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:12px;pointer-events:none;">MAC</span>
+              </div>
+              <button class="btn btn-accent" onclick="buscarPorMAC()">Buscar</button>
+              <button class="btn" style="border-color:var(--accent);color:var(--accent);" onclick="abrirScanner('search',null)" title="Escanear MAC con cámara">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M2 7V4a1 1 0 011-1h3M2 17v3a1 1 0 001 1h3M22 7V4a1 1 0 00-1-1h-3M22 17v3a1 1 0 01-1 1h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="7" y="7" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
+                Escanear
+              </button>
+              <button class="btn btn-ghost" onclick="limpiarBusquedaMAC()">✕ Limpiar</button>
+            </div>
+            <div id="mac-search-result" style="display:none;margin-top:1rem;"></div>
           </div>
-          <!-- Resultados de trazabilidad -->
-          <div id="kardex-traz-result" style="display:none;margin-top:1rem;">
-            <div id="kardex-traz-header" style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap;"></div>
-            <div id="kardex-traz-tabla"></div>
+          <div class="card" style="margin-bottom:1rem;">
+            <div class="card-header" style="margin-bottom:.75rem;">
+              <h3 style="font-size:14px;">🔍 Buscar uso de material</h3>
+              <span style="font-size:12px;color:var(--ink3);">¿En qué clientes se usó este material?</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div style="position:relative;flex:1;min-width:200px;">
+                <input type="text" id="kardex-mat-search" placeholder="Escribe el nombre del material..."
+                  oninput="filtrarSugerenciasMaterial(this.value)"
+                  onfocus="filtrarSugerenciasMaterial(this.value)"
+                  autocomplete="off"
+                  style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink);outline:none;">
+                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:14px;pointer-events:none;">🔍</span>
+                <!-- Sugerencias dropdown -->
+                <div id="kardex-mat-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg4);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 var(--r) var(--r);z-index:300;max-height:200px;overflow-y:auto;box-shadow:0 6px 16px rgba(30,35,50,.12);"></div>
+              </div>
+              <button class="btn btn-accent" onclick="buscarUsoMaterial()" style="white-space:nowrap;">Ver usos</button>
+              <button class="btn btn-ghost" onclick="limpiarBusquedaMaterial()" style="white-space:nowrap;">✕ Limpiar</button>
+            </div>
+            <!-- Resultados de trazabilidad -->
+            <div id="kardex-traz-result" style="display:none;margin-top:1rem;">
+              <div id="kardex-traz-header" style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap;"></div>
+              <div id="kardex-traz-tabla"></div>
+            </div>
           </div>
         </div>
 
@@ -666,12 +681,7 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
           <div class="form-grid g1"><div class="field full"><label>Dirección</label><input type="text" id="cli-dir" placeholder="Colonia, calle, casa..."></div></div>
           <div class="form-grid">
-            <div class="field">
-              <label>ID de Cliente
-                <span style="font-size:10px;color:var(--ink3);font-weight:400;margin-left:4px;">Para validar visitas reincidentes</span>
-              </label>
-              <input type="text" id="cli-id-cliente" placeholder="Ej: CLI-00123" style="font-family:monospace;letter-spacing:.03em" oninput="this.value=this.value.toUpperCase()">
-            </div>
+            <div class="field"><label>Municipio</label><input type="text" id="cli-municipio"></div>
             <div class="field"><label>Orden de trabajo (OT)</label><input type="text" id="cli-ot" placeholder="OT-0001"></div>
           </div>
           <div class="form-grid">
@@ -831,7 +841,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="rep-tab active" onclick="switchRepTab('asignaciones')" id="tab-asignaciones" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-2px;cursor:pointer;white-space:nowrap;">Asignaciones</button>
           <button class="rep-tab" onclick="switchRepTab('kardex')" id="tab-kardex" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">Kardex</button>
           <button class="rep-tab" onclick="switchRepTab('tiempos')" id="tab-tiempos" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">⏱ Tiempos por Trabajo</button>
-          <button class="rep-tab" onclick="switchRepTab('reincidencias')" id="tab-reincidencias" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">🔄 Reincidencias</button>
+          <!-- Tab Visitas Fallidas oculto — no implementado actualmente -->
         </div>
 
         <!-- Pestaña: Asignaciones -->
@@ -1009,72 +1019,55 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
-        </div>
-
-        <!-- Pestaña: Reincidencias -->
-        <div id="reptab-reincidencias" style="display:none;">
+        <!-- Pestaña: Visitas Fallidas (oculta) -->
+        <div id="reptab-visitas" style="display:none;">
           <div class="card">
-            <div class="card-title">🔄 Filtros — Visitas reincidentes por cliente</div>
+            <div class="card-title">Filtros de visitas fallidas</div>
             <div class="form-grid">
-              <div class="field">
-                <label>ID de Cliente
-                  <span style="font-size:10px;color:var(--ink3);font-weight:400;margin-left:4px;">(vacío = todos los reincidentes)</span>
-                </label>
-                <input type="text" id="ri-id-cliente" placeholder="Ej: CLI-00123"
-                  style="font-family:monospace;letter-spacing:.03em;width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;"
-                  oninput="this.value=this.value.toUpperCase()">
-              </div>
               <div class="field"><label>Cuadrilla</label>
-                <select id="ri-cuadrilla" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                  <option value="">Todas las cuadrillas</option>
-                </select>
+                <select id="vf-cuadrilla" onchange="renderVisitasFallidas()"><option value="">Todas</option></select>
               </div>
               <div class="field"><label>Período</label>
-                <select id="ri-periodo" onchange="toggleRiFechas()">
+                <select id="vf-periodo" onchange="toggleVFFechas();renderVisitasFallidas()">
+                  <option value="hoy">Hoy</option>
+                  <option value="semana">Esta semana</option>
                   <option value="mes" selected>Este mes</option>
-                  <option value="año">Este año</option>
                   <option value="personalizado">Personalizado</option>
                 </select>
               </div>
-              <div class="field"><label>Mínimo de visitas</label>
-                <select id="ri-min-visitas" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                  <option value="2">2 o más visitas</option>
-                  <option value="3">3 o más visitas</option>
-                  <option value="4">4 o más visitas</option>
-                  <option value="5">5 o más visitas</option>
-                </select>
+              <div class="field" id="vf-fechas" style="display:none;">
+                <label>Fecha</label>
+                <input type="date" id="vf-fecha" onchange="renderVisitasFallidas()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
               </div>
             </div>
-            <div class="form-grid" id="ri-fechas-custom" style="display:none;">
-              <div class="field"><label>Fecha inicio</label><input type="date" id="ri-fecha-ini" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;color-scheme:light"></div>
-              <div class="field"><label>Fecha fin</label><input type="date" id="ri-fecha-fin" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;color-scheme:light"></div>
-            </div>
             <div class="btn-row">
-              <button class="btn btn-accent" onclick="renderReincidencias()">Generar reporte</button>
-              <button class="btn btn-green" onclick="exportarReincidenciasCSV()">
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Descargar CSV
-              </button>
-              <button class="btn" id="btn-pdf-reincidencias" style="border-color:var(--red);color:var(--red);display:none" onclick="exportarReincidenciasPDF()">
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-                Informe PDF
-              </button>
+              <button class="btn btn-green" onclick="exportarVisitasFallidas()">Descargar CSV</button>
             </div>
           </div>
-
-          <!-- KPIs reincidencias -->
-          <div class="kpi-grid" id="ri-kpis" style="display:none;margin-bottom:1rem;">
-            <div class="kpi"><label>Clientes reincidentes</label><div class="val c-red" id="ri-kpi-clientes">—</div><div class="sub">Con 2+ visitas</div></div>
-            <div class="kpi"><label>Total visitas reincidentes</label><div class="val c-accent" id="ri-kpi-visitas">—</div></div>
-            <div class="kpi"><label>Promedio días entre visitas</label><div class="val c-amber" id="ri-kpi-dias">—</div><div class="sub">días</div></div>
-            <div class="kpi"><label>Tipo más reincidente</label><div class="val c-green" id="ri-kpi-tipo" style="font-size:13px;">—</div></div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Registros</h3>
+              <span id="vf-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
+            </div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>Motivo</th><th>OT</th><th>Técnico</th><th>Observaciones</th></tr></thead>
+              <tbody id="vf-tbody"></tbody>
+            </table></div>
           </div>
-
-          <!-- Tabla de reincidencias agrupada por cliente -->
-          <div id="ri-result-wrap" style="display:none;"></div>
-        </div><!-- /reptab-reincidencias -->
-
-      </section><!-- /sec-admin-reportes -->
+          <div class="card">
+            <div class="card-title">Resumen y gráfico de motivos</div>
+            <div id="vf-resumen" style="margin-bottom:1rem;"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+              <select id="vf-chart-tipo" onchange="renderGraficosVisitasFallidas()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;background:var(--bg);">
+                <option value="motivos">Por motivo</option>
+                <option value="cuadrilla">Por cuadrilla</option>
+              </select>
+              <button class="btn btn-sm btn-green" onclick="descargarGraficoVisitas()">Descargar gráfico</button>
+            </div>
+            <div id="vf-chart-container"></div>
+          </div>
+        </div>
+      </section>
 
       <!-- ADMIN LOGS DE ACCESO -->
       <section class="section" id="sec-admin-logs">
@@ -1401,102 +1394,214 @@ select option{background:var(--bg3);color:var(--ink);}
       <!-- HERRAMIENTAS (cuadrilla) -->
       <section class="section" id="sec-herramientas">
         <div class="page-header">
-          <div><h2>Mis herramientas</h2><p id="herr-subtitle">Confirma el estado de tu equipamiento al inicio del día</p></div>
-          <button class="btn btn-accent" onclick="abrirModalReporteHerr()">
+          <div>
+            <h2>🔧 Mis herramientas</h2>
+            <p id="herr-subtitle">Inventario y control de estado</p>
+          </div>
+          <button class="btn btn-accent" onclick="abrirModalRegistrarPrimeraHerramienta()" style="display:flex;align-items:center;gap:6px;">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Registrar reporte de estado
+            Agregar herramienta
           </button>
         </div>
 
-        <!-- Último reporte -->
-        <div class="card" id="herr-ultimo-reporte" style="display:none">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-            <div style="font-size:13px;font-weight:700;color:var(--ink)">Último reporte registrado</div>
-            <span id="herr-reporte-fecha" style="font-size:12px;color:var(--ink3);font-family:monospace"></span>
+        <!-- KPI bar -->
+        <div id="herr-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1rem;"></div>
+
+        <!-- Tabs -->
+        <div class="tabs" style="margin-bottom:1rem;">
+          <button class="tab-btn active" onclick="switchHerrTab('inventario',this)">Inventario</button>
+          <button class="tab-btn" onclick="switchHerrTab('kardex',this)">Kardex de herramientas</button>
+        </div>
+
+        <!-- TAB inventario -->
+        <div id="herr-tab-inventario">
+          <!-- Filtro rápido -->
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
+            <select id="herr-filtro-estado" onchange="renderHerramientas()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+              <option value="">Todos los estados</option>
+              <option value="Buen Estado">Buen Estado</option>
+              <option value="Mal Estado">Mal Estado</option>
+              <option value="Dañada">Dañada</option>
+            </select>
+            <input id="herr-busqueda" type="text" placeholder="Buscar herramienta..." oninput="renderHerramientas()"
+              style="flex:1;min-width:140px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
           </div>
-          <div id="herr-reporte-items" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px"></div>
+          <div id="herr-lista"></div>
         </div>
 
-        <!-- Catálogo asignado a esta cuadrilla -->
-        <div class="card">
-          <div style="font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Catálogo de herramientas disponibles</div>
-          <div id="herr-catalogo-cuad"><p style="color:var(--ink3);font-size:13px;">Cargando catálogo…</p></div>
-        </div>
-
-        <!-- Historial de reportes de la cuadrilla -->
-        <div class="card">
-          <div style="font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Historial de reportes</div>
-          <div id="herr-historial-cuad"><p style="color:var(--ink3);font-size:13px;">Sin reportes registrados.</p></div>
+        <!-- TAB kardex herramientas -->
+        <div id="herr-tab-kardex" style="display:none;">
+          <div class="card">
+            <div id="herr-kardex-lista"><p style="color:var(--ink3);font-size:13px;">Sin movimientos aún.</p></div>
+          </div>
         </div>
       </section>
 
       <!-- CONTROL HERRAMIENTAS (admin) -->
       <section class="section" id="sec-admin-herramientas">
         <div class="page-header">
-          <div><h2>Control de herramientas</h2><p>Catálogo maestro y seguimiento de reportes por cuadrilla</p></div>
+          <div><h2>Control de herramientas</h2><p>Verificación de cambios de estado</p></div>
           <button class="btn btn-green" onclick="exportarHerramientasCSV()">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             Exportar CSV
           </button>
         </div>
-
-        <!-- Tabs -->
-        <div class="tabs" style="margin-bottom:1rem;">
-          <button class="tab-btn active" id="htab-catalogo-btn" onclick="switchHerrTab('catalogo',this)">📋 Catálogo de herramientas</button>
-          <button class="tab-btn" id="htab-asignaciones-btn" onclick="switchHerrTab('asignaciones',this)">📊 Reportes por cuadrilla</button>
-        </div>
-
-        <!-- TAB: Catálogo maestro -->
-        <div id="htab-catalogo">
-          <div class="card" style="margin-bottom:12px">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-              <div style="font-size:13px;font-weight:600;color:var(--ink)">Herramientas disponibles para asignación a cuadrillas</div>
-              <button class="btn btn-accent" onclick="abrirModalCatalogo()">
-                <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Nueva herramienta
-              </button>
+        <!-- Filtros -->
+        <div class="card">
+          <div class="form-grid">
+            <div class="field"><label>Cuadrilla</label>
+              <select id="hadm-cuadrilla" onchange="renderAdminHerramientas()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="">Todas las cuadrillas</option>
+              </select>
+            </div>
+            <div class="field"><label>Estado</label>
+              <select id="hadm-estado" onchange="renderAdminHerramientas()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="">Todos</option>
+                <option value="Buen Estado">Buen Estado</option>
+                <option value="Mal Estado">Mal Estado</option>
+                <option value="Dañada">Dañada</option>
+              </select>
+            </div>
+            <div class="field"><label>Verificación</label>
+              <select id="hadm-verificado" onchange="renderAdminHerramientas()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="">Todos</option>
+                <option value="pendiente">Pendiente verificar</option>
+                <option value="verificado">Verificado ✓</option>
+                <option value="invalido">Kardex inválido ✗</option>
+              </select>
             </div>
           </div>
-          <div class="card">
-            <div id="hadm-catalogo-lista"><p style="color:var(--ink3);font-size:13px;">Cargando catálogo…</p></div>
-          </div>
         </div>
-
-        <!-- TAB: Reportes / Asignaciones -->
-        <div id="htab-asignaciones" style="display:none">
-          <div class="card" style="margin-bottom:12px">
-            <div class="form-grid">
-              <div class="field"><label>Cuadrilla</label>
-                <select id="hadm-rep-cuadrilla" onchange="renderAdminReportesHerr()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                  <option value="">Todas las cuadrillas</option>
-                </select>
-              </div>
-              <div class="field"><label>Estado reportado</label>
-                <select id="hadm-rep-estado" onchange="renderAdminReportesHerr()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                  <option value="">Todos</option>
-                  <option value="Buen Estado">Buen Estado</option>
-                  <option value="Mal Estado">Mal Estado</option>
-                  <option value="Dañada">Dañada</option>
-                  <option value="No disponible">No disponible</option>
-                </select>
-              </div>
-              <div class="field"><label>Fecha</label>
-                <input type="date" id="hadm-rep-fecha" onchange="renderAdminReportesHerr()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;color-scheme:light">
-              </div>
-            </div>
-          </div>
-          <div class="card">
-            <div id="hadm-reportes-lista"><p style="color:var(--ink3);font-size:13px;">Cargando reportes…</p></div>
-          </div>
+        <div class="card">
+          <div id="hadm-lista"><p style="color:var(--ink3);font-size:13px;">Cargando...</p></div>
         </div>
       </section>
+
+      <!-- MODAL: Agregar herramienta (admin) -->
+      <div class="modal-overlay" id="modal-herramienta">
+        <div class="modal" style="max-width:460px;">
+          <button class="modal-close" onclick="closeModal('modal-herramienta')">&#x2715;</button>
+          <h3 id="herr-modal-title" style="margin-bottom:1rem;">Nueva herramienta</h3>
+          <div class="form-grid g1">
+            <div class="field"><label>Nombre de la herramienta *</label>
+              <input type="text" id="herr-nombre" placeholder="Ej: Escalera 8 metros" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field"><label>Cuadrilla asignada *</label>
+              <select id="herr-cuadrilla" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="">-- Seleccionar --</option>
+              </select>
+            </div>
+            <div class="field"><label>Estado inicial</label>
+              <select id="herr-estado-inicial" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="Buen Estado">Buen Estado</option>
+                <option value="Mal Estado">Mal Estado</option>
+                <option value="Dañada">Dañada</option>
+              </select>
+            </div>
+            <div class="field"><label>Serie / Identificador (opcional)</label>
+              <input type="text" id="herr-serie" placeholder="Ej: HRR-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+          </div>
+          <input type="hidden" id="herr-edit-id">
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="closeModal('modal-herramienta')">Cancelar</button>
+            <button class="btn btn-accent" onclick="guardarHerramienta()">Guardar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Cambiar estado + crear kardex (cuadrilla) -->
+      <div class="modal-overlay" id="modal-herr-estado">
+        <div class="modal" style="max-width:480px;">
+          <button class="modal-close" onclick="closeModal('modal-herr-estado')">&#x2715;</button>
+          <h3 style="margin-bottom:.2rem;">Cambiar estado de herramienta</h3>
+          <p id="herr-estado-nombre" style="font-size:13px;color:var(--ink2);margin-bottom:1.25rem;"></p>
+
+          <!-- Estado actual → nuevo -->
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:1.25rem;">
+            <div style="text-align:center;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:5px;">Estado actual</div>
+              <span id="herr-badge-actual" class="badge"></span>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink:0;opacity:.5"><path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:5px;">Nuevo estado *</div>
+              <select id="herr-nuevo-estado" onchange="actualizarBadgeNuevo(this.value)"
+                style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="Buen Estado">✅ Buen Estado</option>
+                <option value="Mal Estado">⚠️ Mal Estado</option>
+                <option value="Dañada">❌ Dañada</option>
+              </select>
+            </div>
+          </div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin-bottom:1.25rem;">
+
+          <!-- Bloque kardex integrado -->
+          <div style="background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:1.25rem;">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><rect x="3" y="2" width="14" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 7h6M7 11h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <span style="font-size:12px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;">Registro de kardex</span>
+            </div>
+            <div class="form-grid g1">
+              <div class="field" style="margin-bottom:10px;">
+                <label style="font-size:11px;">Tipo de movimiento *</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:4px;">
+                  <label id="kherr-lbl-asig" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:600;text-align:center;transition:all .12s;" onclick="selKherrTipo('asignacion')">
+                    <span style="font-size:18px;">🔧</span>Asignación
+                  </label>
+                  <label id="kherr-lbl-devol" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:600;text-align:center;transition:all .12s;" onclick="selKherrTipo('devolucion')">
+                    <span style="font-size:18px;">↩️</span>Devolución
+                  </label>
+                  <label id="kherr-lbl-rep" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:600;text-align:center;transition:all .12s;" onclick="selKherrTipo('reparacion')">
+                    <span style="font-size:18px;">🛠️</span>Reparación
+                  </label>
+                </div>
+                <input type="hidden" id="kherr-tipo" value="">
+              </div>
+              <div class="field" style="margin-bottom:10px;">
+                <label style="font-size:11px;">Cantidad</label>
+                <input type="number" id="kherr-cantidad" value="1" min="1"
+                  style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              </div>
+              <div class="field" style="margin-bottom:10px;">
+                <label style="font-size:11px;">Responsable *</label>
+                <input type="text" id="kherr-responsable" placeholder="Nombre de quien hace el cambio"
+                  style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label style="font-size:11px;">Observaciones</label>
+                <textarea id="kherr-obs" placeholder="Descripción del daño, motivo del cambio, trabajo realizado..." rows="2"
+                  style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;font-family:inherit;"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <input type="hidden" id="herr-estado-id">
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="closeModal('modal-herr-estado')">Cancelar</button>
+            <button class="btn btn-accent" onclick="confirmarCambioEstado()">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Registrar cambio
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- RED INTERNA (cuadrilla) -->
       <section class="section" id="sec-red-interna">
         <div class="page-header">
-          <div><h2>🖧 Red Interna</h2><p id="ri-subtitle">Registro de trabajos en red</p></div>
-          <button class="btn btn-accent" onclick="openModalRedInterna()">+ Nuevo registro</button>
+          <div>
+            <h2>🖧 Red Interna</h2>
+            <p id="ri-subtitle">Registro de trabajos en red</p>
+          </div>
+          <button class="btn btn-accent" onclick="openModalRedInterna()">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Nuevo registro
+          </button>
         </div>
+        <!-- KPI bar Red Interna -->
+        <div id="ri-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem;"></div>
         <div class="card">
           <div class="tabs">
             <button class="tab-btn active" onclick="switchRiTab('hoy',this)">Hoy</button>
@@ -1562,167 +1667,67 @@ select option{background:var(--bg3);color:var(--ink);}
         </div>
       </section>
 
-    <!-- ═══ MI RENDIMIENTO (CuadriControl dashboard replicado) ═══ -->
-    <section class="section" id="sec-mi-rendimiento">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
-        <div>
-          <h2 style="margin:0">Mi Rendimiento</h2>
-          <p style="margin:0;font-size:13px;color:var(--ink3)" id="mr-subtitulo">Cargando datos…</p>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <div style="display:flex;background:rgba(255,255,255,.5);border:1px solid var(--border2);border-radius:8px;padding:2px;gap:2px">
-            <button id="mr-btn-dia" onclick="mrSetVista('dia')" style="padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:var(--accent);color:#000;font-family:var(--sans)">Hoy</button>
-            <button id="mr-btn-mes" onclick="mrSetVista('mes')" style="padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:none;color:var(--ink2);font-family:var(--sans)">Mes</button>
+      <!-- MODAL: Nuevo registro Red Interna -->
+      <div class="modal-overlay" id="modal-red-interna">
+        <div class="modal" style="max-width:560px;">
+          <button class="modal-close" onclick="closeModal('modal-red-interna')">&#x2715;</button>
+          <h3 id="ri-modal-title" style="margin-bottom:1rem;">🖧 Nuevo trabajo en red</h3>
+          <div class="form-grid">
+            <div class="field"><label># de Orden *</label>
+              <input type="text" id="ri-orden" placeholder="Ej: RI-20240523-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field"><label>Tipo de trabajo *</label>
+              <select id="ri-tipo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="">-- Seleccionar --</option>
+                <option value="Cambio de SPL">Cambio de SPL</option>
+                <option value="Cambio de CTO">Cambio de CTO</option>
+                <option value="PON Elevado">PON Elevado</option>
+                <option value="Corte de PON">Corte de PON</option>
+                <option value="CTO sin Potencia">CTO sin Potencia</option>
+                <option value="Corte Troncal">Corte Troncal</option>
+              </select>
+            </div>
+            <div class="field"><label>Nodo / Headend *</label>
+              <input type="text" id="ri-nodo" placeholder="Ej: Nodo Norte / HE Central" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field"><label>Técnico responsable *</label>
+              <input type="text" id="ri-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field"><label>Hora de inicio *</label>
+              <input type="time" id="ri-hora-ini" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field"><label>Hora de fin <span style="font-size:11px;color:var(--ink3);">(auto al guardar)</span></label>
+              <input type="time" id="ri-hora-fin" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <span id="ri-duracion" style="font-size:11px;color:var(--ink3);margin-top:2px;"></span>
+            </div>
           </div>
-          <input type="date" id="mr-fecha" onchange="renderMiRendimiento()" style="padding:6px 10px;border:1.5px solid var(--border2);border-radius:8px;font-family:var(--sans);font-size:12px;background:rgba(255,255,255,.7);color:var(--ink);outline:none">
-          <input type="month" id="mr-mes" onchange="renderMiRendimiento()" style="display:none;padding:6px 10px;border:1.5px solid var(--border2);border-radius:8px;font-family:var(--sans);font-size:12px;background:rgba(255,255,255,.7);color:var(--ink);outline:none">
-          <div id="mr-live" style="display:flex;align-items:center;gap:5px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);border-radius:20px;padding:4px 10px">
-            <span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;animation:bnPulse 1.6s ease-in-out infinite"></span>
-            <span style="font-size:10px;font-weight:600;color:#16a34a">EN VIVO</span>
+          <div class="form-grid g1" style="margin-top:.5rem;">
+            <div class="field"><label>Observaciones</label>
+              <textarea id="ri-obs" rows="2" placeholder="Descripción del trabajo realizado..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;"></textarea>
+            </div>
+          </div>
+          <!-- Materiales usados -->
+          <div style="margin-top:.75rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+              <label style="font-size:13px;font-weight:600;">Materiales utilizados</label>
+              <button class="btn btn-sm" onclick="addRiMaterialRow()">+ Agregar</button>
+            </div>
+            <div id="ri-materiales-rows"></div>
+          </div>
+          <input type="hidden" id="ri-edit-id">
+          <div class="btn-row" style="margin-top:1rem;">
+            <button class="btn btn-ghost" onclick="closeModal('modal-red-interna')">Cancelar</button>
+            <button class="btn btn-accent" onclick="guardarRedInterna()">Guardar registro</button>
           </div>
         </div>
       </div>
-
-      <!-- KPIs -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px" id="mr-kpis">
-        <div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Trabajos</div><div style="font-size:26px;font-weight:700;color:var(--blue)">—</div></div>
-        <div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Efectividad</div><div style="font-size:26px;font-weight:700;color:#16a34a">—</div></div>
-        <div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Demoras</div><div style="font-size:26px;font-weight:700;color:#d97706">—</div></div>
-        <div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Reasignaciones</div><div style="font-size:26px;font-weight:700;color:#dc2626">—</div></div>
-      </div>
-
-      <!-- Barra progreso meta -->
-      <div class="card" style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-size:13px;font-weight:600;color:var(--ink)">Progreso hacia meta del día</span>
-          <span id="mr-pct-badge" style="font-size:13px;font-weight:700;color:var(--blue)">—%</span>
-        </div>
-        <div style="background:var(--border2);border-radius:8px;height:10px;overflow:hidden">
-          <div id="mr-prog-bar" style="height:100%;background:var(--accent);border-radius:8px;width:0%;transition:width .6s ease"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--ink3)">
-          <span id="mr-prog-label">0 trabajos realizados</span>
-          <span id="mr-meta-label">Meta: —</span>
-        </div>
-      </div>
-
-      <!-- Desglose por tipo -->
-      <div class="card">
-        <div style="font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Desglose de trabajos</div>
-        <div id="mr-desglose" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
-          <div style="text-align:center;color:var(--ink3);padding:24px;grid-column:1/-1">Sin datos para el período seleccionado.</div>
-        </div>
-      </div>
-    </section>
-
     </main>
   </div>
-
-<!-- ══ MODALES HERRAMIENTAS Y RED INTERNA (fuera de main) ══ -->
-<div class="modal-overlay" id="modal-reporte-herr">
-  <div class="modal" style="max-width:540px;">
-    <button class="modal-close" onclick="closeModal('modal-reporte-herr')">&#x2715;</button>
-    <h3 style="margin-bottom:.25rem;">Reporte de estado de herramientas</h3>
-    <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">Indica el estado actual de cada herramienta de tu catálogo.</p>
-    <div id="modal-reporte-herr-items" style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;margin-bottom:1rem;"></div>
-    <div class="field">
-      <label>Observaciones generales (opcional)</label>
-      <input type="text" id="reporte-herr-obs" placeholder="Ej: Falta escalera, entregada a almacén…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-    </div>
-    <div class="btn-row">
-      <button class="btn btn-ghost" onclick="closeModal('modal-reporte-herr')">Cancelar</button>
-      <button class="btn btn-accent" onclick="guardarReporteHerr()">Guardar reporte</button>
-    </div>
-  </div>
-</div>
-<div class="modal-overlay" id="modal-catalogo-herr">
-  <div class="modal" style="max-width:480px;">
-    <button class="modal-close" onclick="closeModal('modal-catalogo-herr')">&#x2715;</button>
-    <h3 id="catalogo-herr-title" style="margin-bottom:1rem;">Nueva herramienta</h3>
-    <div class="form-grid g1">
-      <div class="field"><label>Nombre de la herramienta *</label>
-        <input type="text" id="cat-herr-nombre" placeholder="Ej: Escalera 8 metros" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-      </div>
-      <div class="field"><label>Categoría</label>
-        <select id="cat-herr-cat" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-          <option>Herramienta de mano</option><option>Herramienta eléctrica</option>
-          <option>Equipo de medición</option><option>Seguridad / EPP</option>
-          <option>Vehicular</option><option>Otro</option>
-        </select>
-      </div>
-      <div class="field"><label>Descripción (opcional)</label>
-        <input type="text" id="cat-herr-desc" placeholder="Detalles adicionales…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-      </div>
-      <div class="field"><label>Cantidad disponible</label>
-        <input type="number" id="cat-herr-qty" min="1" value="1" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-      </div>
-    </div>
-    <input type="hidden" id="cat-herr-edit-id">
-    <div class="btn-row">
-      <button class="btn btn-ghost" onclick="closeModal('modal-catalogo-herr')">Cancelar</button>
-      <button class="btn btn-accent" onclick="guardarCatalogoHerr()">Guardar</button>
-    </div>
-  </div>
-</div>
-<div class="modal-overlay" id="modal-red-interna">
-  <div class="modal" style="max-width:560px;">
-    <button class="modal-close" onclick="closeModal('modal-red-interna')">&#x2715;</button>
-    <h3 id="ri-modal-title" style="margin-bottom:1rem;">&#x1F5A7; Nuevo trabajo en red</h3>
-    <div class="form-grid">
-      <div class="field"><label># de Orden *</label>
-        <input type="text" id="ri-orden" placeholder="Ej: RI-20240523-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-      </div>
-      <div class="field"><label>Tipo de trabajo *</label>
-        <select id="ri-tipo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-          <option value="">-- Seleccionar --</option>
-          <option value="Cambio de SPL">Cambio de SPL</option>
-          <option value="Cambio de CTO">Cambio de CTO</option>
-          <option value="PON Elevado">PON Elevado</option>
-          <option value="Corte de PON">Corte de PON</option>
-          <option value="CTO sin Potencia">CTO sin Potencia</option>
-          <option value="Corte Troncal">Corte Troncal</option>
-        </select>
-      </div>
-      <div class="field"><label>Nodo / Headend *</label>
-        <input type="text" id="ri-nodo" placeholder="Ej: Nodo Norte / HE Central" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-      </div>
-      <div class="field"><label>Técnico responsable *</label>
-        <input type="text" id="ri-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-      </div>
-      <div class="field"><label>Hora de inicio</label>
-        <input type="time" id="ri-hora-ini" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-      </div>
-      <div class="field"><label>Hora de fin</label>
-        <input type="time" id="ri-hora-fin" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-        <span id="ri-duracion" style="font-size:11px;color:var(--ink3);margin-top:2px;"></span>
-      </div>
-    </div>
-    <div class="form-grid g1" style="margin-top:.5rem;">
-      <div class="field"><label>Observaciones</label>
-        <textarea id="ri-obs" rows="2" placeholder="Descripción del trabajo realizado..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;"></textarea>
-      </div>
-    </div>
-    <div style="margin-top:.75rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
-        <label style="font-size:13px;font-weight:600;">Materiales utilizados</label>
-        <button class="btn btn-sm" onclick="addRiMaterialRow()">+ Agregar</button>
-      </div>
-      <div id="ri-materiales-rows"></div>
-    </div>
-    <input type="hidden" id="ri-edit-id">
-    <div class="btn-row" style="margin-top:1rem;">
-      <button class="btn btn-ghost" onclick="closeModal('modal-red-interna')">Cancelar</button>
-      <button class="btn btn-accent" onclick="guardarRedInterna()">Guardar registro</button>
-    </div>
-  </div>
-</div>
-
   <nav class="bottom-nav" id="bottom-nav">
     <button class="bn-item active" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
     <!-- Cuadrilla -->
     <button class="bn-item bn-cuad" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
     <button class="bn-item bn-cuad" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
-    <button class="bn-item bn-cuad" id="bn-mi-rendimiento" onclick="showSection('mi-rendimiento')" style="display:none"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="12" width="3" height="6" rx="1"/><rect x="7" y="8" width="3" height="10" rx="1"/><rect x="12" y="4" width="3" height="14" rx="1"/></svg>Rendimiento</button>
     <button class="bn-item bn-cuad" onclick="showSection('historial')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mi día</button>
     <!-- 1. Visita Fallida visible para cuadrilla en móvil -->
     <!-- Botón Fallida oculto — no implementado actualmente -->
@@ -1886,105 +1891,113 @@ select option{background:var(--bg3);color:var(--ink);}
 </div>
 
 <div class="modal-overlay" id="modal-herr-propia">
-  <div class="modal" style="max-width:420px;">
+  <div class="modal" style="max-width:460px;">
     <button class="modal-close" onclick="closeModal('modal-herr-propia')">✕</button>
-    <h3>Registrar herramienta</h3>
-    <p style="font-size:13px;color:var(--ink3);margin-bottom:1rem;">Registra el equipamiento de tu cuadrilla para llevar control de estado.</p>
+    <h3 id="herr-propia-titulo">Agregar herramienta</h3>
+    <p style="font-size:13px;color:var(--ink3);margin-bottom:1.25rem;">Registra el equipamiento de tu cuadrilla para llevar control de estado y kardex.</p>
     <div class="form-grid g1">
       <div class="field"><label>Nombre de la herramienta *</label>
-        <input type="text" id="herr-propia-nombre" placeholder="Ej: Fusionadora Fujikura, OTDR, Escalera..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+        <input type="text" id="herr-propia-nombre" placeholder="Ej: Fusionadora Fujikura, OTDR, Escalera 8m..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
+      <div class="field"><label>Categoría</label>
+        <select id="herr-propia-categoria" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+          <option value="Medición">📡 Medición (OTDR, óptico...)</option>
+          <option value="Empalme">🔥 Empalme (fusionadora...)</option>
+          <option value="Construcción">🏗️ Construcción (escalera, herramientas...)</option>
+          <option value="Seguridad">🦺 Seguridad (EPP, arnés...)</option>
+          <option value="Vehículo">🚗 Vehículo / transporte</option>
+          <option value="Otro">📦 Otro</option>
+        </select>
       </div>
       <div class="field"><label>N° de serie <span style="font-weight:400;color:var(--ink3);">(opcional)</span></label>
         <input type="text" id="herr-propia-serie" placeholder="Ej: FK-2024-0012" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
       </div>
       <div class="field"><label>Estado inicial</label>
         <select id="herr-propia-estado-inicial" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-          <option value="Buen Estado">Buen Estado</option>
-          <option value="Mal Estado">Mal Estado</option>
-          <option value="Dañada">Dañada</option>
+          <option value="Buen Estado">✅ Buen Estado</option>
+          <option value="Mal Estado">⚠️ Mal Estado</option>
+          <option value="Dañada">❌ Dañada</option>
         </select>
       </div>
+      <div class="field"><label>Observaciones iniciales <span style="font-weight:400;color:var(--ink3);">(opcional)</span></label>
+        <input type="text" id="herr-propia-obs" placeholder="Ej: Recibida en buenas condiciones" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+      </div>
     </div>
+    <input type="hidden" id="herr-propia-edit-id">
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal('modal-herr-propia')">Cancelar</button>
-      <button class="btn btn-accent" onclick="guardarHerramientaPropia()">Guardar herramienta</button>
+      <button class="btn btn-accent" onclick="guardarHerramientaPropia()">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Guardar herramienta
+      </button>
     </div>
   </div>
 </div>
 
-<!-- ══ MODAL ESCÁNER MAC/QR ══ -->
+<!-- ══ MODAL ESCÁNER MAC — OCR ══ -->
 <div class="modal-overlay" id="modal-scanner">
-  <div class="modal" style="max-width:440px;">
+  <div class="modal" style="max-width:460px;">
     <button class="modal-close" onclick="cerrarScanner()">✕</button>
-    <h3>📷 Escanear código</h3>
-    <p style="font-size:13px;color:var(--ink2);margin-bottom:10px;">
-      Apunta la cámara al código o sube una foto para extraer la MAC automáticamente.
+    <h3>📷 Escanear MAC — OCR</h3>
+    <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">
+      Encuadra la etiqueta del equipo dentro del recuadro y toma la foto. El sistema leerá la MAC automáticamente.
     </p>
 
-    <!-- Tabs cámara / foto -->
-    <div style="display:flex;background:rgba(0,0,0,.06);border-radius:8px;padding:3px;gap:2px;margin-bottom:12px;">
-      <button id="scan-tab-cam" onclick="setScanTab('cam')" style="flex:1;padding:6px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;font-family:var(--sans);">📷 Cámara en vivo</button>
-      <button id="scan-tab-foto" onclick="setScanTab('foto')" style="flex:1;padding:6px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:none;color:var(--ink2);font-family:var(--sans);">🖼 Subir foto / capturar</button>
+    <!-- Selector de cámara -->
+    <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
+      <label style="font-size:12px;font-weight:600;color:var(--ink2);white-space:nowrap;">Cámara:</label>
+      <select id="scanner-cam-sel" onchange="cambiarCamaraScanner(this.value)"
+        style="flex:1;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;"></select>
     </div>
 
-    <!-- Panel: cámara en vivo -->
-    <div id="scan-panel-cam">
-      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
-        <label style="font-size:12px;font-weight:600;color:var(--ink2);white-space:nowrap;">Cámara:</label>
-        <select id="scanner-cam-sel" onchange="cambiarCamaraScanner(this.value)"
-          style="flex:1;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;"></select>
-      </div>
-      <div style="position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:10px;aspect-ratio:4/3;">
-        <video id="scanner-video" style="width:100%;height:100%;object-fit:cover;" playsinline muted></video>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-          <div style="width:60%;height:60%;border:2px solid rgba(59,130,246,.8);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);">
-            <div style="position:absolute;top:0;left:0;width:20px;height:20px;border-top:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:3px 0 0 0;"></div>
-            <div style="position:absolute;top:0;right:0;width:20px;height:20px;border-top:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 3px 0 0;"></div>
-            <div style="position:absolute;bottom:0;left:0;width:20px;height:20px;border-bottom:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:0 0 0 3px;"></div>
-            <div style="position:absolute;bottom:0;right:0;width:20px;height:20px;border-bottom:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 0 3px 0;"></div>
-          </div>
-        </div>
-        <div id="scanner-status" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;text-align:center;padding:6px;font-size:12px;">
-          Iniciando cámara...
+    <!-- Visor de cámara -->
+    <div id="scanner-video-wrap" style="position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:10px;aspect-ratio:4/3;">
+      <video id="scanner-video" style="width:100%;height:100%;object-fit:cover;" playsinline muted></video>
+      <canvas id="scanner-canvas" style="display:none;"></canvas>
+      <!-- Guía de encuadre -->
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="width:80%;height:28%;border:2px solid rgba(59,130,246,.9);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.4);position:relative;">
+          <div style="position:absolute;top:0;left:0;width:18px;height:18px;border-top:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:3px 0 0 0;"></div>
+          <div style="position:absolute;top:0;right:0;width:18px;height:18px;border-top:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 3px 0 0;"></div>
+          <div style="position:absolute;bottom:0;left:0;width:18px;height:18px;border-bottom:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:0 0 0 3px;"></div>
+          <div style="position:absolute;bottom:0;right:0;width:18px;height:18px;border-bottom:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 0 3px 0;"></div>
         </div>
       </div>
+      <!-- Línea de escaneo animada -->
+      <div id="scanner-scan-line" style="display:none;position:absolute;left:10%;width:80%;height:2px;background:linear-gradient(90deg,transparent,#3b82f6,transparent);animation:ocr-scan 1.8s ease-in-out infinite;pointer-events:none;"></div>
+      <!-- Estado -->
+      <div id="scanner-status" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);color:#fff;text-align:center;padding:7px;font-size:12px;">
+        Iniciando cámara...
+      </div>
     </div>
 
-    <!-- Panel: foto / captura -->
-    <div id="scan-panel-foto" style="display:none;">
-      <!-- Preview de imagen -->
-      <div id="scan-foto-preview-wrap" style="display:none;margin-bottom:10px;border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border2);background:#000;aspect-ratio:4/3;position:relative;">
-        <img id="scan-foto-preview" style="width:100%;height:100%;object-fit:contain;">
-        <canvas id="scan-foto-canvas" style="display:none;"></canvas>
-      </div>
-      <div id="scan-foto-placeholder" style="margin-bottom:10px;border:2px dashed var(--border2);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer;background:rgba(0,0,0,.02);" onclick="document.getElementById('scan-foto-input').click()">
-        <div style="font-size:32px;margin-bottom:8px;">🖼</div>
-        <div style="font-size:13px;font-weight:600;color:var(--ink2);">Toca aquí para seleccionar foto</div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:4px;">JPG, PNG, WEBP — o captura con la cámara</div>
-      </div>
-      <input type="file" id="scan-foto-input" accept="image/*" capture="environment" style="display:none;" onchange="procesarFotoQR(this)">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <button class="btn" onclick="document.getElementById('scan-foto-input').click()" style="font-size:12px;">
-          📁 Elegir archivo
-        </button>
-        <button class="btn btn-accent" onclick="capturarFotoCamara()" style="font-size:12px;">
-          📸 Tomar foto
-        </button>
-      </div>
-      <!-- Status foto -->
-      <div id="scan-foto-status" style="display:none;border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:13px;"></div>
+    <!-- Foto capturada (se muestra tras tomar foto) -->
+    <div id="scanner-capture-wrap" style="display:none;margin-bottom:10px;">
+      <img id="scanner-captured-img" src="" alt="Foto capturada"
+        style="width:100%;border-radius:var(--r);border:1.5px solid var(--border2);">
     </div>
 
-    <!-- Resultado detectado (compartido) -->
+    <!-- Botón tomar foto -->
+    <div style="margin-bottom:10px;">
+      <button id="scanner-capture-btn" onclick="ocrCapturar()"
+        style="width:100%;padding:11px;border-radius:var(--r);border:2px solid #3b82f6;background:rgba(59,130,246,.1);color:#3b82f6;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .15s;"
+        onmouseover="this.style.background='rgba(59,130,246,.2)'" onmouseout="this.style.background='rgba(59,130,246,.1)'"
+        disabled>
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2"/></svg>
+        Tomar foto y analizar
+      </button>
+    </div>
+
+    <!-- Resultado OCR -->
     <div id="scanner-result-box" style="display:none;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.4);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;color:var(--green-dark);margin-bottom:4px;">✓ Código detectado</div>
-      <div id="scanner-result-val" style="font-family:monospace;font-size:14px;color:var(--ink);word-break:break-all;"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--green-dark);margin-bottom:4px;">✓ MAC detectada por OCR</div>
+      <div id="scanner-result-val" style="font-family:monospace;font-size:15px;font-weight:700;color:var(--ink);word-break:break-all;letter-spacing:.05em;"></div>
     </div>
 
     <!-- Entrada manual -->
     <div style="margin-bottom:12px;">
       <label style="font-size:11px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">
-        O escribe la MAC manualmente
+        Editar o escribir la MAC manualmente
       </label>
       <div style="display:flex;gap:8px;">
         <input type="text" id="scanner-manual-input" placeholder="AA:BB:CC:DD:EE:FF"
@@ -1997,6 +2010,7 @@ select option{background:var(--bg3);color:var(--ink);}
 
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="cerrarScanner()">Cancelar</button>
+      <button id="scanner-retry-btn" class="btn" style="display:none;" onclick="ocrReintentar()">↩ Nueva foto</button>
       <button class="btn btn-accent" id="scanner-confirm-btn" style="display:none;" onclick="confirmarScan()">
         ✓ Confirmar MAC
       </button>
@@ -2187,11 +2201,9 @@ var cache = {
   materiales: {},   // {id: {codigo, nombre, cat, unidad, min}}
   stocks: {},       // {cuadrillaId: {materialId: cantidad}}
   kardex: {},       // {id: {fecha, tipo, matId, qty, ref, resp, obs, cuadrillaId, saldo}}
-  asignaciones: {}, // {id: {fecha, cliente, idCliente, tel, dir, ot, tipo, tecnico, obs, materiales, cuadrillaId}}
+  asignaciones: {}, // {id: {fecha, cliente, tel, dir, municipio, ot, tipo, tecnico, obs, materiales, cuadrillaId}}
   sectores: {},     // {id: {nombre, pass}}
   herramientas: {}, // {id: {nombre, cuadrillaId, estado, serie, historial:[]}}
-  catalogoHerr:  {}, // {id: {nombre, categoria, desc, qty}} — maestro creado por admin
-  reportesHerr:  {}, // {id: {cuadrillaId, fecha, items:[{herrId,estado}], obs}}
   redInterna: {}    // {id: {orden, tipo, nodo, tecnico, horaIni, horaFin, obs, materiales, cuadrillaId, fecha}}
 };
 
@@ -2681,7 +2693,6 @@ function switchRepTab(tab) {
   if (tab === 'kardex')  { renderRepKardex(); poblarSelKardexRep(); }
   if (tab === 'asignaciones') renderResumenMateriales();
   if (tab === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
-  if (tab === 'reincidencias') { poblarSelReincidencias(); }
   if (tab === 'admin-config' || id === 'admin-config') { initConfigSeccion(); }
 }
 
@@ -2726,7 +2737,7 @@ function renderRepKardex() {
     if(i&&i.value) ini=new Date(i.value+'T00:00:00');
     if(f&&f.value) hoy=new Date(f.value+'T23:59:59');
   }
-  var rows = kardexListFiltrada().filter(function(k){
+  var rows = kardexList().filter(function(k){
     var d=new Date(k.fecha);
     return d>=ini && d<=hoy
       && (!cid  || k.cuadrillaId===cid)
@@ -2758,7 +2769,7 @@ function renderRepKardex() {
 
 function exportarKardexCSV() {
   var rows=[['Fecha','Cuadrilla','Tipo','Material','MAC','Cantidad','Unidad','Responsable','Referencia']];
-  kardexListFiltrada().forEach(function(k){
+  kardexList().forEach(function(k){
     var c=getCuad(k.cuadrillaId), m=getMat(k.matId);
     rows.push([fmtDT(k.fecha), c?c.nombre:'—', k.tipo, m?m.nombre:'—', k.mac||'', k.qty, m?m.unidad:'', k.resp||'', k.ref||'']);
   });
@@ -2956,273 +2967,6 @@ function exportarTiemposCSV(){
   el.download='BodegaNet_Tiempos_'+new Date().toISOString().slice(0,10)+'.csv';
   el.click();
   toast('CSV de tiempos descargado ('+( rows.length-1)+' registros)','success');
-}
-
-// ══════════════════════════════════════════════════════
-//  REINCIDENCIAS — Visitas repetidas por ID de cliente
-// ══════════════════════════════════════════════════════
-
-function toggleRiFechas() {
-  var p = document.getElementById('ri-periodo').value;
-  document.getElementById('ri-fechas-custom').style.display = p === 'personalizado' ? '' : 'none';
-}
-
-function poblarSelReincidencias() {
-  var sel = document.getElementById('ri-cuadrilla');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
-  getCuadrillasFiltradas().forEach(function(c) {
-    var o = document.createElement('option'); o.value = c.id; o.textContent = c.nombre;
-    sel.appendChild(o);
-  });
-}
-
-function getRiRango() {
-  var p = document.getElementById('ri-periodo').value;
-  var hoy = new Date(); hoy.setHours(23,59,59,999);
-  if (p === 'mes') {
-    var ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 0, 0, 0);
-    return { ini: ini, fin: hoy, label: 'Mes actual: ' + hoy.toLocaleDateString('es-HN',{month:'long',year:'numeric'}) };
-  }
-  if (p === 'año') {
-    var ini = new Date(hoy.getFullYear(), 0, 1, 0, 0, 0);
-    return { ini: ini, fin: hoy, label: 'Año ' + hoy.getFullYear() };
-  }
-  var iniV = document.getElementById('ri-fecha-ini').value;
-  var finV = document.getElementById('ri-fecha-fin').value;
-  if (!iniV || !finV) { toast('Selecciona ambas fechas', 'error'); return null; }
-  return { ini: new Date(iniV + 'T00:00:00'), fin: new Date(finV + 'T23:59:59'), label: iniV + ' al ' + finV };
-}
-
-function renderReincidencias() {
-  var rango = getRiRango(); if (!rango) return;
-  var filtroId   = (document.getElementById('ri-id-cliente').value || '').trim().toUpperCase();
-  var filtroCuad = document.getElementById('ri-cuadrilla').value || '';
-  var minVisitas = parseInt(document.getElementById('ri-min-visitas').value) || 2;
-
-  // Filtrar asignaciones del período, solo las que tienen idCliente
-  var asigs = asigListFiltrada().filter(function(a) {
-    if (a.anulada) return false;
-    if (!a.idCliente) return false;
-    var f = new Date(a.fecha);
-    if (f < rango.ini || f > rango.fin) return false;
-    if (filtroCuad && a.cuadrillaId !== filtroCuad) return false;
-    if (filtroId && a.idCliente !== filtroId) return false;
-    return true;
-  });
-
-  // Agrupar por ID de cliente
-  var grupos = {};
-  asigs.forEach(function(a) {
-    var id = a.idCliente;
-    if (!grupos[id]) grupos[id] = { idCliente: id, nombre: a.cliente || '—', visitas: [] };
-    grupos[id].visitas.push(a);
-  });
-
-  // Solo clientes con minVisitas o más
-  var reincidentes = Object.values(grupos)
-    .filter(function(g) { return g.visitas.length >= minVisitas; })
-    .map(function(g) {
-      // Ordenar visitas por fecha
-      g.visitas.sort(function(a, b) { return new Date(a.fecha) - new Date(b.fecha); });
-      // Calcular tiempos entre visitas
-      g.intervalos = [];
-      for (var i = 1; i < g.visitas.length; i++) {
-        var d1 = new Date(g.visitas[i-1].fecha);
-        var d2 = new Date(g.visitas[i].fecha);
-        var dias = Math.round((d2 - d1) / (1000*60*60*24));
-        g.intervalos.push(dias);
-      }
-      g.promDias = g.intervalos.length
-        ? Math.round(g.intervalos.reduce(function(s,v){ return s+v; }, 0) / g.intervalos.length)
-        : 0;
-      g.minDias = g.intervalos.length ? Math.min.apply(null, g.intervalos) : 0;
-      // Tipo más frecuente
-      var tipoCount = {};
-      g.visitas.forEach(function(v) { tipoCount[v.tipo||'—'] = (tipoCount[v.tipo||'—']||0)+1; });
-      g.tipoTop = Object.entries(tipoCount).sort(function(a,b){ return b[1]-a[1]; })[0];
-      return g;
-    })
-    .sort(function(a, b) { return b.visitas.length - a.visitas.length; });
-
-  // KPIs
-  var totalVisitas = reincidentes.reduce(function(s,g){ return s+g.visitas.length; }, 0);
-  var promDiasGlobal = reincidentes.length
-    ? Math.round(reincidentes.reduce(function(s,g){ return s+(g.promDias||0); }, 0) / reincidentes.length)
-    : 0;
-  var tipoGlobal = (function() {
-    var t = {};
-    reincidentes.forEach(function(g) {
-      g.visitas.forEach(function(v){ t[v.tipo||'—'] = (t[v.tipo||'—']||0)+1; });
-    });
-    var top = Object.entries(t).sort(function(a,b){ return b[1]-a[1]; });
-    return top.length ? top[0][0] : '—';
-  })();
-
-  document.getElementById('ri-kpis').style.display = '';
-  document.getElementById('ri-kpi-clientes').textContent = reincidentes.length;
-  document.getElementById('ri-kpi-visitas').textContent  = totalVisitas;
-  document.getElementById('ri-kpi-dias').textContent     = promDiasGlobal || '—';
-  document.getElementById('ri-kpi-tipo').textContent     = tipoGlobal;
-  document.getElementById('btn-pdf-reincidencias').style.display = reincidentes.length ? '' : 'none';
-
-  var wrap = document.getElementById('ri-result-wrap');
-  wrap.style.display = '';
-
-  if (!reincidentes.length) {
-    wrap.innerHTML = '<div class="card"><p style="color:var(--ink3);text-align:center;padding:1.5rem;">Sin clientes reincidentes para los filtros seleccionados.</p></div>';
-    return;
-  }
-
-  // Render tabla agrupada por cliente
-  wrap.innerHTML = reincidentes.map(function(g) {
-    var alertColor = g.promDias <= 7 ? 'var(--red)' : g.promDias <= 15 ? '#d97706' : 'var(--green)';
-    var badgeAlert = g.minDias === 0 ? '<span class="badge badge-red" style="font-size:10px">⚠ mismo día</span>' : '';
-    return '<div class="card" style="margin-bottom:12px;">'
-      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">'
-        + '<div>'
-          + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-            + '<span style="font-size:15px;font-weight:700;color:var(--ink)">' + esc(g.nombre) + '</span>'
-            + '<span style="font-family:monospace;font-size:12px;background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.2);padding:2px 8px;border-radius:20px;">' + esc(g.idCliente) + '</span>'
-            + badgeAlert
-          + '</div>'
-          + '<div style="font-size:12px;color:var(--ink3);margin-top:4px;">'
-            + g.visitas.length + ' visitas · Tipo predominante: <strong>' + esc(g.tipoTop?g.tipoTop[0]:'—') + '</strong>'
-          + '</div>'
-        + '</div>'
-        + '<div style="display:flex;gap:8px;text-align:center;">'
-          + '<div style="background:rgba(0,0,0,.04);border-radius:8px;padding:8px 14px;">'
-            + '<div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em">Prom. entre visitas</div>'
-            + '<div style="font-size:20px;font-weight:700;color:' + alertColor + '">' + (g.promDias||'—') + '<span style="font-size:11px;font-weight:400"> días</span></div>'
-          + '</div>'
-          + '<div style="background:rgba(0,0,0,.04);border-radius:8px;padding:8px 14px;">'
-            + '<div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em">Visitas</div>'
-            + '<div style="font-size:20px;font-weight:700;color:var(--accent)">' + g.visitas.length + '</div>'
-          + '</div>'
-        + '</div>'
-      + '</div>'
-      + '<div class="table-wrap"><table>'
-        + '<thead><tr><th>#</th><th>Fecha</th><th>Cuadrilla</th><th>Técnico</th><th>Tipo de trabajo</th><th>OT</th><th>Días desde anterior</th></tr></thead>'
-        + '<tbody>'
-        + g.visitas.map(function(v, idx) {
-            var cuad = getCuad(v.cuadrillaId);
-            var dias = idx === 0 ? '—' : g.intervalos[idx-1];
-            var diasStyle = idx > 0 && g.intervalos[idx-1] <= 7
-              ? 'color:var(--red);font-weight:700' : 'color:var(--ink2)';
-            return '<tr>'
-              + '<td style="font-size:12px;color:var(--ink3);">' + (idx+1) + '</td>'
-              + '<td style="font-family:monospace;font-size:12px;white-space:nowrap;">' + fmtDate(v.fecha) + '</td>'
-              + '<td style="font-size:13px;">' + esc(cuad?cuad.nombre:'—') + '</td>'
-              + '<td style="font-size:12px;color:var(--ink2);">' + esc(v.tecnico||'—') + '</td>'
-              + '<td><span class="badge badge-blue" style="font-size:10px">' + esc(v.tipo||'—') + '</span></td>'
-              + '<td style="font-family:monospace;font-size:12px;color:var(--ink3);">' + esc(v.ot||'—') + '</td>'
-              + '<td style="font-size:13px;font-family:monospace;' + diasStyle + '">'
-                + (idx === 0 ? '—' : (dias === 0 ? '⚠ mismo día' : dias + ' días')) + '</td>'
-              + '</tr>';
-          }).join('')
-        + '</tbody></table></div>'
-      + '</div>';
-  }).join('');
-
-  // Store current data for exports
-  window._riData = { reincidentes: reincidentes, rango: rango, filtroId: filtroId };
-}
-
-function exportarReincidenciasCSV() {
-  if (!window._riData) { toast('Genera el reporte primero', 'info'); return; }
-  var rows = [['ID Cliente','Nombre','# Visitas','Promedio días entre visitas','Fecha visita','Cuadrilla','Técnico','Tipo de trabajo','OT','Días desde visita anterior']];
-  window._riData.reincidentes.forEach(function(g) {
-    g.visitas.forEach(function(v, idx) {
-      var cuad = getCuad(v.cuadrillaId);
-      var dias = idx === 0 ? '' : g.intervalos[idx-1];
-      rows.push([g.idCliente, g.nombre, g.visitas.length, g.promDias,
-        fmtDate(v.fecha), cuad?cuad.nombre:'—', v.tecnico||'', v.tipo||'', v.ot||'', dias]);
-    });
-  });
-  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c||'').replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
-  var el = document.createElement('a');
-  el.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
-  el.download = 'BodegaNet_Reincidencias_' + new Date().toISOString().slice(0,10) + '.csv';
-  el.click();
-  toast('CSV descargado — ' + (rows.length-1) + ' registros', 'success');
-}
-
-function exportarReincidenciasPDF() {
-  if (!window._riData || !window._riData.reincidentes.length) { toast('Sin datos para exportar','error'); return; }
-  var ri = window._riData.reincidentes;
-  var rango = window._riData.rango;
-
-  // Usar jsPDF si está disponible, sino abrir ventana de impresión
-  if (window.jspdf && window.jspdf.jsPDF) {
-    var doc = new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    var W=210, H=297, y=15;
-    doc.setFillColor(15,17,23); doc.rect(0,0,W,H,'F');
-    doc.setFillColor(23,27,38); doc.rect(0,0,W,28,'F');
-    doc.setFillColor(0,200,150); doc.rect(0,0,3,28,'F');
-    doc.setTextColor(0,200,150); doc.setFontSize(14); doc.setFont('helvetica','bold');
-    doc.text('BodegaNet — Reporte de Reincidencias', 10, 12);
-    doc.setTextColor(143,150,179); doc.setFontSize(8); doc.setFont('helvetica','normal');
-    doc.text(rango.label + ' · Generado: ' + new Date().toLocaleString('es-HN'), 10, 21);
-    y = 36;
-    // KPIs
-    var totalV = ri.reduce(function(s,g){ return s+g.visitas.length; }, 0);
-    var kpis = [['Clientes reincidentes', ri.length, [0,200,150]],
-                ['Total visitas', totalV, [0,145,255]],
-                ['Prom. días entre visitas', Math.round(ri.reduce(function(s,g){ return s+(g.promDias||0);},0)/ri.length)||'—', [245,166,35]]];
-    var kW = (W-20)/kpis.length;
-    kpis.forEach(function(k,i) {
-      var mx = 10+i*kW;
-      doc.setFillColor(23,27,38); doc.roundedRect(mx,y,kW-3,16,2,2,'F');
-      doc.setTextColor(143,150,179); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-      doc.text(k[0].toUpperCase(), mx+3, y+5);
-      doc.setTextColor.apply(doc, k[2]); doc.setFontSize(12); doc.setFont('helvetica','bold');
-      doc.text(String(k[1]), mx+3, y+13);
-    });
-    y += 24;
-    // Tabla de reincidencias
-    ri.forEach(function(g) {
-      if (y > H-60) { doc.addPage(); doc.setFillColor(15,17,23); doc.rect(0,0,W,H,'F'); y=15; }
-      doc.setFillColor(23,27,38); doc.rect(10,y,W-20,10,'F');
-      doc.setFillColor(0,200,150); doc.rect(10,y,2,10,'F');
-      doc.setTextColor(232,234,246); doc.setFontSize(9); doc.setFont('helvetica','bold');
-      doc.text(g.nombre + '  [' + g.idCliente + ']', 15, y+6.5);
-      doc.setTextColor(143,150,179); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-      doc.text(g.visitas.length + ' visitas · Prom. ' + (g.promDias||'—') + ' días entre visitas', W-12, y+6.5, {align:'right'});
-      y += 12;
-      if (window.jspdf.jsPDF.autoTableSetDefaults) {}
-      doc.autoTable({
-        startY: y,
-        theme: 'plain',
-        styles: {font:'helvetica',fontSize:7.5,textColor:[232,234,246],cellPadding:{top:2.5,bottom:2.5,left:4,right:4}},
-        headStyles: {fillColor:[30,35,51],textColor:[143,150,179],fontStyle:'bold',fontSize:7},
-        alternateRowStyles: {fillColor:[20,24,35]},
-        bodyStyles: {fillColor:[15,17,23]},
-        head: [['#','Fecha','Cuadrilla','Técnico','Tipo de trabajo','OT','Días desde ant.']],
-        body: g.visitas.map(function(v,idx) {
-          var cuad = getCuad(v.cuadrillaId);
-          var dias = idx===0?'—':(g.intervalos[idx-1]===0?'⚠ mismo día':g.intervalos[idx-1]+' días');
-          return [idx+1, fmtDate(v.fecha), cuad?cuad.nombre:'—', v.tecnico||'—', v.tipo||'—', v.ot||'—', dias];
-        }),
-        columnStyles:{0:{cellWidth:8},1:{cellWidth:26},2:{cellWidth:38},3:{cellWidth:28},4:{cellWidth:38},5:{cellWidth:22},6:{cellWidth:28}},
-        margin:{left:10,right:10}
-      });
-      y = doc.lastAutoTable.finalY + 8;
-    });
-    // Footer
-    var pages = doc.internal.getNumberOfPages();
-    for (var i=1;i<=pages;i++){
-      doc.setPage(i);
-      doc.setFillColor(23,27,38); doc.rect(0,H-10,W,10,'F');
-      doc.setTextColor(143,150,179); doc.setFontSize(7); doc.setFont('helvetica','normal');
-      doc.text('BodegaNet · Reporte de Reincidencias', 10, H-3.5);
-      doc.text('Pág. '+i+' / '+pages, W-10, H-3.5, {align:'right'});
-    }
-    doc.save('BodegaNet_Reincidencias_' + new Date().toISOString().slice(0,10) + '.pdf');
-    toast('PDF descargado correctamente', 'success');
-  } else {
-    toast('jsPDF no disponible — descargando CSV', 'info');
-    exportarReincidenciasCSV();
-  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -3485,24 +3229,12 @@ function initFirebaseListeners() {
       if (currentUser.tipo==='admin' && currentSection==='admin-red-interna') renderAdminRedInterna();
     }
   });
-  // Herramientas (legacy — se mantiene para retrocompatibilidad)
+  // Herramientas
   db.ref('herramientas').on('value', function(snap) {
     cache.herramientas = snap.val() || {};
-  });
-  // Catálogo maestro de herramientas (creado por admin)
-  db.ref('catalogo_herramientas').on('value', function(snap) {
-    cache.catalogoHerr = snap.val() || {};
     if (currentUser) {
       if (currentUser.tipo === 'cuadrilla' && currentSection === 'herramientas') renderHerramientas();
-      if (currentUser.tipo === 'admin' && currentSection === 'admin-herramientas') renderAdminCatalogoHerr();
-    }
-  });
-  // Reportes de herramientas por cuadrilla
-  db.ref('reportes_herramientas').on('value', function(snap) {
-    cache.reportesHerr = snap.val() || {};
-    if (currentUser) {
-      if (currentUser.tipo === 'cuadrilla' && currentSection === 'herramientas') renderHerramientas();
-      if (currentUser.tipo === 'admin' && currentSection === 'admin-herramientas') renderAdminReportesHerr();
+      if (currentUser.tipo === 'admin' && currentSection === 'admin-herramientas') renderAdminHerramientas();
     }
   });
   // Sectores dinamicos
@@ -3532,19 +3264,11 @@ function renderCurrentSection() {
     'admin-logs': renderAdminLogs,
     'admin-config': function(){ renderSesionesActivasConfig(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); },
     'herramientas': renderHerramientas,
-    'admin-herramientas': renderAdminCatalogoHerr,
+    'admin-herramientas': renderAdminHerramientas,
     'red-interna': renderRedInterna,
     'admin-red-interna': renderAdminRedInterna,
     'visitas-fallidas': renderVisitasFallidas,
-    'visitas-fallidas-cuad': renderVisitasFallidasCuad,
-    'mi-rendimiento': function() {
-      var hoy = new Date().toISOString().slice(0,10);
-      var mrFecha = document.getElementById('mr-fecha');
-      var mrMes   = document.getElementById('mr-mes');
-      if (mrFecha && !mrFecha.value) mrFecha.value = hoy;
-      if (mrMes   && !mrMes.value)   mrMes.value   = hoy.slice(0,7);
-      if (typeof mrSetVista === 'function') mrSetVista('dia');
-    }
+    'visitas-fallidas-cuad': renderVisitasFallidasCuad
   };
   if (renders[currentSection]) renders[currentSection]();
   if (currentSection === 'admin-config') initConfigSeccion();
@@ -3614,35 +3338,22 @@ function loginCuadrilla() {
   var username = (document.getElementById('login-cuad-user').value || '').trim().toLowerCase();
   var pass = document.getElementById('login-cuad-pass').value;
   if (!username) { showLoginError('cuad', 'Ingresa tu nombre de usuario.'); return; }
-  if (!pass)     { showLoginError('cuad', 'Ingresa tu contraseña.'); return; }
-
+  if (!pass) { showLoginError('cuad', 'Ingresa tu contraseña.'); return; }
   var cuads = cuadrillasList();
-  // Guardia: si Firebase aún no cargó datos, mostrar mensaje apropiado
-  if (!cuads.length && !cache._loaded) {
-    showLoginError('cuad', '⏳ Cargando datos del sistema, intenta en un momento…');
-    return;
-  }
-
   var match = null;
   for (var i = 0; i < cuads.length; i++) {
     var u = (cuads[i].username || '').trim().toLowerCase();
     if (u === username) { match = cuads[i]; break; }
   }
-  if (!match) { showLoginError('cuad', 'Usuario no encontrado. Verifica tu usuario o contacta al administrador.'); return; }
-  if (!match.pass) { showLoginError('cuad', 'Esta cuenta no tiene contraseña configurada. Contacta al administrador.'); return; }
-
-  // Deshabilitar botón mientras verifica
-  var btn = document.querySelector('#login-cuadrilla-area .login-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Verificando…'; }
-
+  if (!match) { showLoginError('cuad', 'Usuario no encontrado. Contacta al administrador.'); return; }
+  if (!match.pass) { showLoginError('cuad', 'Esta cuenta no tiene contraseña configurada.'); return; }
   verifyPass(pass, match.pass).then(function(ok) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Ingresar'; }
     if (!ok) {
       registrarIntentoFallido();
       registrarLog(match.nombre, 'cuadrilla', 'fallido');
-      var rest = MAX_LOGIN_ATTEMPTS - (_getRLState().attempts || 0);
-      showLoginError('cuad', '⚠ Contraseña incorrecta.' + (rest > 0 ? ' Intentos restantes: ' + rest + '.' : ' Acceso bloqueado 5 min.'));
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
+      showLoginError('cuad', '⚠ Contraseña incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
+      if (navigator.vibrate) navigator.vibrate([100,50,100]);
       return;
     }
     clearLoginError('cuad');
@@ -3651,10 +3362,6 @@ function loginCuadrilla() {
     registrarLog(match.nombre, 'cuadrilla', 'exitoso');
     resetSessionTimer();
     startApp();
-  }).catch(function(e) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Ingresar'; }
-    showLoginError('cuad', 'Error al verificar contraseña. Intenta nuevamente.');
-    console.error('loginCuadrilla error:', e);
   });
 }
 
@@ -3699,7 +3406,7 @@ function expandNavGroupForSection(section) {
   var sectionToGroup = {
     'dashboard':'navg-principal','kardex':'navg-principal','asignar':'navg-principal',
     'inventario':'navg-inventario','alertas':'navg-inventario','historial':'navg-inventario',
-    'herramientas':'navg-inventario','red-interna':'navg-inventario','mi-rendimiento':'navg-principal',
+    'herramientas':'navg-inventario','red-interna':'navg-inventario',
     'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion',
     'admin-herramientas':'navg-control','admin-red-interna':'navg-control',
     'admin-logs':'navg-sistema','admin-config':'navg-sistema'
@@ -3731,84 +3438,59 @@ function loginAdmin() {
   if (!checkLoginRateLimit()) return;
   var pass = document.getElementById('admin-pass').value;
   var rol  = document.getElementById('admin-rol-sel').value;
-  if (!pass) { showLoginError('admin', 'Ingresa la contraseña.'); return; }
+  if (!pass) { showLoginError('admin','Ingresa la contraseña.'); return; }
 
   var passEsperada, nombreRol, sectorId;
   if (rol === 'superadmin') {
     passEsperada = SUPER_PASS;
-    nombreRol    = 'SuperAdministrador';
-    sectorId     = null;
+    nombreRol = 'SuperAdministrador';
+    sectorId = null;
   } else {
     var sec = getSector(rol);
-    if (!sec) { showLoginError('admin', 'Sector no válido. Recarga la página e intenta de nuevo.'); return; }
+    if (!sec) { showLoginError('admin', 'Sector no válido.'); return; }
     passEsperada = sec.pass;
-    nombreRol    = 'Admin ' + sec.nombre;
-    sectorId     = rol;
+    nombreRol = 'Admin ' + sec.nombre;
+    sectorId = rol;
   }
 
-  // Deshabilitar botón mientras verifica
-  var btn = document.querySelector('#login-admin-area .login-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Verificando…'; }
-
   verifyPass(pass, passEsperada).then(function(ok) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
     if (!ok) {
       registrarIntentoFallido();
       registrarLog(nombreRol, 'admin', 'fallido');
-      var rest = MAX_LOGIN_ATTEMPTS - (_getRLState().attempts || 0);
-      showLoginError('admin', '⚠ Clave incorrecta.' + (rest > 0 ? ' Intentos restantes: ' + rest + '.' : ' Acceso bloqueado 5 min.'));
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
+      showLoginError('admin', '⚠ Clave incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
+      if (navigator.vibrate) navigator.vibrate([100,50,100]);
       return;
     }
     clearLoginError('admin');
     resetLoginAttempts();
     currentUser = {
-      tipo:        'admin',
-      rol:         rol === 'superadmin' ? 'superadmin' : 'admin',
-      sector:      sectorId,
+      tipo: 'admin',
+      rol: rol === 'superadmin' ? 'superadmin' : 'admin',
+      sector: sectorId,
       cuadrillaId: null,
-      nombre:      nombreRol
+      nombre: nombreRol
     };
     if (rol === 'superadmin') SECTOR_ACTIVO_SUPER = null;
     registrarLog(nombreRol, 'admin', 'exitoso');
     resetSessionTimer();
     startApp();
-  }).catch(function(e) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
-    showLoginError('admin', 'Error al verificar contraseña. Intenta nuevamente.');
-    console.error('loginAdmin error:', e);
   });
 }
 
 function showLoginError(tipo, msg) {
-  var id  = tipo === 'cuad' ? 'login-err-cuad' : 'login-err-admin';
-  var inp = tipo === 'cuad' ? 'login-cuad-pass' : 'admin-pass';
-  var el  = document.getElementById(id);
-  if (el) {
-    el.innerHTML = '<span style="margin-right:6px;">⚠</span>' + msg;
-    el.style.display = 'block';
-    // Pulso para llamar la atención
-    el.style.animation = 'none';
-    el.offsetHeight; // reflow
-    el.style.animation = 'shake .4s ease';
-  }
+  var id = tipo==='cuad' ? 'login-err-cuad' : 'login-err-admin';
+  var inp = tipo==='cuad' ? 'login-cuad-pass' : 'admin-pass';
+  var el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
   var iEl = document.getElementById(inp);
-  if (iEl) {
-    iEl.style.borderColor = 'var(--red)';
-    iEl.style.animation   = 'shake .4s ease';
-    setTimeout(function() { iEl.style.animation = ''; }, 500);
-    iEl.focus();
-    iEl.select();
-  }
-  // También mostrar toast para asegurar visibilidad
-  toast(msg, 'error');
+  if (iEl) { iEl.style.borderColor='var(--red)'; iEl.style.animation='shake .4s ease'; setTimeout(function(){ iEl.style.animation=''; },500); }
 }
-
 function clearLoginError(tipo) {
-  var id  = tipo === 'cuad' ? 'login-err-cuad' : 'login-err-admin';
-  var inp = tipo === 'cuad' ? 'login-cuad-pass' : 'admin-pass';
-  var el  = document.getElementById(id); if (el) { el.style.display = 'none'; el.textContent = ''; }
-  var iEl = document.getElementById(inp); if (iEl) { iEl.style.borderColor = ''; iEl.style.animation = ''; }
+  var id = tipo==='cuad' ? 'login-err-cuad' : 'login-err-admin';
+  var inp = tipo==='cuad' ? 'login-cuad-pass' : 'admin-pass';
+  var el = document.getElementById(id); if (el) el.style.display='none';
+  var iEl = document.getElementById(inp); if (iEl) iEl.style.borderColor='';
 }
 
 function registrarLog(usuario, tipo, estado) {
@@ -3849,10 +3531,16 @@ function startApp() {
     // Admin: mostrar btns admin en bottom nav, ocultar cuadrilla
     document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='flex'; });
     document.querySelectorAll('.bn-cuad').forEach(function(b){ b.style.display='none'; });
-    // Ocultar items de nav marcados como solo-cuadrilla
-    document.querySelectorAll('.bn-cuad-only').forEach(function(b){ b.style.display='none'; });
-    // Admin empieza en kardex/inventario, no en dashboard
-    showSection('kardex');
+    // 6. Ocultar alertas y visita fallida cuad del sidebar para admin
+    var navAlertas = document.getElementById('nav-alertas-cuad');
+    if (navAlertas) navAlertas.style.display = 'none';
+    var navVisitaCuad = document.getElementById('nav-visita-cuad');
+    if (navVisitaCuad) navVisitaCuad.style.display = 'none';
+    document.getElementById('alert-bell-wrap') && (document.getElementById('alert-bell-wrap').style.display='none');
+    // Ocultar logs de acceso para admin no-superadmin
+    var navLogs = document.getElementById('nav-admin-logs');
+    if (navLogs) navLogs.style.display = currentUser.rol === 'superadmin' ? 'flex' : 'none';
+    showSection('dashboard');
   } else {
     var c = getCuad(currentUser.cuadrillaId);
     tc.textContent = c ? c.nombre : 'Cuadrilla';
@@ -3860,27 +3548,6 @@ function startApp() {
     // Ocultar botones admin del bottom nav para cuadrilla
     document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='none'; });
     document.querySelectorAll('.bn-cuad').forEach(function(b){ b.style.display='flex'; });
-    // Mostrar items de nav solo-cuadrilla
-    document.querySelectorAll('.bn-cuad-only').forEach(function(b){ b.style.display='flex'; });
-    // Mostrar Mi Rendimiento
-    var navMR = document.getElementById('nav-mi-rendimiento');
-    if (navMR) navMR.style.display = 'flex';
-    var bnMR = document.getElementById('bn-mi-rendimiento');
-    if (bnMR) bnMR.style.display = 'flex';
-    // Mostrar Mi Rendimiento nav items para cuadrilla
-    var navMR = document.getElementById('nav-mi-rendimiento');
-    if (navMR) navMR.style.display = 'flex';
-    var bnMR = document.getElementById('bn-mi-rendimiento');
-    if (bnMR) bnMR.style.display = 'flex';
-    // Ocultar Kardex para cuadrilla en PC (no móvil)
-    var esMovil = window.innerWidth <= 768;
-    if (!esMovil) {
-      var bnKardex = document.querySelector('.bn-item.bn-cuad[onclick*="kardex"]');
-      if (bnKardex) bnKardex.style.display = 'none';
-      // Ocultar el nodo kardex del sidebar también
-      var navKardexItems = document.querySelectorAll('.nav-item[onclick*="showSection(\'kardex\')"]');
-      navKardexItems.forEach(function(b){ b.style.display='none'; });
-    }
     // Mostrar/ocultar Red Interna según permiso de la cuadrilla
     var cuadData = getCuad(currentUser.cuadrillaId);
     var tieneRI = cuadData && cuadData.redInterna === true;
@@ -4093,14 +3760,25 @@ function renderRedInterna() {
   var cuad = getCuad(cid);
   if (!cuad || !cuad.redInterna) {
     document.getElementById('ri-lista').innerHTML = '<p style="color:var(--red);font-size:13px;">⚠ No tienes acceso a Red Interna. Contacta al administrador.</p>';
+    var kpiEl = document.getElementById('ri-kpis'); if (kpiEl) kpiEl.innerHTML = '';
     return;
   }
   var sub = document.getElementById('ri-subtitle');
-  if (sub && cuad) sub.textContent = cuad.nombre;
+  if (sub && cuad) sub.textContent = cuad.nombre + ' — Trabajos en red';
   var hoy = new Date().toISOString().slice(0,10);
   var ini7 = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
-  var items = riList().filter(function(r) {
-    if (r.cuadrillaId !== cid) return false;
+  var todosItems = riList().filter(function(r){ return r.cuadrillaId === cid; });
+  // KPIs
+  var kpiEl = document.getElementById('ri-kpis');
+  if (kpiEl) {
+    var hoyCount = todosItems.filter(function(r){ return r.fecha === hoy; }).length;
+    var semCount = todosItems.filter(function(r){ return r.fecha >= ini7; }).length;
+    kpiEl.innerHTML =
+      kpi('Hoy', hoyCount, 'registros del día', 'c-accent') +
+      kpi('Esta semana', semCount, 'últimos 7 días', 'c-green') +
+      kpi('Total', todosItems.length, 'todos los registros', '');
+  }
+  var items = todosItems.filter(function(r) {
     if (riTabActual === 'hoy')    return r.fecha === hoy;
     if (riTabActual === 'semana') return r.fecha >= ini7;
     return true;
@@ -4405,244 +4083,320 @@ function exportarRedInternaCSV() {
 // HERRAMIENTAS
 // =====================================================
 
-var ESTADOS_HERR = ['Buen Estado', 'Mal Estado', 'Da\u00f1ada'];
-var BADGE_HERR = { 'Buen Estado':'badge-green', 'Mal Estado':'badge-amber', 'Da\u00f1ada':'badge-red' };
+var ESTADOS_HERR = ['Buen Estado', 'Mal Estado', 'Dañada'];
+var BADGE_HERR   = { 'Buen Estado':'badge-green', 'Mal Estado':'badge-amber', 'Dañada':'badge-red' };
+var ICON_HERR    = { 'Medición':'📡', 'Empalme':'🔥', 'Construcción':'🏗️', 'Seguridad':'🦺', 'Vehículo':'🚗', 'Otro':'📦' };
+var BG_HERR      = { 'Buen Estado':'rgba(34,197,94,.12)', 'Mal Estado':'rgba(245,158,11,.12)', 'Dañada':'rgba(239,68,68,.12)' };
+var herrTabActual = 'inventario';
 
 function herrList() {
   return Object.entries(cache.herramientas).map(function(e){ return Object.assign({id:e[0]},e[1]); });
 }
 
-// ── VISTA CUADRILLA ──────────────────────────────────
-// ══════════════════════════════════════════════════════
-//  HERRAMIENTAS — NUEVO SISTEMA CON CATÁLOGO MAESTRO
-// ══════════════════════════════════════════════════════
-
-var BADGE_HERR = {
-  'Buen Estado':'badge-green',
-  'Mal Estado':'badge-amber',
-  'Dañada':'badge-red',
-  'No disponible':'badge-gray'
-};
-
-// ── Cuadrilla: renderizar sección herramientas ─────────
-function renderHerramientas() {
-  if (!currentUser || currentUser.tipo !== 'cuadrilla') return;
-  var cid   = currentUser.cuadrillaId;
-  var cuad  = getCuad(cid);
-  var sub   = document.getElementById('herr-subtitle');
-  if (sub && cuad) sub.textContent = cuad.nombre + ' — Confirma el estado de tu equipamiento';
-
-  var catalogo = Object.entries(cache.catalogoHerr || {})
-    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
-    .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
-
-  // Mostrar catálogo disponible
-  var catDiv = document.getElementById('herr-catalogo-cuad');
-  if (catDiv) {
-    if (!catalogo.length) {
-      catDiv.innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">El administrador aún no ha creado el catálogo de herramientas.</p>';
-    } else {
-      catDiv.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">'
-        + catalogo.map(function(h) {
-            var badge = h.categoria === 'Seguridad / EPP' ? 'badge-amber' : 'badge-blue';
-            return '<div style="background:rgba(0,0,0,.03);border:1.5px solid var(--border2);border-radius:10px;padding:12px">'
-              + '<div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">' + esc(h.nombre) + '</div>'
-              + '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">' + esc(h.categoria||'General') + (h.desc ? ' · ' + esc(h.desc) : '') + '</div>'
-              + '<div style="font-size:11px;color:var(--ink3)">Disponibles: <strong>' + (h.qty||1) + '</strong></div>'
-              + '</div>';
-          }).join('')
-        + '</div>';
-    }
-  }
-
-  // Último reporte de esta cuadrilla
-  var reportes = Object.entries(cache.reportesHerr || {})
-    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
-    .filter(function(r){ return r.cuadrillaId === cid; })
-    .sort(function(a,b){ return b.fecha.localeCompare(a.fecha); });
-
-  var ultDiv = document.getElementById('herr-ultimo-reporte');
-  var rItems = document.getElementById('herr-reporte-items');
-  if (reportes.length && ultDiv && rItems) {
-    var ult = reportes[0];
-    ultDiv.style.display = '';
-    document.getElementById('herr-reporte-fecha').textContent = fmtDate(ult.fecha);
-    rItems.innerHTML = (ult.items||[]).map(function(it) {
-      var h = (cache.catalogoHerr||{})[it.herrId];
-      return '<div style="background:rgba(0,0,0,.03);border:1.5px solid var(--border2);border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">'
-        + '<span style="font-size:12px;font-weight:600;color:var(--ink)">' + esc(h?h.nombre:it.herrId) + '</span>'
-        + '<span class="badge ' + (BADGE_HERR[it.estado]||'badge-gray') + '">' + it.estado + '</span>'
-        + '</div>';
-    }).join('') + (ult.obs ? '<div style="grid-column:1/-1;font-size:12px;color:var(--ink3);margin-top:4px">📝 ' + esc(ult.obs) + '</div>' : '');
-  } else if (ultDiv) {
-    ultDiv.style.display = 'none';
-  }
-
-  // Historial de reportes
-  var histDiv = document.getElementById('herr-historial-cuad');
-  if (histDiv) {
-    if (!reportes.length) {
-      histDiv.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin reportes registrados aún.</p>';
-    } else {
-      histDiv.innerHTML = '<div class="table-wrap"><table>'
-        + '<thead><tr><th>Fecha</th><th>Herramientas</th><th>Alertas</th><th>Observaciones</th></tr></thead><tbody>'
-        + reportes.map(function(r) {
-            var alertas = (r.items||[]).filter(function(it){ return it.estado !== 'Buen Estado'; }).length;
-            return '<tr>'
-              + '<td style="font-size:12px;font-family:monospace">' + fmtDate(r.fecha) + '</td>'
-              + '<td style="font-size:12px">' + (r.items||[]).length + ' ítems</td>'
-              + '<td>' + (alertas ? '<span class="badge badge-red">⚠ ' + alertas + ' alertas</span>' : '<span class="badge badge-green">✓ Todo OK</span>') + '</td>'
-              + '<td style="font-size:12px;color:var(--ink3)">' + esc(r.obs||'—') + '</td>'
-              + '</tr>';
-          }).join('')
-        + '</tbody></table></div>';
-    }
-  }
+function switchHerrTab(tab, btn) {
+  herrTabActual = tab;
+  document.querySelectorAll('#sec-herramientas .tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  document.getElementById('herr-tab-inventario').style.display = tab === 'inventario' ? '' : 'none';
+  document.getElementById('herr-tab-kardex').style.display     = tab === 'kardex'     ? '' : 'none';
+  if (tab === 'kardex') renderHerrKardex();
 }
 
-// ── Modal reporte de estado (cuadrilla) ───────────────
-function abrirModalReporteHerr() {
-  var catalogo = Object.entries(cache.catalogoHerr || {})
-    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
-    .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
-  if (!catalogo.length) {
-    toast('El administrador aún no ha creado el catálogo de herramientas.', 'info');
-    return;
-  }
-  var container = document.getElementById('modal-reporte-herr-items');
-  container.innerHTML = catalogo.map(function(h) {
-    return '<div style="background:var(--bg);border:1.5px solid var(--border2);border-radius:10px;padding:12px">'
-      + '<div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px">' + esc(h.nombre) + '</div>'
-      + '<div style="font-size:11px;color:var(--ink3);margin-bottom:8px">' + esc(h.categoria||'General') + '</div>'
-      + '<select id="herr-estado-' + h.id + '" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">'
-      + '<option value="Buen Estado">✅ Buen Estado</option>'
-      + '<option value="Mal Estado">⚠️ Mal Estado</option>'
-      + '<option value="Dañada">❌ Dañada</option>'
-      + '<option value="No disponible">🚫 No disponible</option>'
-      + '</select>'
+// ── KPIs ─────────────────────────────────────────────
+function renderHerrKPIs(items) {
+  var kpiEl = document.getElementById('herr-kpis');
+  if (!kpiEl) return;
+  var total  = items.length;
+  var buenos = items.filter(function(h){ return h.estado === 'Buen Estado'; }).length;
+  var malos  = items.filter(function(h){ return h.estado !== 'Buen Estado'; }).length;
+  kpiEl.innerHTML = [
+    ['🔧', total,  'Total',        'var(--ink)'],
+    ['✅', buenos, 'Buen estado',  'var(--green)'],
+    ['⚠️', malos,  'Con problemas','#f59e0b']
+  ].map(function(k){
+    return '<div class="herr-kpi-card">'
+      + '<div class="herr-kpi-num" style="color:'+k[3]+'">'+k[0]+' '+k[1]+'</div>'
+      + '<div class="herr-kpi-lbl">'+k[2]+'</div>'
       + '</div>';
   }).join('');
-  document.getElementById('reporte-herr-obs').value = '';
-  openModal('modal-reporte-herr');
 }
 
-function guardarReporteHerr() {
-  var cid = currentUser && currentUser.cuadrillaId;
-  if (!cid) return;
-  var catalogo = Object.entries(cache.catalogoHerr || {})
-    .map(function(e){ return Object.assign({id:e[0]}, e[1]); });
-  if (!catalogo.length) { toast('Sin catálogo disponible', 'error'); return; }
-  var items = catalogo.map(function(h) {
-    var sel = document.getElementById('herr-estado-' + h.id);
-    return { herrId: h.id, nombre: h.nombre, estado: sel ? sel.value : 'Buen Estado' };
+// ── VISTA CUADRILLA ──────────────────────────────────
+function renderHerramientas() {
+  if (!currentUser || currentUser.tipo !== 'cuadrilla') return;
+  var cid  = currentUser.cuadrillaId;
+  var cuad = getCuad(cid);
+  var sub  = document.getElementById('herr-subtitle');
+  if (sub && cuad) sub.textContent = cuad.nombre + ' — Inventario de herramientas';
+
+  var filtroEstado = (document.getElementById('herr-filtro-estado')||{}).value || '';
+  var busqueda     = ((document.getElementById('herr-busqueda')||{}).value || '').toLowerCase();
+  var todos  = herrList().filter(function(h){ return h.cuadrillaId === cid; });
+  var items  = todos.filter(function(h){
+    if (filtroEstado && h.estado !== filtroEstado) return false;
+    if (busqueda && !h.nombre.toLowerCase().includes(busqueda)) return false;
+    return true;
   });
-  var obs = document.getElementById('reporte-herr-obs').value.trim();
-  var alertas = items.filter(function(it){ return it.estado !== 'Buen Estado'; });
-  var reporte = {
-    cuadrillaId:  cid,
-    cuadrillaNombre: (getCuad(cid)||{nombre:'?'}).nombre,
-    fecha:        nowISO(),
-    items:        items,
-    obs:          obs,
-    alertas:      alertas.length,
-    verificado:   false
-  };
-  db.ref('reportes_herramientas').push(reporte).then(function() {
-    closeModal('modal-reporte-herr');
-    toast(alertas.length
-      ? '⚠ Reporte guardado — ' + alertas.length + ' alerta(s) enviada(s) al administrador.'
-      : '✅ Reporte guardado correctamente.', alertas.length ? 'info' : 'success');
-    renderHerramientas();
-  }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
-}
 
-// ── Admin: tabs de control herramientas ───────────────
-function switchHerrTab(tab, btn) {
-  document.querySelectorAll('#htab-catalogo,#htab-asignaciones').forEach(function(el){ el.style.display='none'; });
-  document.querySelectorAll('#htab-catalogo-btn,#htab-asignaciones-btn').forEach(function(b){ b.classList.remove('active'); });
-  document.getElementById('htab-' + tab).style.display = '';
-  if (btn) btn.classList.add('active');
-  if (tab === 'catalogo')    renderAdminCatalogoHerr();
-  if (tab === 'asignaciones') renderAdminReportesHerr();
-}
+  renderHerrKPIs(todos);
 
-// ── Admin: render catálogo maestro ─────────────────────
-function renderAdminCatalogoHerr() {
-  var lista = document.getElementById('hadm-catalogo-lista');
+  var lista = document.getElementById('herr-lista');
   if (!lista) return;
-  var items = Object.entries(cache.catalogoHerr || {})
-    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
-    .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+
   if (!items.length) {
-    lista.innerHTML = '<div style="text-align:center;padding:2rem;">'
-      + '<p style="color:var(--ink3);font-size:14px;margin-bottom:1rem;">El catálogo está vacío. Agrega la primera herramienta.</p>'
-      + '<button class="btn btn-accent" onclick="abrirModalCatalogo()">+ Nueva herramienta</button></div>';
+    lista.innerHTML = '<div style="text-align:center;padding:2.5rem 1rem;">'
+      + '<div style="font-size:40px;margin-bottom:.75rem;">🔧</div>'
+      + '<p style="color:var(--ink2);font-size:14px;font-weight:600;margin-bottom:.4rem;">Sin herramientas registradas</p>'
+      + '<p style="color:var(--ink3);font-size:12px;margin-bottom:1.25rem;">'
+      + (filtroEstado || busqueda ? 'No hay herramientas con ese filtro.' : 'Agrega la primera herramienta de tu cuadrilla.')
+      + '</p>'
+      + (!filtroEstado && !busqueda
+          ? '<button class="btn btn-accent" onclick="abrirModalRegistrarPrimeraHerramienta()">'
+            + '<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+            + ' Agregar herramienta</button>'
+          : '')
+      + '</div>';
     return;
   }
-  lista.innerHTML = '<div class="table-wrap"><table>'
-    + '<thead><tr><th>Herramienta</th><th>Categoría</th><th>Descripción</th><th>Cant.</th><th></th></tr></thead><tbody>'
-    + items.map(function(h) {
-        return '<tr>'
-          + '<td><strong>' + esc(h.nombre) + '</strong></td>'
-          + '<td><span class="badge badge-blue" style="font-size:10px">' + esc(h.categoria||'General') + '</span></td>'
-          + '<td style="font-size:12px;color:var(--ink3)">' + esc(h.desc||'—') + '</td>'
-          + '<td style="font-family:monospace;font-size:13px;text-align:center">' + (h.qty||1) + '</td>'
-          + '<td style="display:flex;gap:6px;flex-wrap:wrap;">'
-          + '<button class="btn btn-sm" onclick="editarCatalogoHerr(\'' + h.id + '\')">Editar</button>'
-          + '<button class="btn btn-sm btn-red" onclick="eliminarCatalogoHerr(\'' + h.id + '\')">Eliminar</button>'
-          + '</td></tr>';
-      }).join('')
-    + '</tbody></table></div>'
-    + '<div style="margin-top:.8rem"><button class="btn btn-accent" onclick="abrirModalCatalogo()">+ Nueva herramienta</button></div>';
+
+  lista.innerHTML = items.map(function(h) {
+    var ult   = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
+    var icon  = ICON_HERR[h.categoria] || '📦';
+    var bgCol = BG_HERR[h.estado]      || 'rgba(100,100,100,.08)';
+    var hist  = (h.historial || []).slice().reverse();
+
+    return '<div class="herr-card" id="hcard-'+h.id+'">'
+      + '<div class="herr-card-header" onclick="toggleHerrCard(\''+h.id+'\')">'
+      + '<div class="herr-card-icon" style="background:'+bgCol+'">'+icon+'</div>'
+      + '<div style="flex:1;min-width:0;">'
+      +   '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(h.nombre)+'</div>'
+      +   '<div style="font-size:11px;color:var(--ink3);font-family:monospace;">'+esc(h.serie||'Sin serie')+(h.categoria?' &nbsp;·&nbsp; '+esc(h.categoria):'')+'</div>'
+      + '</div>'
+      + '<span class="badge '+(BADGE_HERR[h.estado]||'badge-gray')+'">'+esc(h.estado)+'</span>'
+      + '<button class="btn btn-sm btn-accent" style="flex-shrink:0;margin-left:4px;" onclick="event.stopPropagation();abrirModalCambioEstado(\''+h.id+'\')">'
+      +   '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      +   ' Cambiar estado</button>'
+      + '<button onclick="event.stopPropagation();editarHerramientaPropia(\''+h.id+'\')" title="Editar" style="background:none;border:1px solid var(--border);border-radius:var(--r);padding:5px 8px;cursor:pointer;color:var(--ink3);font-size:12px;flex-shrink:0;">✏️</button>'
+      + '</div>'
+      + '<div class="herr-card-body" id="hbody-'+h.id+'" style="display:none;">'
+      +   '<div style="display:flex;gap:10px;font-size:11px;color:var(--ink3);margin:10px 0 6px;flex-wrap:wrap;">'
+      +     '<span>🕐 Último cambio: <strong style="color:var(--ink2);">'+(ult ? fmtDate(ult.fecha) : 'Nunca')+'</strong></span>'
+      +     (ult && ult.responsable ? '<span>👤 <strong style="color:var(--ink2);">'+esc(ult.responsable)+'</strong></span>' : '')
+      +   '</div>'
+      +   (hist.length
+            ? '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px;">Historial de movimientos</div>'
+              + hist.slice(0,5).map(function(mv){
+                  return '<div class="herr-historial-row">'
+                    + '<span style="font-family:monospace;font-size:10px;color:var(--ink3);flex-shrink:0;margin-top:1px;">'+fmtDate(mv.fecha)+'</span>'
+                    + '<div style="flex:1;">'
+                    +   '<span class="badge '+(BADGE_HERR[mv.estadoAnterior]||'badge-gray')+'" style="font-size:9px;">'+esc(mv.estadoAnterior||'?')+'</span>'
+                    +   ' → '
+                    +   '<span class="badge '+(BADGE_HERR[mv.estadoNuevo]||'badge-gray')+'" style="font-size:9px;">'+esc(mv.estadoNuevo||'?')+'</span>'
+                    +   (mv.tipo ? ' <span style="font-size:10px;color:var(--ink3);">· '+esc(mv.tipo)+'</span>' : '')
+                    +   (mv.responsable ? ' <span style="font-size:10px;color:var(--ink3);">· '+esc(mv.responsable)+'</span>' : '')
+                    +   (mv.obs ? '<div style="font-size:11px;color:var(--ink3);margin-top:2px;">'+esc(mv.obs)+'</div>' : '')
+                    +   (mv.kardexRef ? '<div style="font-size:10px;font-family:monospace;color:var(--accent);">Kardex: '+esc(mv.kardexRef)+'</div>' : '')
+                    + '</div>'
+                    + '</div>';
+                }).join('')
+            : '<p style="font-size:12px;color:var(--ink3);">Sin movimientos registrados aún.</p>')
+      + '</div>'
+      + '</div>';
+  }).join('');
 }
 
-function abrirModalCatalogo(id) {
-  var h = id ? (cache.catalogoHerr||{})[id] : null;
-  document.getElementById('cat-herr-nombre').value = h ? h.nombre : '';
-  document.getElementById('cat-herr-cat').value    = h ? (h.categoria||'Herramienta de mano') : 'Herramienta de mano';
-  document.getElementById('cat-herr-desc').value   = h ? (h.desc||'') : '';
-  document.getElementById('cat-herr-qty').value    = h ? (h.qty||1) : 1;
-  document.getElementById('cat-herr-edit-id').value= id || '';
-  document.getElementById('catalogo-herr-title').textContent = id ? 'Editar herramienta' : 'Nueva herramienta';
-  openModal('modal-catalogo-herr');
+function toggleHerrCard(id) {
+  var body = document.getElementById('hbody-'+id);
+  if (!body) return;
+  body.style.display = body.style.display === 'none' ? '' : 'none';
 }
 
-function editarCatalogoHerr(id) { abrirModalCatalogo(id); }
-
-function guardarCatalogoHerr() {
-  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
-  var nombre = document.getElementById('cat-herr-nombre').value.trim();
-  var cat    = document.getElementById('cat-herr-cat').value;
-  var desc   = document.getElementById('cat-herr-desc').value.trim();
-  var qty    = parseInt(document.getElementById('cat-herr-qty').value) || 1;
-  var editId = document.getElementById('cat-herr-edit-id').value;
-  if (!nombre) { toast('Ingresa el nombre de la herramienta', 'error'); return; }
-  var data = { nombre: sanitizeAdvanced(nombre), categoria: cat, desc: sanitizeAdvanced(desc), qty: qty };
-  var ref = editId ? db.ref('catalogo_herramientas/' + editId) : db.ref('catalogo_herramientas').push();
-  ref.set(data).then(function() {
-    closeModal('modal-catalogo-herr');
-    toast(editId ? 'Herramienta actualizada en catálogo' : 'Herramienta agregada al catálogo', 'success');
-    renderAdminCatalogoHerr();
-  }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
-}
-
-function eliminarCatalogoHerr(id) {
-  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
-  var h = (cache.catalogoHerr||{})[id]; if (!h) return;
-  showConfirm('Eliminar del catálogo',
-    '¿Eliminar <strong>' + esc(h.nombre) + '</strong> del catálogo? Las cuadrillas ya no verán esta herramienta.',
-    function() {
-      db.ref('catalogo_herramientas/' + id).remove().then(function(){
-        toast('Herramienta eliminada del catálogo', 'success');
-        renderAdminCatalogoHerr();
-      });
+// ── KARDEX DE HERRAMIENTAS (tab) ─────────────────────
+function renderHerrKardex() {
+  var cid   = currentUser && currentUser.cuadrillaId;
+  var items = herrList().filter(function(h){ return h.cuadrillaId === cid; });
+  var movs  = [];
+  items.forEach(function(h) {
+    (h.historial||[]).forEach(function(mv) {
+      movs.push(Object.assign({}, mv, { herrNombre: h.nombre }));
     });
+  });
+  movs.sort(function(a,b){ return b.fecha > a.fecha ? 1 : -1; });
+  var el = document.getElementById('herr-kardex-lista');
+  if (!el) return;
+  if (!movs.length) {
+    el.innerHTML = '<p style="color:var(--ink3);font-size:13px;padding:.5rem 0;">Sin movimientos de herramientas registrados.</p>';
+    return;
+  }
+  el.innerHTML = '<div class="table-wrap"><table>'
+    + '<thead><tr><th>Fecha</th><th>Herramienta</th><th>Tipo</th><th>Estado anterior</th><th>Estado nuevo</th><th>Responsable</th><th>Ref. Kardex</th><th>Observaciones</th></tr></thead>'
+    + '<tbody>'
+    + movs.map(function(mv){
+        return '<tr>'
+          + '<td style="font-size:11px;white-space:nowrap;">'+fmtDate(mv.fecha)+'</td>'
+          + '<td><strong>'+esc(mv.herrNombre)+'</strong></td>'
+          + '<td><span class="badge badge-gray" style="font-size:10px;">'+esc(mv.tipo||'—')+'</span></td>'
+          + '<td><span class="badge '+(BADGE_HERR[mv.estadoAnterior]||'badge-gray')+'" style="font-size:10px;">'+esc(mv.estadoAnterior||'—')+'</span></td>'
+          + '<td><span class="badge '+(BADGE_HERR[mv.estadoNuevo]||'badge-gray')+'" style="font-size:10px;">'+esc(mv.estadoNuevo||'—')+'</span></td>'
+          + '<td style="font-size:12px;">'+esc(mv.responsable||'—')+'</td>'
+          + '<td style="font-family:monospace;font-size:11px;color:var(--accent);">'+esc(mv.kardexRef||'—')+'</td>'
+          + '<td style="font-size:11px;color:var(--ink3);">'+esc(mv.obs||'')+'</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div>';
 }
 
-// ── Admin: render reportes de cuadrillas ──────────────
-function renderAdminReportesHerr() {
-  // Poblar filtro cuadrillas
-  var selC = document.getElementById('hadm-rep-cuadrilla');
+// ── ABRIR / GUARDAR herramienta propia ───────────────
+function abrirModalRegistrarPrimeraHerramienta() {
+  var cid = currentUser && currentUser.cuadrillaId;
+  if (!cid) return;
+  document.getElementById('herr-propia-titulo').textContent   = 'Agregar herramienta';
+  document.getElementById('herr-propia-nombre').value         = '';
+  document.getElementById('herr-propia-serie').value          = '';
+  document.getElementById('herr-propia-categoria').value      = 'Medición';
+  document.getElementById('herr-propia-estado-inicial').value = 'Buen Estado';
+  document.getElementById('herr-propia-obs').value            = '';
+  document.getElementById('herr-propia-edit-id').value        = '';
+  openModal('modal-herr-propia');
+}
+
+function editarHerramientaPropia(herrId) {
+  var h = cache.herramientas[herrId];
+  if (!h) return;
+  document.getElementById('herr-propia-titulo').textContent   = 'Editar herramienta';
+  document.getElementById('herr-propia-nombre').value         = h.nombre    || '';
+  document.getElementById('herr-propia-serie').value          = h.serie     || '';
+  document.getElementById('herr-propia-categoria').value      = h.categoria || 'Otro';
+  document.getElementById('herr-propia-estado-inicial').value = h.estado    || 'Buen Estado';
+  document.getElementById('herr-propia-obs').value            = '';
+  document.getElementById('herr-propia-edit-id').value        = herrId;
+  openModal('modal-herr-propia');
+}
+
+function guardarHerramientaPropia() {
+  var cid       = currentUser && currentUser.cuadrillaId;
+  if (!cid) return;
+  var nombre    = document.getElementById('herr-propia-nombre').value.trim();
+  var serie     = document.getElementById('herr-propia-serie').value.trim();
+  var categoria = document.getElementById('herr-propia-categoria').value;
+  var estado    = document.getElementById('herr-propia-estado-inicial').value;
+  var obs       = document.getElementById('herr-propia-obs').value.trim();
+  var editId    = document.getElementById('herr-propia-edit-id').value;
+  if (!nombre) { toast('Ingresa el nombre de la herramienta', 'error'); return; }
+
+  var data = {
+    nombre: sanitizeAdvanced(nombre),
+    serie: sanitizeAdvanced(serie),
+    categoria: categoria,
+    estado: estado,
+    cuadrillaId: cid,
+    verificacion: 'pendiente'
+  };
+
+  if (editId) {
+    db.ref('herramientas/'+editId).update(data).then(function(){
+      toast('Herramienta actualizada ✅', 'success');
+      closeModal('modal-herr-propia');
+      renderHerramientas();
+    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  } else {
+    data.historial = obs ? [{
+      fecha: new Date().toISOString(), estadoAnterior: '—', estadoNuevo: estado,
+      tipo: 'registro', responsable: (getCuad(cid)||{nombre:''}).nombre,
+      obs: obs, kardexRef: ''
+    }] : [];
+    db.ref('herramientas/'+uid()).set(data).then(function(){
+      toast('Herramienta registrada ✅', 'success');
+      closeModal('modal-herr-propia');
+      renderHerramientas();
+    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  }
+}
+
+// ── MODAL CAMBIO ESTADO + KARDEX ─────────────────────
+function selKherrTipo(tipo) {
+  document.getElementById('kherr-tipo').value = tipo;
+  ['asignacion','devolucion','reparacion'].forEach(function(t) {
+    var el = document.getElementById('kherr-lbl-'+t);
+    if (!el) return;
+    el.style.borderColor = t === tipo ? 'var(--accent)' : 'var(--border)';
+    el.style.background  = t === tipo ? 'var(--accent-light)' : '';
+    el.style.color       = t === tipo ? 'var(--accent)' : '';
+  });
+}
+
+function abrirModalCambioEstado(herrId) {
+  var h = cache.herramientas[herrId];
+  if (!h) return;
+  document.getElementById('herr-estado-id').value      = herrId;
+  document.getElementById('herr-estado-nombre').textContent = '🔧 '+h.nombre+(h.serie ? '  ·  '+h.serie : '');
+  document.getElementById('herr-nuevo-estado').value   = h.estado;
+  document.getElementById('kherr-tipo').value          = '';
+  document.getElementById('kherr-cantidad').value      = '1';
+  document.getElementById('kherr-responsable').value   = '';
+  document.getElementById('kherr-obs').value           = '';
+  var badgeEl = document.getElementById('herr-badge-actual');
+  if (badgeEl) { badgeEl.className = 'badge '+(BADGE_HERR[h.estado]||'badge-gray'); badgeEl.textContent = h.estado; }
+  ['asignacion','devolucion','reparacion'].forEach(function(t){
+    var el = document.getElementById('kherr-lbl-'+t);
+    if (el) { el.style.borderColor='var(--border)'; el.style.background=''; el.style.color=''; }
+  });
+  openModal('modal-herr-estado');
+}
+
+function confirmarCambioEstado() {
+  var herrId      = document.getElementById('herr-estado-id').value;
+  var nuevoEst    = document.getElementById('herr-nuevo-estado').value;
+  var tipo        = document.getElementById('kherr-tipo').value;
+  var cantidad    = parseInt(document.getElementById('kherr-cantidad').value)||1;
+  var responsable = document.getElementById('kherr-responsable').value.trim();
+  var obs         = document.getElementById('kherr-obs').value.trim();
+  if (!herrId)       return;
+  if (!tipo)         { toast('Selecciona el tipo de movimiento', 'error'); return; }
+  if (!responsable)  { toast('Ingresa el nombre del responsable', 'error'); return; }
+
+  var h   = cache.herramientas[herrId];
+  var cid = currentUser.cuadrillaId;
+  var now = new Date();
+  var kardexRef = 'KH-'+now.getFullYear()
+    + String(now.getMonth()+1).padStart(2,'0')
+    + String(now.getDate()).padStart(2,'0')
+    + '-'+Math.floor(Math.random()*900+100);
+
+  var cambio = {
+    fecha:           now.toISOString(),
+    estadoAnterior:  h.estado,
+    estadoNuevo:     nuevoEst,
+    tipo:            tipo,
+    cantidad:        cantidad,
+    responsable:     sanitizeAdvanced(responsable),
+    obs:             sanitizeAdvanced(obs),
+    kardexRef:       kardexRef,
+    cuadrillaId:     cid,
+    cuadrillaNombre: (getCuad(cid)||{nombre:'?'}).nombre,
+    kardexValido:    true
+  };
+
+  var historial = (h.historial||[]).slice();
+  historial.push(cambio);
+
+  db.ref('herramientas/'+herrId).update({
+    estado:       nuevoEst,
+    historial:    historial,
+    verificacion: 'verificado'
+  }).then(function(){
+    closeModal('modal-herr-estado');
+    toast('✅ Cambio registrado · Ref: '+kardexRef, 'success');
+    renderHerramientas();
+    if (herrTabActual === 'kardex') renderHerrKardex();
+  }).catch(function(e){ toast('Error: '+e.message,'error'); });
+}
+
+// ── VISTA ADMIN ──────────────────────────────────────
+function renderAdminHerramientas() {
+  if (!currentUser || currentUser.tipo !== 'admin') return;
+  // Poblar filtro de cuadrillas
+  var selC = document.getElementById('hadm-cuadrilla');
   if (selC) {
     var valC = selC.value;
     selC.innerHTML = '<option value="">Todas las cuadrillas</option>';
@@ -4652,83 +4406,190 @@ function renderAdminReportesHerr() {
       selC.appendChild(o);
     });
   }
-  var filtroCuad  = (document.getElementById('hadm-rep-cuadrilla')||{value:''}).value;
-  var filtroEst   = (document.getElementById('hadm-rep-estado')||{value:''}).value;
-  var filtroFecha = (document.getElementById('hadm-rep-fecha')||{value:''}).value;
-
-  var reportes = Object.entries(cache.reportesHerr || {})
-    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
-    .filter(function(r) {
-      var cuadOk = getCuadrillasFiltradas().find(function(c){ return c.id === r.cuadrillaId; });
-      if (!cuadOk) return false;
-      if (filtroCuad && r.cuadrillaId !== filtroCuad) return false;
-      if (filtroFecha && !r.fecha.startsWith(filtroFecha)) return false;
-      if (filtroEst) {
-        var tieneEst = (r.items||[]).some(function(it){ return it.estado === filtroEst; });
-        if (!tieneEst) return false;
-      }
-      return true;
-    })
-    .sort(function(a,b){ return b.fecha.localeCompare(a.fecha); });
-
-  var lista = document.getElementById('hadm-reportes-lista');
+  var filtroCuad   = (document.getElementById('hadm-cuadrilla')||{value:''}).value;
+  var filtroEstado = (document.getElementById('hadm-estado')||{value:''}).value;
+  var filtroVerif  = (document.getElementById('hadm-verificado')||{value:''}).value;
+  var items = herrList().filter(function(h) {
+    var cuad = getCuad(h.cuadrillaId);
+    var cuadDelSector = getCuadrillasFiltradas().find(function(c){ return c.id === h.cuadrillaId; });
+    if (!cuadDelSector) return false; // no pertenece al sector del admin
+    if (filtroCuad   && h.cuadrillaId !== filtroCuad)   return false;
+    if (filtroEstado && h.estado !== filtroEstado)       return false;
+    if (filtroVerif  && (h.verificacion||'pendiente') !== filtroVerif) return false;
+    return true;
+  });
+  var lista = document.getElementById('hadm-lista');
   if (!lista) return;
-  if (!reportes.length) {
-    lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin reportes para los filtros seleccionados.</p>';
-    return;
-  }
+  if (!items.length) { lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin herramientas para mostrar.</p>'; return; }
   lista.innerHTML = '<div class="table-wrap"><table>'
-    + '<thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Ítems</th><th>Alertas</th><th>Obs.</th><th></th></tr></thead><tbody>'
-    + reportes.map(function(r) {
-        var alertas = (r.items||[]).filter(function(it){ return it.estado !== 'Buen Estado'; });
+    + '<thead><tr><th>Herramienta</th><th>Cuadrilla</th><th>Estado</th><th>Verificaci\u00f3n</th><th>\u00daltimo cambio</th><th></th></tr></thead>'
+    + '<tbody>'
+    + items.map(function(h) {
+        var cuad = getCuad(h.cuadrillaId);
+        var verif = h.verificacion || 'pendiente';
+        var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
+        var verifBadge = verif==='verificado' ? 'badge-green' : verif==='invalido' ? 'badge-red' : 'badge-amber';
+        var verifLabel = verif==='verificado' ? '\u2713 Verificado' : verif==='invalido' ? '\u2717 Inv\u00e1lido' : '\u23f3 Pendiente';
         return '<tr>'
-          + '<td style="font-size:12px;font-family:monospace;white-space:nowrap">' + fmtDate(r.fecha) + '</td>'
-          + '<td style="font-size:13px;font-weight:600">' + esc(r.cuadrillaNombre||'?') + '</td>'
-          + '<td style="text-align:center;font-size:13px">' + (r.items||[]).length + '</td>'
-          + '<td>' + (alertas.length
-              ? '<span class="badge badge-red">⚠ ' + alertas.length + '</span>'
-              : '<span class="badge badge-green">✓ OK</span>') + '</td>'
-          + '<td style="font-size:12px;color:var(--ink3)">' + esc(r.obs||'—') + '</td>'
-          + '<td><button class="btn btn-sm" onclick="verDetalleReporteHerr(\'' + r.id + '\')">Ver detalle</button></td>'
-          + '</tr>';
+          + '<td><strong>' + esc(h.nombre) + '</strong>' + (h.serie ? '<br><span style="font-family:monospace;font-size:11px;color:var(--ink3);">' + esc(h.serie) + '</span>' : '') + '</td>'
+          + '<td>' + (cuad ? cuad.nombre : '\u2014') + '</td>'
+          + '<td><span class="badge ' + (BADGE_HERR[h.estado]||'badge-gray') + '">' + (h.estado||'\u2014') + '</span></td>'
+          + '<td><span class="badge ' + verifBadge + '">' + verifLabel + '</span></td>'
+          + '<td style="font-size:12px;">' + (ult ? fmtDate(ult.fecha) + '<br><span style="font-family:monospace;font-size:11px;">Ref: ' + (ult.kardexRef||'\u2014') + (ult.kardexValido ? ' \u2705' : ' \u26a0') + '</span>' : '\u2014') + '</td>'
+          + '<td style="display:flex;gap:6px;flex-wrap:wrap;">'
+          + '<button class="btn btn-sm" onclick="verHistorialHerramienta(\'' + h.id + '\')">Historial</button>'
+          + (ult && !ult.kardexValido ? '<button class="btn btn-sm btn-green" onclick="verificarKardexManual(\'' + h.id + '\')">Verificar</button>' : '')
+          + '<button class="btn btn-sm" onclick="editarHerramienta(\'' + h.id + '\')">Editar</button>'
+          + '<button class="btn btn-sm btn-red" onclick="eliminarHerramienta(\'' + h.id + '\')">Eliminar</button>'
+          + '</td></tr>';
       }).join('')
-    + '</tbody></table></div>';
+    + '</tbody></table></div>'
+    + '<div style="margin-top:.8rem;">' + '<button class="btn btn-accent" onclick="abrirModalNuevaHerramienta()">+ Nueva herramienta</button></div>';
 }
 
-function verDetalleReporteHerr(rId) {
-  var r = (cache.reportesHerr||{})[rId]; if (!r) return;
-  var alertas = (r.items||[]).filter(function(it){ return it.estado !== 'Buen Estado'; });
-  var html = '<h3 style="margin-bottom:.5rem">Reporte — ' + esc(r.cuadrillaNombre||'?') + '</h3>'
-    + '<p style="font-size:12px;color:var(--ink3);margin-bottom:1rem">' + fmtDate(r.fecha) + (r.obs ? ' · ' + esc(r.obs) : '') + '</p>'
-    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;max-height:55vh;overflow-y:auto">'
-    + (r.items||[]).map(function(it) {
-        return '<div style="border:1.5px solid var(--border2);border-radius:8px;padding:10px">'
-          + '<div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:5px">' + esc(it.nombre||it.herrId) + '</div>'
-          + '<span class="badge ' + (BADGE_HERR[it.estado]||'badge-gray') + '">' + it.estado + '</span>'
-          + '</div>';
-      }).join('')
-    + '</div>'
-    + '<div class="btn-row" style="margin-top:1rem"><button class="btn btn-ghost" onclick="closeConfirm()">Cerrar</button></div>';
+function abrirModalNuevaHerramienta() {
+  var sel = document.getElementById('herr-cuadrilla');
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  getCuadrillasFiltradas().forEach(function(cu) {
+    var o = document.createElement('option'); o.value = cu.id; o.textContent = cu.nombre; sel.appendChild(o);
+  });
+  document.getElementById('herr-nombre').value = '';
+  document.getElementById('herr-serie').value = '';
+  document.getElementById('herr-estado-inicial').value = 'Buen Estado';
+  document.getElementById('herr-edit-id').value = '';
+  document.getElementById('herr-modal-title').textContent = 'Nueva herramienta';
+  openModal('modal-herramienta');
+}
+
+function editarHerramienta(id) {
+  var h = cache.herramientas[id]; if (!h) return;
+  var sel = document.getElementById('herr-cuadrilla');
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  getCuadrillasFiltradas().forEach(function(cu) {
+    var o = document.createElement('option'); o.value = cu.id; o.textContent = cu.nombre;
+    if (cu.id === h.cuadrillaId) o.selected = true;
+    sel.appendChild(o);
+  });
+  document.getElementById('herr-nombre').value = h.nombre;
+  document.getElementById('herr-serie').value = h.serie || '';
+  document.getElementById('herr-estado-inicial').value = h.estado || 'Buen Estado';
+  document.getElementById('herr-edit-id').value = id;
+  document.getElementById('herr-modal-title').textContent = 'Editar herramienta';
+  openModal('modal-herramienta');
+}
+
+function guardarHerramienta() {
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
+  var nombre  = document.getElementById('herr-nombre').value.trim();
+  var cuadId  = document.getElementById('herr-cuadrilla').value;
+  var estado  = document.getElementById('herr-estado-inicial').value;
+  var serie   = document.getElementById('herr-serie').value.trim();
+  var editId  = document.getElementById('herr-edit-id').value;
+  if (!nombre) { toast('Ingresa el nombre de la herramienta', 'error'); return; }
+  if (!cuadId) { toast('Selecciona la cuadrilla', 'error'); return; }
+  // Admin de sector solo puede asignar herramientas a cuadrillas de su sector
+  if (currentUser.rol !== 'superadmin') {
+    var cuadObj = getCuad(cuadId);
+    if (cuadObj) {
+      var cs = cuadObj.sectorId || cuadObj.sector || '1';
+      if (cs !== currentUser.sector) { toast('Esa cuadrilla no pertenece a tu sector', 'error'); return; }
+    }
+  }
+  var data = { nombre: nombre, cuadrillaId: cuadId, estado: estado, serie: serie,
+    verificacion: 'verificado', historial: editId ? (cache.herramientas[editId].historial||[]) : [] };
+  var ref = editId ? db.ref('herramientas/' + editId) : db.ref('herramientas').push();
+  ref.set(data).then(function() {
+    closeModal('modal-herramienta');
+    toast(editId ? 'Herramienta actualizada' : 'Herramienta registrada', 'success');
+    renderAdminHerramientas();
+  }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
+}
+
+function eliminarHerramienta(id) {
+  if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
+  var h = cache.herramientas[id]; if (!h) return;
+  // Admin de sector solo puede eliminar herramientas de su sector
+  if (currentUser.rol !== 'superadmin') {
+    var cuadObj = getCuad(h.cuadrillaId);
+    if (cuadObj) {
+      var cs = cuadObj.sectorId || cuadObj.sector || '1';
+      if (cs !== currentUser.sector) { toast('No puedes eliminar herramientas de otro sector', 'error'); return; }
+    }
+  }
+  showConfirm('Eliminar herramienta',
+    '\u00bfEliminar <strong>' + h.nombre + '</strong>? Se borrar\u00e1 todo su historial.',
+    function() {
+      db.ref('herramientas/' + id).remove().then(function(){
+        toast('Herramienta eliminada', 'success'); renderAdminHerramientas();
+      });
+    }
+  );
+}
+
+function verificarKardexManual(herrId) {
+  var h = cache.herramientas[herrId]; if (!h) return;
+  var historial = h.historial ? h.historial.slice() : [];
+  var ult = historial.length ? historial[historial.length-1] : null;
+  if (!ult) { toast('Sin cambios registrados', 'info'); return; }
+  // Buscar el kardex por ref en toda la base (sin filtro de cuadrilla)
+  var ref = (ult.kardexRef||'').trim().toLowerCase();
+  var match = kardexList().find(function(k) {
+    return (k.ref||'').trim().toLowerCase() === ref && k.cuadrillaId === h.cuadrillaId;
+  });
+  var esValido = !!match;
+  ult.kardexValido = esValido;
+  ult.kardexId = match ? match.id : null;
+  ult.verificadoPorAdmin = true;
+  ult.fechaVerificacion = new Date().toISOString();
+  historial[historial.length-1] = ult;
+  db.ref('herramientas/' + herrId).update({
+    historial: historial,
+    verificacion: esValido ? 'verificado' : 'invalido'
+  }).then(function() {
+    toast(esValido ? '\u2705 Kardex verificado correctamente' : '\u274c Kardex NO encontrado \u2014 marcado como inv\u00e1lido', esValido ? 'success' : 'error');
+    renderAdminHerramientas();
+  });
+}
+
+function verHistorialHerramienta(herrId) {
+  var h = cache.herramientas[herrId]; if (!h) return;
+  var hist = h.historial || [];
+  var html = '<div style="max-height:60vh;overflow-y:auto;">'
+    + '<h3 style="margin-bottom:.75rem;">' + h.nombre + ' \u2014 Historial</h3>'
+    + (hist.length ? '<table><thead><tr><th>Fecha</th><th>Cambio</th><th>Ref. Kardex</th><th>Verif.</th><th>Cuadrilla</th><th>Obs.</th></tr></thead><tbody>'
+        + hist.slice().reverse().map(function(e) {
+            return '<tr>'
+              + '<td style="font-size:12px;white-space:nowrap;">' + fmtDate(e.fecha) + '</td>'
+              + '<td>' + (e.estadoAnterior||'\u2014') + ' \u2192 <span class="badge ' + (BADGE_HERR[e.estadoNuevo]||'badge-gray') + '">' + e.estadoNuevo + '</span></td>'
+              + '<td style="font-family:monospace;font-size:12px;">' + esc(e.kardexRef||'') + '</td>'
+              + '<td>' + (e.kardexValido ? '<span class="badge badge-green">\u2713 V\u00e1lido</span>' : '<span class="badge badge-amber">\u26a0 Pendiente</span>') + '</td>'
+              + '<td style="font-size:12px;">' + (e.cuadrillaNombre||'\u2014') + '</td>'
+              + '<td style="font-size:12px;">' + esc(e.obs||'') + '</td>'
+              + '</tr>';
+          }).join('') + '</tbody></table>'
+      : '<p style="color:var(--ink3);font-size:13px;">Sin cambios registrados a\u00fan.</p>')
+    + '</div>';
+  // Reutilizar modal confirm como visor
   var overlay = document.getElementById('confirm-overlay');
   var box = document.getElementById('confirm-box');
-  if (overlay && box) { box.innerHTML = html; overlay.style.display = 'flex'; }
+  if (overlay && box) {
+    box.innerHTML = html + '<div class="btn-row" style="margin-top:1rem;"><button class="btn btn-ghost" onclick="closeConfirm()">Cerrar</button></div>';
+    overlay.style.display = 'flex';
+  }
 }
 
-function renderAdminHerramientas() { renderAdminCatalogoHerr(); }
-
 function exportarHerramientasCSV() {
-  var rows = [['Fecha','Cuadrilla','Herramienta','Estado','Observaciones']];
-  Object.values(cache.reportesHerr||{}).forEach(function(r) {
-    (r.items||[]).forEach(function(it) {
-      rows.push([r.fecha, r.cuadrillaNombre||'', it.nombre||it.herrId, it.estado, r.obs||'']);
-    });
+  var rows = [['Herramienta','Serie','Cuadrilla','Estado','Verificaci\u00f3n','Fecha \u00falt. cambio','Ref. Kardex','Obs.']];
+  herrList().forEach(function(h) {
+    var cuad = getCuad(h.cuadrillaId);
+    var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
+    rows.push([h.nombre, h.serie||'', cuad?cuad.nombre:'', h.estado||'',
+      h.verificacion||'pendiente', ult?fmtDate(ult.fecha):'', ult?(ult.kardexRef||''):'', ult?(ult.obs||''):'']);
   });
-  var csv = rows.map(function(row){
-    return row.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
-  }).join('\n');
+  var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'\"')+'"'; }).join(','); }).join('\n');
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'reportes_herramientas_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = 'herramientas_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
 }
 
@@ -4990,7 +4851,7 @@ function showSection(id) {
   var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
                    'admin-logs','admin-config','admin-herramientas','admin-red-interna'];
   var superOnly = ['admin-logs'];
-  var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas','mi-rendimiento'];
+  var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas'];
 
   // Cuadrilla intentando acceder a sección admin → bloquear
   if (currentUser.tipo !== 'admin' && adminOnly.indexOf(id) > -1) {
@@ -5463,6 +5324,11 @@ document.addEventListener('click', function(e){
   }
 });
 
+function openKardexModalTipo(tipo){
+  openKardexModal();
+  selectKardexTipo(tipo || 'ingreso');
+}
+
 function openKardexModal(){
   initKardexRows();
   document.getElementById('km-fecha').value=new Date().toISOString().slice(0,10);
@@ -5563,6 +5429,11 @@ function renderKardex(){
   if (bar) bar.style.display = esAdmin ? 'block' : 'none';
   if (esAdmin) populateBodegaSelect('kardex-bodega-sel', cid);
   updateBodegaBadge('kardex-bodega-badge', cid);
+  // Mostrar acceso rápido para cuadrilla / herramientas admin
+  var qbar = document.getElementById('kardex-cuad-quickbar');
+  var adminTools = document.getElementById('kardex-admin-tools');
+  if (qbar) qbar.style.display = esAdmin ? 'none' : 'block';
+  if (adminTools) adminTools.style.display = esAdmin ? 'block' : 'none';
   var rows = kardexListFiltrada().filter(function(k){
     return (cid===null||k.cuadrillaId===cid) && (kardexFilter==='todos'||k.tipo===kardexFilter);
   }).sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
@@ -5739,7 +5610,7 @@ function buscarUsoMaterial() {
         + '<td><strong>' + esc(a.cliente || '—') + '</strong>'
           + (a.telefono ? '<br><span style="font-size:10px;color:var(--ink3);">' + esc(a.telefono) + '</span>' : '')
           + '</td>'
-        + '<td style="font-size:11px;color:var(--ink2);">' + esc((a.direccion||'') + (a.idCliente?' · ID: '+a.idCliente:'')) + '</td>'
+        + '<td style="font-size:11px;color:var(--ink2);">' + esc((a.direccion||'') + (a.municipio?', '+a.municipio:'')) + '</td>'
         + '<td style="font-size:11px;">' + esc(a.ot || '—') + '</td>'
         + '<td style="font-weight:600;color:var(--accent-dark);">' + qty + ' ' + esc(mat.unidad || '') + '</td>'
         + (esAdmin ? '<td><span class="badge badge-gray">' + esc(getCuad(a.cuadrillaId) ? getCuad(a.cuadrillaId).nombre : '—') + '</span></td>' : '')
@@ -5842,7 +5713,7 @@ function buscarPorMAC() {
           + '<td style="font-size:11px;white-space:nowrap">' + fmtDate(a.fecha) + '</td>'
           + '<td><strong>' + esc(a.cliente||'—') + '</strong>'
             + (a.telefono?'<br><span style="font-size:10px;color:var(--ink3);">'+esc(a.telefono)+'</span>':'') + '</td>'
-          + '<td style="font-size:11px;">' + esc((a.direccion||'')+(a.idCliente?' · ID: '+a.idCliente:'')) + '</td>'
+          + '<td style="font-size:11px;">' + esc((a.direccion||'')+(a.municipio?', '+a.municipio:'')) + '</td>'
           + '<td style="font-size:11px;">' + esc(a.ot||'—') + '</td>'
           + '<td style="font-size:12px;">' + esc(mat?mat.nombre:'—') + '</td>'
           + '<td style="font-family:monospace;font-size:11px;color:var(--accent);">' + esc(m.mac) + '</td>'
@@ -5887,153 +5758,83 @@ function limpiarBusquedaMAC() {
 }
 
 // ══════════════════════════════════════════════════════
-// ESCÁNER MAC — ZXing camera scanner
+// ESCÁNER MAC — OCR con Tesseract.js
 // ══════════════════════════════════════════════════════
-var scannerCtx    = null;
-var scannerRowUid = null;
-var scannerReader = null;
-var scannerStream = null;
-var scannerResult = null;
+var scannerCtx       = null;
+var scannerRowUid    = null;
+var scannerStream    = null;
+var scannerResult    = null;
+var scannerTesseract = null; // worker precargado
 
-// ── Tab switcher escáner ─────────────────────────────
-function setScanTab(tab) {
-  var isCam = tab === 'cam';
-  document.getElementById('scan-panel-cam').style.display  = isCam ? '' : 'none';
-  document.getElementById('scan-panel-foto').style.display = isCam ? 'none' : '';
-  document.getElementById('scan-tab-cam').style.background  = isCam ? 'var(--accent)' : 'none';
-  document.getElementById('scan-tab-cam').style.color       = isCam ? '#fff' : 'var(--ink2)';
-  document.getElementById('scan-tab-foto').style.background = isCam ? 'none' : 'var(--accent)';
-  document.getElementById('scan-tab-foto').style.color      = isCam ? 'var(--ink2)' : '#fff';
-  if (isCam) {
-    iniciarCamaraScanner();
-  } else {
-    pararCamaraScanner();
-    document.getElementById('scan-foto-status').style.display = 'none';
+// ── Normalizar texto OCR → MAC XX:XX:XX:XX:XX:XX ──
+function ocrNormalizarMAC(texto) {
+  var raw = texto.replace(/\s/g, '');
+  // Patrón con separadores : o -
+  var m = raw.match(/([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}/);
+  if (m) return m[0].toUpperCase().replace(/-/g, ':');
+  // 12 hex sin separador
+  var m2 = raw.match(/[0-9A-Fa-f]{12}/);
+  if (m2) {
+    var h = m2[0].toUpperCase();
+    return h.slice(0,2)+':'+h.slice(2,4)+':'+h.slice(4,6)+':'+h.slice(6,8)+':'+h.slice(8,10)+':'+h.slice(10,12);
   }
-}
-
-// ── Procesar foto para extraer QR/MAC ────────────────
-function procesarFotoQR(input) {
-  var file = input.files && input.files[0];
-  if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var img = document.getElementById('scan-foto-preview');
-    img.src = e.target.result;
-    document.getElementById('scan-foto-preview-wrap').style.display = '';
-    document.getElementById('scan-foto-placeholder').style.display  = 'none';
-    // Decode QR/barcode from image using ZXing
-    var statusEl = document.getElementById('scan-foto-status');
-    statusEl.style.display   = '';
-    statusEl.style.background = 'rgba(59,130,246,.08)';
-    statusEl.style.border     = '1.5px solid rgba(59,130,246,.3)';
-    statusEl.style.color      = 'var(--blue)';
-    statusEl.innerHTML        = '🔍 Analizando imagen…';
-    img.onload = function() {
-      var canvas = document.getElementById('scan-foto-canvas');
-      canvas.width  = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      // Try jsQR first (lightweight)
-      var mac = null;
-      if (window.jsQR) {
-        var code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-        if (code) mac = extraerMACdeTexto(code.data);
-      }
-      // Try ZXing if jsQR didn't find it
-      if (!mac && window.ZXing) {
-        try {
-          var hints = new Map();
-          var formats = [ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.CODE_128,
-                         ZXing.BarcodeFormat.DATA_MATRIX, ZXing.BarcodeFormat.CODE_39];
-          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-          var reader2 = new ZXing.MultiFormatReader();
-          reader2.setHints(hints);
-          var lum = new ZXing.RGBLuminanceSource(imageData.data, canvas.width, canvas.height);
-          var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
-          var result = reader2.decode(bmp);
-          if (result) mac = extraerMACdeTexto(result.getText());
-        } catch(e) { /* not found */ }
-      }
-      if (mac) {
-        statusEl.style.background = 'rgba(34,197,94,.1)';
-        statusEl.style.border     = '1.5px solid rgba(34,197,94,.4)';
-        statusEl.style.color      = '#15803d';
-        statusEl.innerHTML        = '✅ MAC detectada en la imagen';
-        usarMACEscaneada(mac);
-      } else {
-        statusEl.style.background = 'rgba(239,68,68,.08)';
-        statusEl.style.border     = '1.5px solid rgba(239,68,68,.3)';
-        statusEl.style.color      = 'var(--red)';
-        statusEl.innerHTML        = '❌ No se detectó código en la imagen. Intenta con mejor iluminación o escribe la MAC manualmente.';
-      }
-    };
-  };
-  reader.readAsDataURL(file);
-  // Reset input so same file can be re-selected
-  input.value = '';
-}
-
-// ── Capturar foto con cámara trasera (modo foto) ─────
-var scanFotoStream = null;
-function capturarFotoCamara() {
-  // Reutilizar input file con capture=environment para foto inmediata en móvil
-  var input = document.getElementById('scan-foto-input');
-  input.setAttribute('capture','environment');
-  input.click();
-}
-
-// ── Extraer MAC de texto (QR / código de barras) ─────
-function extraerMACdeTexto(txt) {
-  if (!txt) return null;
-  // MAC address pattern: XX:XX:XX:XX:XX:XX o XX-XX-XX-XX-XX-XX o XXXXXXXXXXXX
-  var mac = null;
-  var m1 = txt.match(/([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}/);
-  if (m1) { mac = m1[0].replace(/-/g,':').toUpperCase(); }
-  if (!mac) {
-    var m2 = txt.replace(/[^0-9A-Fa-f]/g,'').match(/^([0-9A-Fa-f]{12})/);
-    if (m2) {
-      var hex = m2[0].toUpperCase();
-      mac = hex.match(/.{2}/g).join(':');
-    }
+  // Intentar con todos los hex chars consecutivos del texto completo
+  var hexOnly = texto.replace(/[^0-9A-Fa-f]/g, '');
+  if (hexOnly.length >= 12) {
+    var h2 = hexOnly.slice(0,12).toUpperCase();
+    return h2.slice(0,2)+':'+h2.slice(2,4)+':'+h2.slice(4,6)+':'+h2.slice(6,8)+':'+h2.slice(8,10)+':'+h2.slice(10,12);
   }
-  return mac;
+  return '';
 }
 
-function usarMACEscaneada(mac) {
-  scannerResult = mac;
-  document.getElementById('scanner-result-box').style.display = '';
-  document.getElementById('scanner-result-val').textContent   = mac;
-  document.getElementById('scanner-confirm-btn').style.display = '';
+function ocrSetStatus(msg) {
+  var el = document.getElementById('scanner-status');
+  if (el) el.textContent = msg;
+}
+
+// ── Precargar worker Tesseract (lo hace en background al abrir) ──
+async function ocrPrecargarWorker() {
+  if (scannerTesseract) return;
+  try {
+    scannerTesseract = await Tesseract.createWorker('eng', 1, { logger: function(){} });
+    await scannerTesseract.setParameters({
+      tessedit_char_whitelist: '0123456789ABCDEFabcdef:- .'
+    });
+  } catch(e) { console.warn('Tesseract preload:', e); }
 }
 
 function abrirScanner(ctx, rowUid) {
   scannerCtx    = ctx;
   scannerRowUid = rowUid;
   scannerResult = null;
+
+  // Reset UI
   document.getElementById('scanner-result-box').style.display   = 'none';
   document.getElementById('scanner-confirm-btn').style.display  = 'none';
+  document.getElementById('scanner-retry-btn').style.display    = 'none';
+  document.getElementById('scanner-capture-btn').style.display  = 'flex';
+  document.getElementById('scanner-capture-btn').disabled       = true;
   document.getElementById('scanner-manual-input').value         = '';
-  document.getElementById('scan-foto-placeholder').style.display  = '';
-  document.getElementById('scan-foto-preview-wrap').style.display = 'none';
-  document.getElementById('scan-foto-status').style.display       = 'none';
-  document.getElementById('scanner-status').textContent = 'Iniciando cámara...';
+  document.getElementById('scanner-capture-wrap').style.display = 'none';
+  document.getElementById('scanner-video-wrap').style.display   = 'block';
+  document.getElementById('scanner-scan-line').style.display    = 'none';
+  ocrSetStatus('Iniciando cámara...');
   openModal('modal-scanner');
-  setScanTab('cam');
+
+  iniciarCamaraScanner();
+  ocrPrecargarWorker(); // precarga en paralelo
 }
 
 function iniciarCamaraScanner() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    document.getElementById('scanner-status').textContent = '⚠ Cámara no disponible en este dispositivo.';
+    ocrSetStatus('⚠ Cámara no disponible en este dispositivo.');
     return;
   }
   navigator.mediaDevices.enumerateDevices().then(function(devices) {
     var cams = devices.filter(function(d){ return d.kind === 'videoinput'; });
     var sel  = document.getElementById('scanner-cam-sel');
     sel.innerHTML = cams.map(function(c, i){
-      return '<option value="'+c.deviceId+'">'+(c.label||'Cámara '+(i+1))+'</option>';
+      return '<option value="'+c.deviceId+'">'+(c.label || 'Cámara '+(i+1))+'</option>';
     }).join('');
     var backCam = cams.find(function(c){ return /back|rear|trasera|environment/i.test(c.label); });
     if (backCam) sel.value = backCam.deviceId;
@@ -6045,61 +5846,126 @@ function iniciarStreamCamara(deviceId) {
   detenerStreamCamara();
   var constraints = {
     video: deviceId
-      ? { deviceId: { exact: deviceId }, facingMode: { ideal: 'environment' } }
-      : { facingMode: { ideal: 'environment' } }
+      ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      : { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
   };
   navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
     scannerStream = stream;
     var video = document.getElementById('scanner-video');
     video.srcObject = stream;
     video.play();
-    document.getElementById('scanner-status').textContent = '🔍 Buscando código...';
-    iniciarLecturaZXing(video);
+    video.onloadedmetadata = function() {
+      document.getElementById('scanner-capture-btn').disabled = false;
+      ocrSetStatus('📷 Listo — encuadra la etiqueta y toma la foto');
+    };
   }).catch(function(err) {
     var msg = err.name === 'NotAllowedError'
       ? '🔒 Permiso de cámara denegado. Actívalo en ajustes del navegador.'
       : '⚠ No se pudo acceder a la cámara: ' + err.message;
-    document.getElementById('scanner-status').textContent = msg;
+    ocrSetStatus(msg);
   });
 }
 
-function iniciarLecturaZXing(video) {
-  if (!window.ZXing) {
-    document.getElementById('scanner-status').textContent = '⚠ Escáner no disponible — usa la entrada manual.';
-    return;
-  }
-  try {
-    var hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-      ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.CODE_128,
-      ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.DATA_MATRIX,
-      ZXing.BarcodeFormat.EAN_13,  ZXing.BarcodeFormat.UPC_A
-    ]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    scannerReader = new ZXing.BrowserMultiFormatReader(hints);
-    scannerReader.decodeFromVideoElement(video, function(result, err) {
-      if (result) procesarResultadoScan(result.getText());
-    });
-  } catch(e) {
-    document.getElementById('scanner-status').textContent = '⚠ Error escáner: ' + e.message;
-  }
-}
-
-function procesarResultadoScan(raw) {
-  var macMatch = raw.replace(/[\s\-\.\:]/g,'').match(/[0-9a-fA-F]{12}/);
-  var mac = macMatch
-    ? macMatch[0].match(/.{1,2}/g).join(':').toUpperCase()
-    : raw.trim().toUpperCase();
-  scannerResult = mac;
-  document.getElementById('scanner-result-val').textContent    = mac;
-  document.getElementById('scanner-result-box').style.display  = 'block';
-  document.getElementById('scanner-confirm-btn').style.display = 'inline-flex';
-  document.getElementById('scanner-status').textContent        = '✓ Código detectado';
-  document.getElementById('scanner-manual-input').value        = mac;
-  if (navigator.vibrate) navigator.vibrate(100);
-}
-
 function cambiarCamaraScanner(deviceId) { iniciarStreamCamara(deviceId); }
+
+// ── Capturar foto + preprocesar + OCR ──
+async function ocrCapturar() {
+  var video  = document.getElementById('scanner-video');
+  var canvas = document.getElementById('scanner-canvas');
+
+  // Capturar frame completo
+  canvas.width  = video.videoWidth  || 1280;
+  canvas.height = video.videoHeight || 720;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // Recortar zona del recuadro guía (80% ancho, 28% alto, centrado)
+  var cx = Math.floor(canvas.width  * 0.10);
+  var cy = Math.floor(canvas.height * 0.36);
+  var cw = Math.floor(canvas.width  * 0.80);
+  var ch = Math.floor(canvas.height * 0.28);
+
+  var cropCanvas = document.createElement('canvas');
+  cropCanvas.width = cw; cropCanvas.height = ch;
+  cropCanvas.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
+
+  // Escalar 3× para mejor OCR
+  var SCALE = 3;
+  var scaled = document.createElement('canvas');
+  scaled.width  = cw * SCALE;
+  scaled.height = ch * SCALE;
+  var sCtx = scaled.getContext('2d');
+  sCtx.imageSmoothingEnabled = false;
+  sCtx.drawImage(cropCanvas, 0, 0, scaled.width, scaled.height);
+
+  // Binarizar (blanco/negro) para maximizar contraste en texto
+  var imgData = sCtx.getImageData(0, 0, scaled.width, scaled.height);
+  for (var i = 0; i < imgData.data.length; i += 4) {
+    var gray = 0.299*imgData.data[i] + 0.587*imgData.data[i+1] + 0.114*imgData.data[i+2];
+    var val  = gray > 128 ? 255 : 0;
+    imgData.data[i] = imgData.data[i+1] = imgData.data[i+2] = val;
+  }
+  sCtx.putImageData(imgData, 0, 0);
+
+  // Mostrar preview de la foto capturada (sin binarizar, más amigable)
+  document.getElementById('scanner-captured-img').src = cropCanvas.toDataURL('image/jpeg', 0.92);
+
+  // Detener video y mostrar preview
+  detenerStreamCamara();
+  document.getElementById('scanner-video-wrap').style.display   = 'none';
+  document.getElementById('scanner-capture-wrap').style.display = 'block';
+  document.getElementById('scanner-capture-btn').style.display  = 'none';
+  document.getElementById('scanner-scan-line').style.display    = 'none';
+
+  ocrSetStatus('🔍 Analizando imagen con OCR...');
+
+  // Ejecutar OCR
+  try {
+    var worker = scannerTesseract;
+    var tempWorker = false;
+    if (!worker) {
+      worker = await Tesseract.createWorker('eng', 1, { logger: function(){} });
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFabcdef:- .' });
+      tempWorker = true;
+    }
+
+    var result = await worker.recognize(scaled.toDataURL());
+    if (tempWorker) { worker.terminate(); }
+
+    var mac = ocrNormalizarMAC(result.data.text);
+
+    if (mac) {
+      scannerResult = mac;
+      document.getElementById('scanner-result-val').textContent   = mac;
+      document.getElementById('scanner-result-box').style.display = 'block';
+      document.getElementById('scanner-manual-input').value       = mac;
+      document.getElementById('scanner-confirm-btn').style.display = 'inline-flex';
+      ocrSetStatus('✓ MAC detectada: ' + mac);
+      if (navigator.vibrate) navigator.vibrate(120);
+    } else {
+      ocrSetStatus('⚠ No se detectó MAC. Edita el campo manual o reintenta.');
+    }
+  } catch(e) {
+    ocrSetStatus('⚠ Error OCR: ' + e.message + ' — usa la entrada manual.');
+    console.error('Tesseract error:', e);
+  }
+
+  document.getElementById('scanner-retry-btn').style.display = 'inline-flex';
+}
+
+function ocrReintentar() {
+  document.getElementById('scanner-result-box').style.display   = 'none';
+  document.getElementById('scanner-confirm-btn').style.display  = 'none';
+  document.getElementById('scanner-retry-btn').style.display    = 'none';
+  document.getElementById('scanner-capture-wrap').style.display = 'none';
+  document.getElementById('scanner-capture-btn').style.display  = 'flex';
+  document.getElementById('scanner-capture-btn').disabled       = true;
+  document.getElementById('scanner-video-wrap').style.display   = 'block';
+  document.getElementById('scanner-manual-input').value         = '';
+  scannerResult = null;
+  ocrSetStatus('Iniciando cámara...');
+  iniciarCamaraScanner();
+}
 
 function formatearMACManual(input) {
   var raw = input.value.replace(/[^0-9a-fA-F]/g,'').slice(0,12);
@@ -6121,7 +5987,7 @@ function confirmarMACManual() {
 }
 
 function confirmarScan() {
-  if (!scannerResult) { toast('No hay código detectado aún', 'info'); return; }
+  if (!scannerResult) { toast('No hay MAC detectada aún', 'info'); return; }
   aplicarResultadoScanner(scannerResult);
 }
 
@@ -6141,12 +6007,10 @@ function aplicarResultadoScanner(mac) {
 }
 
 function detenerStreamCamara() {
-  if (scannerReader) { try { scannerReader.reset(); } catch(e){} scannerReader = null; }
   if (scannerStream) { scannerStream.getTracks().forEach(function(t){ t.stop(); }); scannerStream = null; }
   var video = document.getElementById('scanner-video');
   if (video) video.srcObject = null;
 }
-function pararCamaraScanner() { detenerStreamCamara(); }
 
 function cerrarScanner() {
   detenerStreamCamara();
@@ -6284,7 +6148,7 @@ function registrarAsignacion(){
       var asig={id:aid,fecha:nowISO(),cliente:nombre,
         tel:document.getElementById('cli-tel').value,
         dir:document.getElementById('cli-dir').value,
-        idCliente:document.getElementById('cli-id-cliente').value.trim().toUpperCase(),
+        municipio:document.getElementById('cli-municipio').value,
         ot:document.getElementById('cli-ot').value,
         tipo:document.getElementById('cli-tipo').value,
         tecnico:document.getElementById('cli-tecnico').value,
@@ -6366,7 +6230,7 @@ function registrarAsignacion(){
 }
 
 function limpiarAsignacion(){
-  ['cli-nombre','cli-tel','cli-dir','cli-id-cliente','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
+  ['cli-nombre','cli-tel','cli-dir','cli-municipio','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
   asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
   // Re-auto-llenar hora de finalización tras limpiar
@@ -6399,7 +6263,7 @@ function generarPDF(asig){
   if(asig.horaInicio||asig.horaFin) r2('Hora inicio:',(asig.horaInicio||'—'),'Hora fin:',(asig.horaFin||'—'));
   y+=4;
   sec('DATOS DEL CLIENTE');
-  [['Cliente:',asig.cliente],['ID Cliente:',asig.idCliente||'—'],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—']].forEach(function(r){r2(r[0],r[1]);});
+  [['Cliente:',asig.cliente],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—'],['Municipio:',asig.municipio||'—']].forEach(function(r){r2(r[0],r[1]);});
   y+=4;sec('MATERIALES UTILIZADOS');
   doc.setFillColor(26,26,25);doc.rect(L,y,170,7,'F');
   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
@@ -6563,7 +6427,7 @@ function generarInformePDF(tipo) {
       return [
         fmtDate(a.fecha),
         a.cliente||'—',
-        (a.direccion||'')+(a.idCliente?' ID:'+a.idCliente:''),
+        (a.direccion||'')+(a.municipio?', '+a.municipio:''),
         a.ot||'—',
         a.tecnico||a.responsable||'—',
         a.horaInicio||'—',
@@ -6833,7 +6697,7 @@ function mostrarResumenTexto(){
   var nombre=document.getElementById('cli-nombre').value.trim();
   var tel=document.getElementById('cli-tel').value.trim();
   var dir=document.getElementById('cli-dir').value.trim();
-  var idCliente=document.getElementById('cli-id-cliente').value.trim().toUpperCase();
+  var municipio=document.getElementById('cli-municipio').value.trim();
   var ot=document.getElementById('cli-ot').value.trim();
   var tipo=document.getElementById('cli-tipo').value;
   var tecnico=document.getElementById('cli-tecnico').value.trim();
@@ -6858,7 +6722,7 @@ function mostrarResumenTexto(){
   lineas.push('Nombre:    '+(nombre||'—'));
   if(tel)      lineas.push('Teléfono:  '+tel);
   if(dir)      lineas.push('Dirección: '+dir);
-  if(idCliente) lineas.push('ID Cliente: '+idCliente);
+  if(municipio) lineas.push('Municipio: '+municipio);
   lineas.push('');
   lineas.push('── MATERIALES ───────────');
   if(!validos.length){
@@ -7334,23 +7198,13 @@ function populateSectorSelect(){
 
 function openCuadrillaModal(){
   populateSectorSelect();
-  document.getElementById('cuad-nombre').value='';
-  document.getElementById('cuad-resp').value='';
-  document.getElementById('cuad-zona').value='';
-  document.getElementById('cuad-pass').value='';
+  document.getElementById('cuad-nombre').value='';document.getElementById('cuad-resp').value='';
+  document.getElementById('cuad-zona').value='';document.getElementById('cuad-pass').value='';
   document.getElementById('cuad-username').value='';
   document.getElementById('cuad-red-interna').checked=false;
   document.getElementById('cuad-edit-id').value='';
   document.getElementById('cuad-modal-title').textContent='Nueva cuadrilla';
-  // Preseleccionar el sector del admin actual si no es superadmin
-  if (currentUser && currentUser.rol !== 'superadmin' && currentUser.sector) {
-    var sel = document.getElementById('cuad-sector');
-    if (sel && sel.querySelector('option[value="'+currentUser.sector+'"]')) {
-      sel.value = currentUser.sector;
-    }
-  }
   openModal('modal-cuadrilla');
-  setTimeout(function(){ document.getElementById('cuad-nombre').focus(); }, 100);
 }
 
 function editCuad(id){
@@ -7370,71 +7224,38 @@ function editCuad(id){
 
 function guardarCuadrilla(){
   if (!currentUser || currentUser.tipo !== 'admin') { toast('Sin permisos', 'error'); return; }
-  var nombre   = document.getElementById('cuad-nombre').value.trim();
-  var username = (document.getElementById('cuad-username').value||'').trim().toLowerCase().replace(/\s+/g,'_');
-  var pass     = document.getElementById('cuad-pass').value;
-  var editId   = document.getElementById('cuad-edit-id').value;
-  var sectorId = document.getElementById('cuad-sector').value;
-  var respVal  = document.getElementById('cuad-resp').value.trim();
-  var zonaVal  = document.getElementById('cuad-zona').value.trim();
-  var riAcceso = document.getElementById('cuad-red-interna').checked;
-
-  // ── Validaciones ──────────────────────────────────────
-  if (!nombre)    { toast('Ingresa el nombre de la cuadrilla', 'error'); document.getElementById('cuad-nombre').focus(); return; }
-  if (!username)  { toast('Ingresa el usuario de acceso', 'error'); document.getElementById('cuad-username').focus(); return; }
-  if (!sectorId)  { toast('Selecciona un sector', 'error'); document.getElementById('cuad-sector').focus(); return; }
-  if (!pass || pass.length < 4) { toast('La contraseña debe tener al menos 4 caracteres', 'error'); document.getElementById('cuad-pass').focus(); return; }
-
-  // Verificar username único (ignorar el registro actual si es edición)
-  var dupl = cuadrillasList().filter(function(x){
-    return x.id !== editId && (x.username||'').trim().toLowerCase() === username;
-  });
-  if (dupl.length) { toast('Ese nombre de usuario ya está en uso', 'error'); return; }
-
-  if (!editId && cuadrillasList().length >= 30) { toast('Máximo 30 cuadrillas', 'error'); return; }
-
-  // Verificar permisos de sector para admin no-superadmin
-  if (currentUser.rol !== 'superadmin' && sectorId !== currentUser.sector) {
-    toast('Solo puedes crear cuadrillas en tu sector asignado', 'error'); return;
-  }
-
-  var sec = getSector(sectorId);
-  var sectorLabel = sec ? sec.nombre : sectorId;
-
+  var nombre=document.getElementById('cuad-nombre').value.trim();
+  var username=(document.getElementById('cuad-username').value||'').trim().toLowerCase().replace(/\s+/g,'_');
+  var pass=document.getElementById('cuad-pass').value;
+  var editId=document.getElementById('cuad-edit-id').value;
+  if(!nombre){toast('Ingresa el nombre','error');return;}
+  if(!username){toast('Ingresa el usuario de acceso','error');return;}
+  // Verificar username unico
+  var dupl=cuadrillasList().filter(function(x){return x.id!==editId && (x.username||'').trim().toLowerCase()===username;});
+  if(dupl.length){toast('Ese nombre de usuario ya existe','error');return;}
+  if(!pass||pass.length<4){toast('La contraseña debe tener al menos 4 caracteres','error');return;}
+  if(!editId&&cuadrillasList().length>=30){toast('Máximo 30 cuadrillas','error');return;}
+  var sectorId=document.getElementById('cuad-sector').value||'sector_1';
+  var sec=getSector(sectorId);
+  var sectorLabel=sec?sec.nombre:sectorId;
+  var respVal=document.getElementById('cuad-resp').value;
+  var zonaVal=document.getElementById('cuad-zona').value;
   showConfirm(
-    editId ? 'Confirmar actualización' : 'Confirmar nueva cuadrilla',
-    '<strong>' + (editId ? 'Actualizar' : 'Crear') + ':</strong> ' + esc(nombre) + '<br>'
-    + '<strong>Usuario:</strong> ' + esc(username) + '<br>'
-    + '<strong>Sector:</strong> ' + esc(sectorLabel)
-    + (respVal ? '<br><strong>Responsable:</strong> ' + esc(respVal) : ''),
-    function() {
-      // Mostrar indicador de carga
-      toast('Guardando cuadrilla…', 'info');
+    editId?'Confirmar actualización':'Confirmar nueva cuadrilla',
+    '<strong>'+(editId?'Actualizar':'Crear')+':</strong> '+esc(nombre)+'<br>'
+    +'<strong>Responsable:</strong> '+esc(respVal||'—')+'<br>'
+    +'<strong>Zona:</strong> '+esc(zonaVal||'—')+'<br>'
+    +'<strong>Sector:</strong> '+esc(sectorLabel),
+    function(){
       hashPass(pass).then(function(hashed) {
-        var cuad = {
-          nombre:      nombre,
-          responsable: respVal,
-          zona:        zonaVal,
-          sectorId:    sectorId,
-          sector:      sectorId,
-          username:    username,
-          pass:        hashed,
-          redInterna:  riAcceso,
-          creadoEn:    Date.now()
-        };
-        var ref = editId
-          ? db.ref('cuadrillas/' + editId)
-          : db.ref('cuadrillas').push();
-        return ref.set(cuad).then(function() {
-          toast(editId ? '✅ Cuadrilla "' + nombre + '" actualizada' : '✅ Cuadrilla "' + nombre + '" creada correctamente', 'success');
-          closeModal('modal-cuadrilla');
-          // Refrescar la lista si está visible
-          if (currentSection === 'admin-cuadrillas') renderAdminCuadrillas();
-        });
-      }).catch(function(e) {
-        console.error('guardarCuadrilla error:', e);
-        toast('Error al guardar: ' + (e.message || e), 'error');
-      });
+        var riAcceso = document.getElementById('cuad-red-interna').checked;
+        var cuad={nombre:nombre,responsable:respVal,zona:zonaVal,sectorId:sectorId,sector:sectorId,username:username,pass:hashed,redInterna:riAcceso};
+        var ref=editId?db.ref('cuadrillas/'+editId):db.ref('cuadrillas').push();
+        return ref.set(cuad);
+      }).then(function(){
+        toast(editId?'Cuadrilla actualizada':'"'+nombre+'" creada','success');
+        closeModal('modal-cuadrilla');
+      }).catch(function(e){toast('Error: '+e.message,'error');});
     }
   );
 }
@@ -7551,7 +7372,7 @@ function renderAdminReportes(){
   });
   // Si no hay cuadrillas, mostrar aviso
   if (!cuads.length && currentUser && currentUser.rol !== 'superadmin') {
-    ['reptab-asignaciones','reptab-kardex','reptab-tiempos','reptab-reincidencias'].forEach(function(id){
+    ['reptab-asignaciones','reptab-kardex','reptab-tiempos'].forEach(function(id){
       var el=document.getElementById(id);
       if(el && el.style.display !== 'none') {
         var cont = el.querySelector('.card');
@@ -7788,25 +7609,11 @@ function renderAdminLogs(){
 // ══════════════════════════════════════════════════════
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-function toast(msg, type) {
-  // Auto-crear el contenedor si no existe (necesario en pantalla de login)
-  var c = document.getElementById('toasts');
-  if (!c) {
-    c = document.createElement('div');
-    c.id = 'toasts';
-    c.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;max-width:340px;';
-    document.body.appendChild(c);
-  }
-  var icons = { success:'✓', error:'✕', info:'ℹ' };
-  var colors = { success:'#16a34a', error:'#dc2626', info:'#2563eb' };
-  var el = document.createElement('div');
-  el.className = 'toast t-' + (type || 'info');
-  el.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fff;border-radius:10px;padding:11px 14px;box-shadow:0 4px 16px rgba(0,0,0,.15);font-size:13px;font-family:var(--sans,"system-ui",sans-serif);color:#1a202c;border-left:4px solid '+(colors[type]||colors.info)+';animation:slideIn .25s ease;min-width:200px;';
-  el.innerHTML = '<span style="font-weight:700;font-size:15px;color:'+(colors[type]||colors.info)+'">'+(icons[type]||'ℹ')+'</span><span style="flex:1">'+msg+'</span>';
-  // Cerrar al hacer clic
-  el.onclick = function() { el.remove(); };
-  c.appendChild(el);
-  setTimeout(function() { if (el.parentNode) el.remove(); }, 3800);
+function toast(msg,type){
+  var c=document.getElementById('toasts'),icons={success:'✓',error:'✕',info:'i'};
+  var el=document.createElement('div');el.className='toast t-'+(type||'info');
+  el.innerHTML='<span style="font-weight:700;font-size:14px">'+(icons[type]||'i')+'</span><span>'+msg+'</span>';
+  c.appendChild(el);setTimeout(function(){el.remove();},3500);
 }
 document.querySelectorAll('.modal-overlay').forEach(function(ov){
   ov.addEventListener('click',function(e){if(e.target===ov)ov.classList.remove('open');});
@@ -7888,8 +7695,6 @@ function cargarDatosIniciales() {
     safeOnce(db.ref('asignaciones')),
     safeOnce(db.ref('sectores')),
     safeOnce(db.ref('herramientas')),
-    safeOnce(db.ref('catalogo_herramientas')),
-    safeOnce(db.ref('reportes_herramientas')),
     safeOnce(db.ref('redInterna')),
     safeOnce(db.ref('visitas_fallidas')),
     safeOnce(db.ref('config/adminPass')),
@@ -7948,7 +7753,6 @@ function cargarDatosIniciales() {
     }
 
     loadScreen.style.display = 'none';
-    cache._loaded = true;
     document.getElementById('login-screen').style.display = 'flex';
     populateLoginSelect();
     initFirebaseListeners();
@@ -8007,130 +7811,6 @@ function mostrarErrorFirebase(titulo, subtitulo, causas) {
   loadScreen.appendChild(box);
 }
 
-// ══════════════════════════════════════════════════════
-//  MI RENDIMIENTO — Dashboard CuadriControl en BodegaNet
-// ══════════════════════════════════════════════════════
-var mrVista = 'dia';
-var mrCcDb  = null;
-var mrListener = null;
-
-var MR_TIPO_MAP = {
-  'Instalaciones':'inst','Cambio a FO':'cfo','Sin conexión':'sincon',
-  'Link Loss':'linkloss','Visita Repetidor':'repetidor','Instalación TV':'tv-inst',
-  'Problemas TV':'tv-prob','Problema FO':'fo-prob','Fallas VoIP':'voip',
-  'Reconf. Caja Digital':'caja','Internet lento':'lento','Cámara Repetidor':'camara',
-  'Cambio Contraseña':'contrasena','Retiros Traslado':'traslados','Retiro de equipo cliente':'retiros'
-};
-var MR_KEY_LABELS = {
-  inst:'Instalaciones',cfo:'Cambio FO',sincon:'Sin conexión',linkloss:'Link Loss',
-  repetidor:'Repetidor',lento:'Internet lento',camara:'Cámara',contrasena:'Contraseña',
-  traslados:'Traslados',retiros:'Retiros','tv-inst':'TV Inst.','tv-prob':'TV Prob.',
-  'fo-prob':'FO Prob.',voip:'VoIP',caja:'Caja Digital',cortesia:'Cortesía',
-  inestable:'Inestable',cobertura:'Cobertura',red:'Red interna',
-  'inst-dem':'Inst. demora','rep-dem':'Rep. demora'
-};
-
-function mrInitDb() {
-  if (mrCcDb) return;
-  try {
-    var app = firebase.apps.find(function(a){ return a.name === '[DEFAULT]'; }) || firebase.app();
-    mrCcDb = firebase.database(app);
-  } catch(e) { console.warn('MR DB error',e); }
-}
-
-function mrSetVista(v) {
-  mrVista = v;
-  var hoy = new Date().toISOString().slice(0,10);
-  document.getElementById('mr-btn-dia').style.background = v==='dia' ? 'var(--accent)' : 'none';
-  document.getElementById('mr-btn-dia').style.color      = v==='dia' ? '#000' : 'var(--ink2)';
-  document.getElementById('mr-btn-mes').style.background = v==='mes' ? 'var(--accent)' : 'none';
-  document.getElementById('mr-btn-mes').style.color      = v==='mes' ? '#000' : 'var(--ink2)';
-  document.getElementById('mr-fecha').style.display = v==='dia' ? '' : 'none';
-  document.getElementById('mr-mes').style.display   = v==='mes' ? '' : 'none';
-  var isHoy = v==='dia' && document.getElementById('mr-fecha').value === hoy;
-  document.getElementById('mr-live').style.display = isHoy ? 'flex' : 'none';
-  renderMiRendimiento();
-}
-
-function renderMiRendimiento() {
-  if (!currentUser || currentUser.tipo !== 'cuadrilla') return;
-  mrInitDb();
-  if (!mrCcDb) return;
-  var cuad = getCuad(currentUser.cuadrillaId);
-  if (!cuad) return;
-  var cuadNombre = cuad.nombre;
-  var hoy = new Date().toISOString().slice(0,10);
-  var fecha = mrVista==='dia' ? (document.getElementById('mr-fecha').value || hoy) : null;
-  var mes   = mrVista==='mes' ? (document.getElementById('mr-mes').value || hoy.slice(0,7)) : null;
-  var isHoy = mrVista==='dia' && fecha===hoy;
-  document.getElementById('mr-live').style.display = isHoy ? 'flex' : 'none';
-  document.getElementById('mr-subtitulo').textContent = cuadNombre + ' · ' + (mrVista==='dia' ? fecha : mes);
-
-  // Escuchar en tiempo real
-  if (mrListener) { mrCcDb.ref('cuadricontrol_registros').off('value', mrListener); }
-  mrListener = mrCcDb.ref('cuadricontrol_registros').on('value', function(snap) {
-    var all = snap.val() || {};
-    var recs = Object.values(all).filter(function(r) {
-      if (!r || r.cuadrilla !== cuadNombre) return false;
-      if (mrVista==='dia') return r.fecha === fecha;
-      return r.fecha && r.fecha.startsWith(mes);
-    });
-    mrRenderData(recs, cuad);
-  });
-}
-
-function mrRenderData(recs, cuad) {
-  var totProg = recs.reduce(function(s,r){ return s+(r.totalProg||0); },0);
-  var totDem  = recs.reduce(function(s,r){ return s+(r.totalDem||0); },0);
-  var totReasig=recs.reduce(function(s,r){ return s+(r.totalReasig||0); },0);
-  var total   = totProg + totDem;
-  var meta    = mrVista==='dia' ? (cuad.meta||10) : (cuad.meta||10) * recs.length;
-  var pct     = meta>0 ? Math.min(Math.round(total/meta*100),100) : 0;
-  var colEfic = pct>=100?'#16a34a':pct>=70?'#d97706':'#dc2626';
-  var colBar  = pct>=100?'#4ade80':pct>=70?'#f59e0b':'#f87171';
-
-  // KPIs
-  document.getElementById('mr-kpis').innerHTML =
-    mrKpi('Trabajos',total,'var(--blue)') +
-    mrKpi('Efectividad',pct+'%',colEfic) +
-    mrKpi('Demoras',totDem,'#d97706') +
-    mrKpi('Reasignaciones',totReasig,'#dc2626');
-
-  // Progress bar
-  document.getElementById('mr-prog-bar').style.width  = pct+'%';
-  document.getElementById('mr-prog-bar').style.background = colBar;
-  document.getElementById('mr-pct-badge').textContent = pct+'%';
-  document.getElementById('mr-pct-badge').style.color = colEfic;
-  document.getElementById('mr-prog-label').textContent = total+' trabajos realizados';
-  document.getElementById('mr-meta-label').textContent = 'Meta: '+meta;
-
-  // Desglose
-  var campos = ['inst','cfo','sincon','linkloss','repetidor','tv-inst','tv-prob','fo-prob',
-    'voip','caja','cortesia','lento','inestable','camara','cobertura','contrasena','traslados','retiros'];
-  var des = document.getElementById('mr-desglose');
-  var items = campos.map(function(k){
-    return { k:k, v:recs.reduce(function(s,r){ return s+(r[k]||0); },0) };
-  }).filter(function(x){ return x.v>0; });
-  if (!items.length) {
-    des.innerHTML = '<div style="text-align:center;color:var(--ink3);padding:24px;grid-column:1/-1">Sin datos para el período seleccionado.</div>';
-    return;
-  }
-  des.innerHTML = items.map(function(x) {
-    return '<div style="background:rgba(255,255,255,.5);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:center">'
-      +'<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">'+(MR_KEY_LABELS[x.k]||x.k)+'</div>'
-      +'<div style="font-size:22px;font-weight:700;color:var(--blue)">'+x.v+'</div>'
-      +'</div>';
-  }).join('');
-}
-
-function mrKpi(label, val, color) {
-  return '<div class="kpi"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">'+label+'</div>'
-    +'<div style="font-size:26px;font-weight:700;color:'+color+'">'+val+'</div></div>';
-}
-
-// Hook en showSection para inicializar Mi Rendimiento
-// ── Mi Rendimiento: inicialización al navegar ────────
-// (integrado en renderCurrentSection — no necesita override de showSection)
 </script>
 </body>
 </html>
