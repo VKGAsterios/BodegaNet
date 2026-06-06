@@ -379,7 +379,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="nav-item" onclick="showSection('historial')">
             <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Historial
           </button>
-          <button class="nav-item" onclick="showSection('herramientas')">
+          <button class="nav-item" id="nav-herramientas-cuad" onclick="showSection('herramientas')">
             <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l-3 3-2-2 3-3a4 4 0 00-5.5 5.5L3 11a1.41 1.41 0 002 2l4-4a4 4 0 005.5-5.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Herramientas
           </button>
           <button class="nav-item" id="nav-red-interna" onclick="showSection('red-interna')" style="display:none;">
@@ -471,7 +471,40 @@ select option{background:var(--bg3);color:var(--ink);}
         <div id="dash-admin-view">
           <div class="kpi-grid" id="kpi-grid"></div>
           <div class="card"><div class="card-title">Últimas asignaciones</div><div id="dash-recent"></div></div>
-          <!-- GRÁFICOS TRABAJOS -->
+          <!-- PANEL EFECTIVIDAD POR CUADRILLA -->
+          <div class="card" id="dash-efectividad-wrap" style="margin-bottom:.75rem;padding:1.25rem 1.25rem 1rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1rem;">
+              <div>
+                <div class="card-title" style="margin-bottom:2px;">⚡ Efectividad por cuadrilla</div>
+                <p id="efec-desc" style="font-size:12px;color:var(--ink3);">Haz clic en una cuadrilla para ver el desglose</p>
+              </div>
+              <div style="display:flex;border:1.5px solid var(--border2);border-radius:var(--r);overflow:hidden;">
+                <button id="ep-dia"    class="efec-periodo-btn" onclick="setEfecPeriodo('dia')"    style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:600;">Día</button>
+                <button id="ep-semana" class="efec-periodo-btn" onclick="setEfecPeriodo('semana')" style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:rgba(255,255,255,.6);color:var(--ink2);">Semana</button>
+                <button id="ep-mes"    class="efec-periodo-btn" onclick="setEfecPeriodo('mes')"    style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:rgba(255,255,255,.6);color:var(--ink2);">Mes</button>
+              </div>
+            </div>
+            <div id="efec-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;"></div>
+          </div>
+
+          <!-- MODAL detalle efectividad cuadrilla -->
+          <div id="modal-efec-detalle" style="display:none;position:fixed;inset:0;z-index:1300;background:rgba(20,25,40,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+            <div style="background:rgba(245,246,248,.98);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.85);border-radius:var(--r-xl);padding:1.5rem;max-width:680px;width:94%;max-height:82vh;overflow-y:auto;box-shadow:0 8px 48px rgba(20,25,40,.18);position:relative;">
+              <button onclick="cerrarEfecDetalle()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:18px;cursor:pointer;color:var(--ink3);">&#x2715;</button>
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;">
+                <div id="efec-det-gauge" style="flex-shrink:0;"></div>
+                <div>
+                  <h3 id="efec-det-nombre" style="font-family:var(--display);font-size:18px;font-weight:700;"></h3>
+                  <p id="efec-det-sub" style="font-size:12px;color:var(--ink3);margin-top:2px;"></p>
+                </div>
+              </div>
+              <div id="efec-det-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:1rem;"></div>
+              <div style="border-top:1px solid var(--border);padding-top:.75rem;">
+                <div class="card-title" style="margin-bottom:.5rem;">Trabajos realizados</div>
+                <div id="efec-det-lista"></div>
+              </div>
+            </div>
+          </div>
           <div id="dash-graficos-admin">
             <!-- Header con controles -->
             <div class="card" style="margin-bottom:.75rem;">
@@ -2974,6 +3007,194 @@ function exportarTiemposCSV(){
 // GRÁFICOS DASHBOARD — TAREAS POR CUADRILLA/TIPO/SECTOR
 // =====================================================
 
+// ══════════════════════════════════════════════════════
+// EFECTIVIDAD POR CUADRILLA
+// ══════════════════════════════════════════════════════
+var efecPeriodo = 'dia';
+
+function setEfecPeriodo(p) {
+  efecPeriodo = p;
+  ['dia','semana','mes'].forEach(function(k) {
+    var btn = document.getElementById('ep-'+k);
+    if (!btn) return;
+    btn.style.background = k===p ? 'var(--accent)' : 'rgba(255,255,255,.6)';
+    btn.style.color      = k===p ? '#fff'          : 'var(--ink2)';
+    btn.style.fontWeight = k===p ? '600'           : '400';
+  });
+  renderEfectividad();
+}
+
+function efecRango() {
+  var hoy = new Date();
+  var fin = hoy.toISOString().slice(0,10);
+  var ini;
+  if (efecPeriodo==='dia') { ini = fin; }
+  else if (efecPeriodo==='semana') { var d=new Date(hoy); d.setDate(d.getDate()-6); ini=d.toISOString().slice(0,10); }
+  else { var d2=new Date(hoy); d2.setDate(1); ini=d2.toISOString().slice(0,10); }
+  return { ini:ini, fin:fin };
+}
+
+function efecGaugeColor(pct) {
+  if (pct >= 90) return '#22c55e';
+  if (pct >= 75) return '#f59e0b';
+  return '#ef4444';
+}
+
+function efecGaugeSVG(pct, color, size) {
+  size = size || 72;
+  var r = (size - 10) / 2;
+  var cx = size/2, cy = size/2;
+  var circ = 2 * Math.PI * r;
+  var fill = circ * (pct/100);
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" style="transform:rotate(-90deg);">'
+    + '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="rgba(30,35,50,.10)" stroke-width="7"/>'
+    + '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="7"'
+    + ' stroke-dasharray="'+fill+' '+circ+'" stroke-linecap="round"/>'
+    + '</svg>';
+}
+
+function renderEfectividad() {
+  if (!currentUser || currentUser.tipo !== 'admin') return;
+  var grid = document.getElementById('efec-grid');
+  if (!grid) return;
+  var rango = efecRango();
+  var periodoLabel = {dia:'Hoy',semana:'Esta semana',mes:'Este mes'}[efecPeriodo];
+  var desc = document.getElementById('efec-desc');
+  if (desc) desc.textContent = 'Haz clic en una cuadrilla para ver el desglose · ' + periodoLabel;
+
+  var cuads = getCuadrillasFiltradas().sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  var allAsigs = asigListFiltrada().filter(function(a){
+    return !a.anulada && a.fecha >= rango.ini && a.fecha <= rango.fin;
+  });
+
+  // Calcular totales por cuadrilla + ordenar por porcentaje desc
+  var datos = cuads.map(function(cu) {
+    var asigsCuad = allAsigs.filter(function(a){ return a.cuadrillaId===cu.id; });
+    var meta = cu.meta || 0; // meta diaria/semanal/mensual
+    var realizados = asigsCuad.length;
+    // Si no hay meta, usar realizados como referencia visual
+    var pct = meta > 0 ? Math.round(Math.min(realizados/meta*100, 100)) : null;
+    return { cu:cu, realizados:realizados, meta:meta, pct:pct, asigs:asigsCuad };
+  }).sort(function(a,b){
+    // Ordenar por: con meta desc, sin meta por realizados desc
+    var pa = a.pct !== null ? a.pct : -1;
+    var pb = b.pct !== null ? b.pct : -1;
+    if (pb !== pa) return pb - pa;
+    return b.realizados - a.realizados;
+  });
+
+  if (!datos.length) {
+    grid.innerHTML = '<p style="color:var(--ink3);font-size:13px;grid-column:1/-1;">Sin cuadrillas registradas.</p>';
+    return;
+  }
+
+  grid.innerHTML = datos.map(function(d) {
+    var cu = d.cu;
+    var pct = d.pct !== null ? d.pct : null;
+    var color = pct !== null ? efecGaugeColor(pct) : '#3b82f6';
+    var gaugeSize = 72;
+    var gaugeValue = pct !== null ? pct : Math.min(d.realizados * 5, 100); // visual solo
+    var badge = '';
+    if (pct !== null) {
+      if (pct >= 100)    badge = '<span style="background:rgba(34,197,94,.18);color:#16a34a;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">Meta cumplida</span>';
+      else if (pct >= 70) badge = '<span style="background:rgba(245,158,11,.15);color:#d97706;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">En progreso</span>';
+      else                badge = '<span style="background:rgba(239,68,68,.12);color:#dc2626;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">Bajo meta</span>';
+    } else {
+      badge = '<span style="background:rgba(59,130,246,.12);color:var(--accent);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">'+d.realizados+' trab.</span>';
+    }
+    return '<div onclick="abrirEfecDetalle(\''+cu.id+'\')" style="background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:14px 10px 12px;cursor:pointer;text-align:center;transition:all .15s;position:relative;"'
+      + ' onmouseover="this.style.borderColor=\''+color+'\';this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 16px rgba(30,35,50,.10)\'"'
+      + ' onmouseout="this.style.borderColor=\'var(--border)\';this.style.transform=\'\';this.style.boxShadow=\'\'">'
+      + '<div style="display:flex;justify-content:center;margin-bottom:6px;position:relative;">'
+      +   efecGaugeSVG(gaugeValue, color, gaugeSize)
+      +   '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:'+(pct!==null?'15':'12')+'px;color:'+color+';">'
+      +     (pct !== null ? pct+'%' : d.realizados)
+      +   '</div>'
+      + '</div>'
+      + '<div style="font-weight:600;font-size:12px;color:var(--accent);margin-bottom:3px;">'+esc(cu.nombre)+'</div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">'+(pct!==null ? d.realizados+'/'+(d.meta)+' trab.' : d.realizados+' trab.')+'</div>'
+      + badge
+      + '</div>';
+  }).join('');
+}
+
+function abrirEfecDetalle(cuadId) {
+  var cu = getCuad(cuadId); if (!cu) return;
+  var rango = efecRango();
+  var periodoLabel = {dia:'Hoy',semana:'Esta semana',mes:'Este mes'}[efecPeriodo];
+  var asigs = asigListFiltrada().filter(function(a){
+    return !a.anulada && a.cuadrillaId===cuadId && a.fecha>=rango.ini && a.fecha<=rango.fin;
+  }).sort(function(a,b){ return (b.fecha+'').localeCompare(a.fecha+''); });
+
+  var meta = cu.meta || 0;
+  var pct = meta > 0 ? Math.round(Math.min(asigs.length/meta*100,100)) : null;
+  var color = pct !== null ? efecGaugeColor(pct) : '#3b82f6';
+  var gaugeValue = pct !== null ? pct : Math.min(asigs.length*5,100);
+
+  // Gauge grande
+  document.getElementById('efec-det-gauge').innerHTML =
+    '<div style="position:relative;display:inline-block;">'
+    + efecGaugeSVG(gaugeValue, color, 88)
+    + '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:17px;color:'+color+';">'
+    + (pct !== null ? pct+'%' : asigs.length) + '</div></div>';
+
+  document.getElementById('efec-det-nombre').textContent = cu.nombre;
+  document.getElementById('efec-det-sub').textContent = periodoLabel + ' — ' + asigs.length + ' trabajo(s) realizados'+(meta>0?' / meta: '+meta:'');
+
+  // KPIs por tipo de trabajo
+  var tcount = {};
+  asigs.forEach(function(a){ tcount[a.tipo||'Sin tipo']=(tcount[a.tipo||'Sin tipo']||0)+1; });
+  var totalMats = 0;
+  asigs.forEach(function(a){ (a.materiales||[]).forEach(function(m){ totalMats+=m.qty; }); });
+  var kpiArr = Object.entries(tcount).sort(function(a,b){return b[1]-a[1];}).slice(0,3);
+  document.getElementById('efec-det-kpis').innerHTML =
+    '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
+    +'<div style="font-size:22px;font-weight:700;color:'+color+';">'+asigs.length+'</div>'
+    +'<div style="font-size:11px;color:var(--ink3);">Asignaciones</div></div>'
+    + kpiArr.map(function(e){
+        return '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
+          +'<div style="font-size:22px;font-weight:700;color:var(--accent);">'+e[1]+'</div>'
+          +'<div style="font-size:11px;color:var(--ink3);">'+esc(e[0])+'</div></div>';
+      }).join('')
+    + '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
+    +'<div style="font-size:22px;font-weight:700;color:var(--ink);">'+totalMats+'</div>'
+    +'<div style="font-size:11px;color:var(--ink3);">Materiales usados</div></div>';
+
+  // Lista de trabajos
+  var lista = document.getElementById('efec-det-lista');
+  if (!asigs.length) {
+    lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;padding:.5rem 0;">Sin trabajos en este período.</p>';
+  } else {
+    lista.innerHTML = '<div class="table-wrap"><table>'
+      +'<thead><tr><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>OT</th><th>Técnico</th><th>Materiales</th><th></th></tr></thead><tbody>'
+      +asigs.map(function(a){
+        var mcount = (a.materiales||[]).length;
+        return '<tr>'
+          +'<td style="font-size:11px;white-space:nowrap;">'+esc(a.fecha)+'</td>'
+          +'<td style="font-size:12px;font-weight:500;">'+esc(a.cliente||'—')+'</td>'
+          +'<td><span class="badge badge-blue" style="font-size:10px;">'+esc(a.tipo||'—')+'</span></td>'
+          +'<td style="font-size:11px;font-family:monospace;">'+esc(a.ot||'—')+'</td>'
+          +'<td style="font-size:11px;">'+esc(a.tecnico||'—')+'</td>'
+          +'<td style="font-size:11px;text-align:center;">'+(mcount>0?'<span class="badge badge-gray">'+mcount+'</span>':'—')+'</td>'
+          +'<td><button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button></td>'
+          +'</tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
+  var modal = document.getElementById('modal-efec-detalle');
+  if (modal) modal.style.display = 'flex';
+}
+
+function cerrarEfecDetalle() {
+  var m = document.getElementById('modal-efec-detalle');
+  if (m) m.style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+  var m = document.getElementById('modal-efec-detalle');
+  if (m && e.target === m) cerrarEfecDetalle();
+});
+
 function setGrafPeriodo(p) {
   grafPeriodo = p;
   ['dia','semana','mes'].forEach(function(k) {
@@ -3536,6 +3757,11 @@ function startApp() {
     if (navAlertas) navAlertas.style.display = 'none';
     var navVisitaCuad = document.getElementById('nav-visita-cuad');
     if (navVisitaCuad) navVisitaCuad.style.display = 'none';
+    // Ocultar secciones exclusivas de cuadrilla del sidebar
+    var navHerrCuad = document.getElementById('nav-herramientas-cuad');
+    if (navHerrCuad) navHerrCuad.style.display = 'none';
+    var navRICuad = document.getElementById('nav-red-interna');
+    if (navRICuad) navRICuad.style.display = 'none';
     document.getElementById('alert-bell-wrap') && (document.getElementById('alert-bell-wrap').style.display='none');
     // Ocultar logs de acceso para admin no-superadmin
     var navLogs = document.getElementById('nav-admin-logs');
@@ -3555,6 +3781,11 @@ function startApp() {
     var bnRI  = document.getElementById('bn-red-interna');
     if (navRI) navRI.style.display = tieneRI ? 'flex' : 'none';
     if (bnRI)  bnRI.style.display  = tieneRI ? 'flex' : 'none';
+    // Restaurar nav items de cuadrilla (por si hubo sesión admin previa)
+    var navHerrCuad = document.getElementById('nav-herramientas-cuad');
+    if (navHerrCuad) navHerrCuad.style.display = 'flex';
+    var navAlertasCuad = document.getElementById('nav-alertas-cuad');
+    if (navAlertasCuad) navAlertasCuad.style.display = 'flex';
     // Cuadrilla: ir al Dashboard propio (stock + asignaciones del día)
     showSection('dashboard');
   }
@@ -4929,6 +5160,8 @@ function renderDashboard() {
     var bajos = mats.filter(function(m){return getStockVis(null,m.id)<m.min;});
     // 4. Renderizar gráficos de tareas
     renderGraficosAdmin();
+    // 5. Renderizar panel de efectividad por cuadrilla
+    renderEfectividad();
 
   } else {
     // ── Vista CUADRILLA: stock + asignaciones del día ──
