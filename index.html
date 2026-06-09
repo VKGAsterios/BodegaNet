@@ -5,7 +5,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet v2.19 — Control de Materiales ISP</title>
+<title>BodegaNet v2.19b — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -428,6 +428,9 @@ select option{background:var(--bg3);color:var(--ink);}
               </button>
               <button class="nav-item" onclick="showSection('admin-tipos-ri')">
                 <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h8M4 14h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Tipos de trabajo RI
+              </button>
+              <button class="nav-item" onclick="showSection('admin-motivos-vf')">
+                <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M10 7v4M10 14h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Motivos visita fallida
               </button>
             </div>
           </div>
@@ -1066,6 +1069,9 @@ select option{background:var(--bg3);color:var(--ink);}
               <div class="field"><label>Cuadrilla</label>
                 <select id="vf-cuadrilla" onchange="renderVisitasFallidas()"><option value="">Todas</option></select>
               </div>
+              <div class="field"><label>Motivo</label>
+                <select id="vf-motivo-filtro" onchange="renderVisitasFallidas()"><option value="">Todos los motivos</option></select>
+              </div>
               <div class="field"><label>Período</label>
                 <select id="vf-periodo" onchange="toggleVFFechas();renderVisitasFallidas()">
                   <option value="hoy">Hoy</option>
@@ -1080,7 +1086,7 @@ select option{background:var(--bg3);color:var(--ink);}
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-green" onclick="exportarVisitasFallidas()">Descargar CSV</button>
+              <button class="btn btn-green" onclick="exportarVisitasFallidas()">⬇ Descargar CSV</button>
             </div>
           </div>
           <div class="card">
@@ -1089,7 +1095,12 @@ select option{background:var(--bg3);color:var(--ink);}
               <span id="vf-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
             </div>
             <div class="table-wrap"><table>
-              <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>Motivo</th><th>OT</th><th>Técnico</th><th>Observaciones</th></tr></thead>
+              <thead><tr>
+                <th>Registro</th><th>Cuadrilla</th><th>Cliente</th>
+                <th>Motivo</th><th>Observación</th>
+                <th>Horario</th><th>Tiempo perdido</th>
+                <th>OT</th><th>Técnico</th><th></th>
+              </tr></thead>
               <tbody id="vf-tbody"></tbody>
             </table></div>
           </div>
@@ -1152,7 +1163,7 @@ select option{background:var(--bg3);color:var(--ink);}
             <span id="vf-count" style="font-size:13px;color:var(--ink3);">0 registros</span>
           </div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>Motivo</th><th>OT</th><th>Técnico</th><th>Observaciones</th></tr></thead>
+            <thead><tr><th>Registro</th><th>Cuadrilla</th><th>Cliente</th><th>Motivo</th><th>Observación</th><th>Horario</th><th>Tiempo perdido</th><th>OT</th><th>Técnico</th><th></th></tr></thead>
             <tbody id="vf-tbody"></tbody>
           </table></div>
         </div>
@@ -1182,8 +1193,8 @@ select option{background:var(--bg3);color:var(--ink);}
       <!-- VISITAS FALLIDAS — CUADRILLA (registro) -->
       <section class="section" id="sec-visitas-fallidas-cuad">
         <div class="page-header">
-          <div><h2>Registrar visita fallida</h2><p>Documento de trabajos no completados para reasignación</p></div>
-          <button class="btn btn-accent" onclick="abrirModalVisitaFallida()">
+          <div><h2>🚫 Registrar visita fallida</h2><p>Documenta el trabajo no completado</p></div>
+          <button class="btn" style="background:#f97316;color:#fff;border:none;display:flex;align-items:center;gap:6px;" onclick="abrirModalVF()">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             + Nueva visita fallida
           </button>
@@ -1191,7 +1202,7 @@ select option{background:var(--bg3);color:var(--ink);}
         <div class="card">
           <div class="card-header"><h3>Mis visitas fallidas hoy</h3></div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Hora</th><th>Cliente</th><th>Motivo</th><th>OT</th><th>Observaciones</th><th></th></tr></thead>
+            <thead><tr><th>Registro</th><th>Cliente</th><th>Motivo</th><th>Horario</th><th>Tiempo</th><th>Observación</th><th>OT</th><th></th></tr></thead>
             <tbody id="vf-cuad-tbody"></tbody>
           </table></div>
         </div>
@@ -1346,11 +1357,18 @@ select option{background:var(--bg3);color:var(--ink);}
     /* ── Herramientas ── */
     "herramientas": { ".read": true, ".write": true },
 
+    /* ── Catálogo de herramientas (admin define el inventario maestro) ── */
+    "catalogo_herramientas": { ".read": true, ".write": true },
+
     /* ── Red Interna ── */
     "redInterna":  { ".read": true, ".write": true },
 
+    /* ── Tipos de trabajo Red Interna ── */
+    "tipos_red_interna": { ".read": true, ".write": true },
+
     /* ── Visitas fallidas ── */
     "visitas_fallidas": { ".read": true, ".write": true },
+    "motivos_vf":       { ".read": true, ".write": true },
 
     /* ── Config: solo lectura pública, escritura restringida ── */
     "config": {
@@ -1476,6 +1494,41 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
       </section>
+      <!-- MOTIVOS DE VISITA FALLIDA (admin gestiona) -->
+      <section class="section" id="sec-admin-motivos-vf">
+        <div class="page-header">
+          <div><h2>🚫 Motivos de visita fallida</h2><p>Administra los motivos disponibles al registrar una visita fallida</p></div>
+          <button class="btn btn-accent" onclick="openModalMotivoVF()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Nuevo motivo
+          </button>
+        </div>
+        <div class="card">
+          <div id="motivos-vf-lista"><p style="color:var(--ink3);font-size:13px;">Cargando...</p></div>
+        </div>
+        <div style="margin-top:.75rem;padding:.75rem 1rem;background:rgba(249,115,22,.07);border-radius:var(--r);border:1px solid rgba(249,115,22,.22);">
+          <p style="font-size:12px;color:var(--ink2);">💡 Los motivos predefinidos siempre están disponibles. Los personalizados que agregues se mostrarán junto a ellos en el formulario de registro para todas las cuadrillas.</p>
+        </div>
+      </section>
+
+      <!-- MODAL: Motivo visita fallida -->
+      <div class="modal-overlay" id="modal-motivo-vf">
+        <div class="modal" style="max-width:400px;">
+          <button class="modal-close" onclick="closeModal('modal-motivo-vf')">&#x2715;</button>
+          <h3 id="motivo-vf-modal-title" style="margin-bottom:1rem;">Nuevo motivo de visita fallida</h3>
+          <div class="form-grid g1">
+            <div class="field"><label>Nombre del motivo *</label>
+              <input type="text" id="motivo-vf-nombre" placeholder="Ej: Sin energía eléctrica en la zona" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+          </div>
+          <input type="hidden" id="motivo-vf-edit-id">
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="closeModal('modal-motivo-vf')">Cancelar</button>
+            <button class="btn" style="background:#f97316;color:#fff;border:none;" onclick="guardarMotivoVF()">Guardar</button>
+          </div>
+        </div>
+      </div>
+
       <!-- CATÁLOGO DE HERRAMIENTAS (admin crea el catálogo) -->
       <section class="section" id="sec-admin-catalogo-herramientas">
         <div class="page-header">
@@ -2005,41 +2058,58 @@ select option{background:var(--bg3);color:var(--ink);}
 <!-- Modal confirmación -->
 <!-- Modal visita fallida -->
 <div class="modal-overlay" id="modal-visita-fallida">
-  <div class="modal" style="max-width:500px;">
+  <div class="modal" style="max-width:520px;">
     <button class="modal-close" onclick="closeModal('modal-visita-fallida')">✕</button>
-    <h3 style="margin-bottom:1rem;">Registrar visita fallida</h3>
-    <div class="form-grid g1">
+    <h3 style="margin-bottom:.25rem;">🚫 Registrar visita fallida</h3>
+    <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;" id="vf-modal-sub">Documenta el trabajo no completado</p>
+    <div class="form-grid">
       <div class="field"><label>Cuadrilla</label>
-        <select id="vf-cuad-sel" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);"><option value="">Selecciona cuadrilla</option></select>
-      </div>
-      <div class="field"><label>Cliente</label>
-        <input type="text" id="vf-cliente" placeholder="Nombre del cliente" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
-      </div>
-      <div class="field"><label>OT</label>
-        <input type="text" id="vf-ot" placeholder="Número de OT" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
-      </div>
-      <div class="field"><label>Técnico</label>
-        <input type="text" id="vf-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
-      </div>
-      <div class="field"><label>Motivo de falla</label>
-        <select id="vf-motivo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);">
-          <option value="">Selecciona motivo</option>
-          <option value="cliente_no_disponible">Cliente no disponible</option>
-          <option value="falta_material">Falta de material</option>
-          <option value="problema_tecnico">Problema técnico</option>
-          <option value="acceso_negado">Acceso negado</option>
-          <option value="cliente_no_autorizo">Cliente no autorizó</option>
-          <option value="problema_infraestructura">Problema en infraestructura</option>
-          <option value="otro">Otro</option>
+        <select id="vf-cuad-sel" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+          <option value="">Selecciona cuadrilla</option>
         </select>
       </div>
-      <div class="field"><label>Observaciones</label>
-        <textarea id="vf-obs" placeholder="Detalles de la visita fallida..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;resize:vertical;min-height:80px;"></textarea>
+      <div class="field"><label>Cliente *</label>
+        <input type="text" id="vf-cliente" placeholder="Nombre completo del cliente" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+      </div>
+      <div class="field"><label>OT</label>
+        <input type="text" id="vf-ot" placeholder="Número de OT" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+      </div>
+      <div class="field"><label>Técnico</label>
+        <input type="text" id="vf-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
       </div>
     </div>
+    <!-- Hora inicio / fin -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:.75rem;">
+      <div class="field" style="margin:0;">
+        <label>Hora inicio *</label>
+        <input type="time" id="vf-hora-ini" onchange="calcMinutosVF()" style="width:100%;padding:10px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+      </div>
+      <div class="field" style="margin:0;">
+        <label>Hora fin *</label>
+        <input type="time" id="vf-hora-fin" onchange="calcMinutosVF()" style="width:100%;padding:10px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+      </div>
+      <div class="field" style="margin:0;">
+        <label>Tiempo perdido</label>
+        <div id="vf-minutos-display" style="padding:10px 12px;background:rgba(249,115,22,.1);border:1.5px solid rgba(249,115,22,.35);border-radius:var(--r);font-size:14px;font-weight:700;color:#ea580c;min-height:42px;display:flex;align-items:center;">—</div>
+      </div>
+    </div>
+    <div class="form-grid g1">
+      <div class="field"><label>Motivo de falla *</label>
+        <select id="vf-motivo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+          <option value="">— Selecciona motivo —</option>
+        </select>
+      </div>
+      <div class="field"><label>Observación — ¿Por qué no se realizó el trabajo? *</label>
+        <textarea id="vf-obs" rows="3" placeholder="Describe detalladamente el motivo por el que no pudo completarse el trabajo..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;resize:vertical;background:var(--bg);color:var(--ink);"></textarea>
+      </div>
+    </div>
+    <input type="hidden" id="vf-edit-id">
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal('modal-visita-fallida')">Cancelar</button>
-      <button class="btn btn-accent" onclick="guardarVisitaFallida()">Registrar visita fallida</button>
+      <button class="btn" style="background:#f97316;color:#fff;border:none;" onclick="guardarVisitaFallida()">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M5 10l4 4 6-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Registrar visita fallida
+      </button>
     </div>
   </div>
 </div>
@@ -2360,7 +2430,8 @@ var cache = {
   herramientas: {}, // {id: {nombre, cuadrillaId, estado, serie, historial:[]}}
   catalogo_herramientas: {}, // {id: {nombre, descripcion, categoria, activo}}
   redInterna: {},    // {id: {orden, tipo, nodo, tecnico, horaIni, horaFin, obs, materiales, cuadrillaId, fecha}}
-  tipos_red_interna: {} // {id: {nombre, orden}}
+  tipos_red_interna: {}, // {id: {nombre, orden}}
+  motivos_vf: {}         // {id: {nombre, orden}} — motivos de visita fallida
 };
 
 // ── Helpers ──
@@ -2464,131 +2535,307 @@ function abrirModalVisitaFallida() {
   document.getElementById('vf-cliente').focus();
 }
 
+
+// ══════════════════════════════════════════════════════
+// MOTIVOS DE VISITA FALLIDA (dinámicos)
+// ══════════════════════════════════════════════════════
+var MOTIVOS_VF_DEFAULT = [
+  'Cliente no disponible','Falta de material','Problema técnico',
+  'Acceso negado','Cliente no autorizó','Problema en infraestructura','Otro'
+];
+
+function motivosVFList() {
+  var custom = Object.entries(cache.motivos_vf||{})
+    .map(function(e){ return Object.assign({id:e[0]},e[1]); })
+    .sort(function(a,b){ return (a.orden||0)-(b.orden||0)||a.nombre.localeCompare(b.nombre); });
+  return custom;
+}
+
+function allMotivosVF() {
+  var custom = motivosVFList().map(function(t){ return t.nombre; });
+  return custom.length ? MOTIVOS_VF_DEFAULT.concat(custom.filter(function(n){ return MOTIVOS_VF_DEFAULT.indexOf(n)===-1; })) : MOTIVOS_VF_DEFAULT;
+}
+
+function poblarSelectMotivosVF() {
+  ['vf-motivo','vf-motivo-filtro'].forEach(function(selId){
+    var sel = document.getElementById(selId); if (!sel) return;
+    var cur = sel.value;
+    var prefix = selId==='vf-motivo-filtro' ? '<option value="">Todos los motivos</option>' : '<option value="">— Selecciona motivo —</option>';
+    sel.innerHTML = prefix + allMotivosVF().map(function(n){
+      return '<option value="'+esc(n)+'"'+(cur===n?' selected':'')+'>'+esc(n)+'</option>';
+    }).join('');
+  });
+}
+
+function renderMotivosVF() {
+  var el = document.getElementById('motivos-vf-lista'); if (!el) return;
+  var custom = motivosVFList();
+  var all = MOTIVOS_VF_DEFAULT.map(function(n){ return {id:null,nombre:n}; })
+    .concat(custom.filter(function(t){ return MOTIVOS_VF_DEFAULT.indexOf(t.nombre)===-1; }));
+  el.innerHTML = '<div class="table-wrap"><table>'
+    +'<thead><tr><th>#</th><th>Motivo</th><th>Origen</th><th>Acciones</th></tr></thead><tbody>'
+    +all.map(function(t,i){
+      return '<tr>'
+        +'<td style="font-size:12px;color:var(--ink3);">'+(i+1)+'</td>'
+        +'<td><strong>'+esc(t.nombre)+'</strong></td>'
+        +'<td>'+(t.id===null
+          ? '<span class="badge badge-gray" style="font-size:10px;">Predefinido</span>'
+          : '<span class="badge" style="background:rgba(249,115,22,.15);color:#ea580c;font-size:10px;">Personalizado</span>')+'</td>'
+        +'<td>'+(t.id===null ? '<span style="font-size:12px;color:var(--ink3);">—</span>'
+          : '<button class="btn btn-sm" onclick="editarMotivoVF(\''+t.id+'\')">✏️</button> '
+          +'<button class="btn btn-sm" style="border-color:var(--red);color:var(--red);" onclick="eliminarMotivoVF(\''+t.id+'\',\''+esc(t.nombre)+'\')">🗑️</button>')
+        +'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
+
+function openModalMotivoVF() {
+  document.getElementById('motivo-vf-modal-title').textContent = 'Nuevo motivo de visita fallida';
+  document.getElementById('motivo-vf-nombre').value = '';
+  document.getElementById('motivo-vf-edit-id').value = '';
+  openModal('modal-motivo-vf');
+  setTimeout(function(){ document.getElementById('motivo-vf-nombre').focus(); },200);
+}
+
+function editarMotivoVF(id) {
+  var t = (cache.motivos_vf||{})[id]; if (!t) return;
+  document.getElementById('motivo-vf-modal-title').textContent = 'Editar motivo';
+  document.getElementById('motivo-vf-nombre').value = t.nombre||'';
+  document.getElementById('motivo-vf-edit-id').value = id;
+  openModal('modal-motivo-vf');
+}
+
+function guardarMotivoVF() {
+  var nombre = (document.getElementById('motivo-vf-nombre').value||'').trim();
+  if (!nombre) { toast('Ingresa el nombre del motivo','error'); return; }
+  var editId = document.getElementById('motivo-vf-edit-id').value;
+  var orden = editId ? ((cache.motivos_vf||{})[editId]||{}).orden||0 : Object.keys(cache.motivos_vf||{}).length;
+  var ref = editId ? db.ref('motivos_vf/'+editId) : db.ref('motivos_vf').push();
+  ref.set({nombre:nombre,orden:orden}).then(function(){
+    toast(editId?'Motivo actualizado':'Motivo agregado','success');
+    closeModal('modal-motivo-vf');
+  });
+}
+
+function eliminarMotivoVF(id,nombre) {
+  showConfirm('Eliminar motivo','¿Eliminar el motivo <strong>'+esc(nombre)+'</strong>? Los registros existentes no se ven afectados.',function(){
+    db.ref('motivos_vf/'+id).remove().then(function(){ toast('Motivo eliminado','success'); });
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// VISITAS FALLIDAS — helpers
+// ══════════════════════════════════════════════════════
+function calcMinutosVF() {
+  var ini = document.getElementById('vf-hora-ini').value;
+  var fin = document.getElementById('vf-hora-fin').value;
+  var disp = document.getElementById('vf-minutos-display');
+  if (!ini || !fin || !disp) return;
+  var mins = minutosEntre(ini, fin);
+  if (mins <= 0) { disp.textContent = '—'; return; }
+  var h = Math.floor(mins/60); var m = mins%60;
+  disp.textContent = h>0 ? h+'h '+m+'min' : m+' min';
+}
+
+function minutosEntre(horaIni, horaFin) {
+  var a = horaIni.split(':').map(Number);
+  var b = horaFin.split(':').map(Number);
+  return (b[0]*60+b[1]) - (a[0]*60+a[1]);
+}
+
+function abrirModalVF() {
+  poblarSelectMotivosVF();
+  // Prellenar hora actual como inicio
+  var now = new Date();
+  var hh = String(now.getHours()).padStart(2,'0');
+  var mm = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('vf-hora-ini').value = hh+':'+mm;
+  document.getElementById('vf-hora-fin').value = '';
+  document.getElementById('vf-minutos-display').textContent = '—';
+  document.getElementById('vf-cliente').value = '';
+  document.getElementById('vf-ot').value = '';
+  document.getElementById('vf-tecnico').value = '';
+  document.getElementById('vf-obs').value = '';
+  document.getElementById('vf-edit-id').value = '';
+  // Prellenar cuadrilla si es usuario cuadrilla
+  var sel = document.getElementById('vf-cuad-sel');
+  if (currentUser && currentUser.tipo==='cuadrilla') {
+    sel.innerHTML = '<option value="'+currentUser.cuadrillaId+'">'+esc((getCuad(currentUser.cuadrillaId)||{nombre:''}).nombre)+'</option>';
+    sel.disabled = true;
+  } else {
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">Selecciona cuadrilla</option>';
+    getCuadrillasFiltradas().sort(function(a,b){return a.nombre.localeCompare(b.nombre);}).forEach(function(c){
+      sel.innerHTML += '<option value="'+c.id+'">'+esc(c.nombre)+'</option>';
+    });
+  }
+  openModal('modal-visita-fallida');
+}
+
 function guardarVisitaFallida() {
   if (!checkRateLimit('visita_fallida')) return;
-  var cid = document.getElementById('vf-cuad-sel').value;
-  var cliente = document.getElementById('vf-cliente').value.trim();
-  var ot = document.getElementById('vf-ot').value.trim();
-  var tecnico = document.getElementById('vf-tecnico').value.trim();
-  var motivo = document.getElementById('vf-motivo').value;
-  var obs = document.getElementById('vf-obs').value.trim();
+  var cid      = document.getElementById('vf-cuad-sel').value;
+  var cliente  = (document.getElementById('vf-cliente').value||'').trim();
+  var ot       = (document.getElementById('vf-ot').value||'').trim();
+  var tecnico  = (document.getElementById('vf-tecnico').value||'').trim();
+  var motivo   = document.getElementById('vf-motivo').value;
+  var obs      = (document.getElementById('vf-obs').value||'').trim();
+  var horaIni  = document.getElementById('vf-hora-ini').value;
+  var horaFin  = document.getElementById('vf-hora-fin').value;
 
-  if (!cid) { toast('Selecciona una cuadrilla', 'error'); return; }
-  if (!cliente) { toast('Ingresa el nombre del cliente', 'error'); return; }
-  if (!motivo) { toast('Selecciona el motivo de la falla', 'error'); return; }
+  if (!cid)     { toast('Selecciona una cuadrilla','error'); return; }
+  if (!cliente) { toast('Ingresa el nombre del cliente','error'); return; }
+  if (!motivo)  { toast('Selecciona el motivo de la falla','error'); return; }
+  if (!obs)     { toast('La observación es requerida','error'); return; }
+  if (!horaIni) { toast('Ingresa la hora de inicio','error'); return; }
+  if (!horaFin) { toast('Ingresa la hora de fin','error'); return; }
+  var mins = minutosEntre(horaIni, horaFin);
+  if (mins <= 0) { toast('La hora fin debe ser posterior a la hora inicio','error'); return; }
 
-  var vfId = uid();
-  var updates = {};
-  updates['visitas_fallidas/'+vfId] = {
-    id: vfId, fecha: nowISO(), cuadrillaId: cid,
-    cliente: sanitizeAdvanced(cliente), ot: sanitizeAdvanced(ot),
-    tecnico: sanitizeAdvanced(tecnico), motivo: motivo,
-    obs: sanitizeAdvanced(obs)
+  var editId = document.getElementById('vf-edit-id').value;
+  var fecha  = new Date().toISOString().slice(0,10);
+  var tsRegistro = Date.now();
+  var data = {
+    fecha: fecha, tsRegistro: tsRegistro,
+    cuadrillaId: cid,
+    cliente: sanitizeAdvanced(cliente),
+    ot: sanitizeAdvanced(ot),
+    tecnico: sanitizeAdvanced(tecnico),
+    motivo: motivo,
+    obs: sanitizeAdvanced(obs),
+    horaIni: horaIni,
+    horaFin: horaFin,
+    minutosPercibidos: mins
   };
-  updates['_lastUpdate'] = Date.now();
-  var _csrfTok = getCSRFToken();
-  updates['_csrf'] = _csrfTok;
-  updates['_csrfTs'] = Date.now();
+  if (!editId) data.id = uid();
 
-  db.ref().update(updates).then(function(){
-    toast('Visita fallida registrada', 'success');
+  var ref = editId ? db.ref('visitas_fallidas/'+editId) : db.ref('visitas_fallidas/'+data.id);
+  ref.set(data).then(function(){
+    toast(editId?'Visita fallida actualizada':'Visita fallida registrada','success');
     closeModal('modal-visita-fallida');
-    renderVisitasFallidas();
-  }).catch(function(e){ toast('Error: '+e.message, 'error'); });
+  }).catch(function(e){ toast('Error: '+e.message,'error'); });
 }
 
 function renderVisitasFallidas() {
+  // Poblar select cuadrilla
   var sel = document.getElementById('vf-cuadrilla');
-  sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
-  cuadrillasList().forEach(function(c){
-    var o = document.createElement('option');
-    o.value = c.id; o.textContent = c.nombre;
-    sel.appendChild(o);
-  });
+  if (sel) {
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
+    getCuadrillasFiltradas().sort(function(a,b){return a.nombre.localeCompare(b.nombre);}).forEach(function(c){
+      sel.innerHTML += '<option value="'+c.id+'"'+(cur===c.id?' selected':'')+'>'+esc(c.nombre)+'</option>';
+    });
+  }
+  // Poblar filtro motivo
+  poblarSelectMotivosVF();
 
-  var cid = (document.getElementById('vf-cuadrilla')||{value:''}).value;
+  var cid     = (document.getElementById('vf-cuadrilla')||{value:''}).value;
   var periodo = (document.getElementById('vf-periodo')||{value:'mes'}).value;
   var hoy = new Date(); hoy.setHours(23,59,59,999);
   var ini = new Date(); ini.setHours(0,0,0,0);
-  
-  if (periodo === 'hoy') {}
-  else if (periodo === 'semana') { ini.setDate(ini.getDate() - 7); }
-  else if (periodo === 'mes') { ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
-  else if (periodo === 'personalizado') {
-    var fechaInput = document.getElementById('vf-fecha');
-    if (fechaInput && fechaInput.value) {
-      ini = new Date(fechaInput.value + 'T00:00:00');
-      hoy = new Date(fechaInput.value + 'T23:59:59');
-    }
+  if (periodo==='semana')       { ini.setDate(ini.getDate()-7); }
+  else if (periodo==='mes')     { ini = new Date(hoy.getFullYear(),hoy.getMonth(),1); }
+  else if (periodo==='personalizado') {
+    var fi = document.getElementById('vf-fecha'); if (fi&&fi.value){ ini=new Date(fi.value+'T00:00:00'); hoy=new Date(fi.value+'T23:59:59'); }
   }
+  var motivoFiltro = (document.getElementById('vf-motivo-filtro')||{value:''}).value;
 
-  var vfs = (Object.values(cache.visitas_fallidas||{})||[]).filter(function(v){
+  var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
     var f = new Date(v.fecha);
-    return f >= ini && f <= hoy && (!cid || v.cuadrillaId === cid);
-  }).sort(function(a,b){ return new Date(b.fecha) - new Date(a.fecha); });
+    return f>=ini && f<=hoy && (!cid||v.cuadrillaId===cid) && (!motivoFiltro||v.motivo===motivoFiltro);
+  }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
 
-  document.getElementById('vf-count').textContent = vfs.length + ' registro(s)';
+  var countEl = document.getElementById('vf-count');
+  if (countEl) countEl.textContent = vfs.length+' registro(s)';
+
+  var totalMins = vfs.reduce(function(s,v){ return s+(v.minutosPercibidos||0); },0);
+  var totalH = Math.floor(totalMins/60), totalM = totalMins%60;
+  var tiempoStr = totalMins>0 ? (totalH>0?totalH+'h ':'')+totalM+'min' : '0 min';
+
   var tbody = document.getElementById('vf-tbody');
+  if (!tbody) return;
   if (!vfs.length) {
-    tbody.innerHTML = '<tr><td colspan="8">'+empty('Sin visitas fallidas')+'</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10">'+empty('Sin visitas fallidas en el período')+'</td></tr>';
   } else {
-    var motivos = {'cliente_no_disponible':'Cliente no disponible','falta_material':'Falta de material','problema_tecnico':'Problema técnico','acceso_negado':'Acceso negado','cliente_no_autorizo':'Cliente no autorizó','problema_infraestructura':'Problema infraestructura','otro':'Otro'};
     tbody.innerHTML = vfs.map(function(v){
       var c = getCuad(v.cuadrillaId);
-      return '<tr><td style="font-size:11px;">'+fmtDT(v.fecha)+'</td>'
-        +'<td style="font-size:12px;"><strong>'+esc(c?c.nombre:'')+'</strong></td>'
-        +'<td>'+esc(v.cliente||'')+'</td>'
-        +'<td><span class="badge badge-amber">'+(motivos[v.motivo]||v.motivo)+'</span></td>'
-        +'<td>'+(v.ot||'—')+'</td>'
-        +'<td>'+(v.tecnico||'—')+'</td>'
-        +'<td style="font-size:11px;">'+esc(v.obs||'')+'</td>'
-        +'<td><button class="btn btn-sm btn-red" onclick="eliminarVisitaFallida(\''+v.id+'\')">X</button></td>'
+      var mins = v.minutosPercibidos||0;
+      var tStr = mins>=60 ? Math.floor(mins/60)+'h '+(mins%60)+'min' : mins+'min';
+      var tsReg = v.tsRegistro ? new Date(v.tsRegistro).toLocaleString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : v.fecha;
+      return '<tr>'
+        +'<td style="font-size:11px;white-space:nowrap;">'+tsReg+'</td>'
+        +'<td><strong style="font-size:12px;">'+esc(c?c.nombre:'—')+'</strong></td>'
+        +'<td style="font-size:12px;">'+esc(v.cliente||'—')+'</td>'
+        +'<td><span class="badge" style="background:rgba(249,115,22,.15);color:#c2410c;font-size:10px;white-space:nowrap;">'+esc(v.motivo||'—')+'</span></td>'
+        +'<td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="'+esc(v.obs||'')+'">'+esc(v.obs||'—')+'</td>'
+        +'<td style="font-size:11px;text-align:center;white-space:nowrap;">'+(v.horaIni||'—')+' – '+(v.horaFin||'—')+'</td>'
+        +'<td><span style="font-weight:700;color:#c2410c;font-size:12px;">'+tStr+'</span></td>'
+        +'<td style="font-size:11px;font-family:monospace;">'+(v.ot||'—')+'</td>'
+        +'<td style="font-size:11px;">'+esc(v.tecnico||'—')+'</td>'
+        +'<td><button class="btn btn-sm btn-red" onclick="eliminarVisitaFallida(\''+v.id+'\')">✕</button></td>'
         +'</tr>';
     }).join('');
   }
 
+  // KPI resumen + barras por motivo
   var resumenPorMotivo = {};
-  vfs.forEach(function(v){
-    resumenPorMotivo[v.motivo] = (resumenPorMotivo[v.motivo]||0) + 1;
-  });
-  var motivos = {'cliente_no_disponible':'Cliente no disponible','falta_material':'Falta de material','problema_tecnico':'Problema técnico','acceso_negado':'Acceso negado','cliente_no_autorizo':'Cliente no autorizó','problema_infraestructura':'Problema infraestructura','otro':'Otro'};
-  var resumenHTML = Object.keys(resumenPorMotivo).map(function(m){
-    var pct = Math.round(resumenPorMotivo[m] / vfs.length * 100);
-    return '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span>'+(motivos[m]||m)+'</span><strong>'+resumenPorMotivo[m]+' ('+pct+'%)</strong></div><div style="height:6px;background:var(--bg3);border-radius:3px;"><div style="height:100%;width:'+pct+'%;background:var(--amber);border-radius:3px;"></div></div></div>';
-  }).join('');
-  document.getElementById('vf-resumen').innerHTML = resumenHTML || '<p style="color:var(--ink3);font-size:13px;">Sin datos</p>';
-  // 2. Renderizar gráficos
+  vfs.forEach(function(v){ resumenPorMotivo[v.motivo]=(resumenPorMotivo[v.motivo]||0)+1; });
+  var minsPorMotivo = {};
+  vfs.forEach(function(v){ minsPorMotivo[v.motivo]=(minsPorMotivo[v.motivo]||0)+(v.minutosPercibidos||0); });
+  var resumenHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1rem;">'
+    + kpi('Total VF',vfs.length,'visitas no completadas','c-amber')
+    + kpi('Tiempo perdido',tiempoStr,'acumulado en el período','')
+    + kpi('Promedio',vfs.length?Math.round(totalMins/vfs.length)+' min':'—','por visita fallida','')
+    + '</div>'
+    + '<div style="margin-bottom:.5rem;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);">Distribución por motivo</div>'
+    + Object.keys(resumenPorMotivo).sort(function(a,b){ return resumenPorMotivo[b]-resumenPorMotivo[a]; }).map(function(m){
+        var pct = Math.round(resumenPorMotivo[m]/vfs.length*100);
+        var minsM = minsPorMotivo[m]||0;
+        var mStr = minsM>=60?Math.floor(minsM/60)+'h '+(minsM%60)+'min':minsM+'min';
+        return '<div style="margin-bottom:10px;">'
+          +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;gap:8px;">'
+          +'<span style="flex:1;">'+esc(m)+'</span>'
+          +'<span style="white-space:nowrap;color:var(--ink3);font-size:11px;">'+mStr+'</span>'
+          +'<strong style="white-space:nowrap;">'+resumenPorMotivo[m]+' ('+pct+'%)</strong></div>'
+          +'<div style="height:7px;background:var(--bg3);border-radius:4px;">'
+          +'<div style="height:100%;width:'+pct+'%;background:#f97316;border-radius:4px;transition:width .4s;"></div>'
+          +'</div></div>';
+      }).join('');
+  var resEl = document.getElementById('vf-resumen');
+  if (resEl) resEl.innerHTML = resumenHTML || '<p style="color:var(--ink3);font-size:13px;">Sin datos</p>';
+
   renderGraficosVisitasFallidas();
 }
 
-// Vista cuadrilla: registro rápido de visita fallida
 function renderVisitasFallidasCuad() {
   var cid = currentUser.cuadrillaId;
   var hoy = fmtDate(new Date());
   var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
-    return v.cuadrillaId === cid && fmtDate(v.fecha) === hoy;
-  }).sort(function(a,b){ return new Date(b.fecha) - new Date(a.fecha); });
+    return v.cuadrillaId===cid && v.fecha===hoy;
+  }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
 
   var tbody = document.getElementById('vf-cuad-tbody');
+  if (!tbody) return;
   if (!vfs.length) {
-    tbody.innerHTML = '<tr><td colspan="6">'+empty('Sin visitas fallidas registradas hoy')+'</td></tr>';
-  } else {
-    var motivos = {'cliente_no_disponible':'Cliente no disponible','falta_material':'Falta de material','problema_tecnico':'Problema técnico','acceso_negado':'Acceso negado','cliente_no_autorizo':'Cliente no autorizó','problema_infraestructura':'Problema infraestructura','otro':'Otro'};
-    tbody.innerHTML = vfs.map(function(v){
-      var hora = fmtDT(v.fecha).split(' ')[1] || '—';
-      return '<tr>'
-        +'<td style="font-weight:500;">'+esc(hora)+'</td>'
-        +'<td><strong>'+esc(v.cliente||'')+'</strong></td>'
-        +'<td><span class="badge badge-amber">'+(motivos[v.motivo]||v.motivo)+'</span></td>'
-        +'<td style="font-size:12px;">'+(v.ot||'—')+'</td>'
-        +'<td style="font-size:11px;color:var(--ink2);">'+esc(v.obs||'')+'</td>'
-        +'<td><button class="btn btn-sm btn-red" onclick="eliminarVisitaFallida(\''+v.id+'\')">X</button></td>'
-        +'</tr>';
-    }).join('');
+    tbody.innerHTML = '<tr><td colspan="8">'+empty('Sin visitas fallidas registradas hoy')+'</td></tr>';
+    return;
   }
+  tbody.innerHTML = vfs.map(function(v){
+    var mins = v.minutosPercibidos||0;
+    var tStr = mins>=60?Math.floor(mins/60)+'h '+(mins%60)+'min':mins+'min';
+    var tsReg = v.tsRegistro ? new Date(v.tsRegistro).toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'}) : '—';
+    return '<tr>'
+      +'<td style="font-size:11px;color:var(--ink3);">'+tsReg+'</td>'
+      +'<td><strong>'+esc(v.cliente||'')+'</strong></td>'
+      +'<td><span class="badge" style="background:rgba(249,115,22,.15);color:#c2410c;font-size:10px;">'+esc(v.motivo||'—')+'</span></td>'
+      +'<td style="font-size:11px;white-space:nowrap;">'+(v.horaIni||'—')+' – '+(v.horaFin||'—')+'</td>'
+      +'<td><strong style="color:#c2410c;font-size:12px;">'+tStr+'</strong></td>'
+      +'<td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="'+esc(v.obs||'')+'">'+esc(v.obs||'—')+'</td>'
+      +'<td style="font-size:11px;font-family:monospace;">'+(v.ot||'—')+'</td>'
+      +'<td><button class="btn btn-sm btn-red" onclick="eliminarVisitaFallida(\''+v.id+'\')">✕</button></td>'
+      +'</tr>';
+  }).join('');
 }
 
-// 2. Gráficos de visitas fallidas
 function renderGraficosVisitasFallidas() {
   var tipo = (document.getElementById('vf-chart-tipo')||{value:'motivos'}).value;
   var cid = (document.getElementById('vf-cuadrilla')||{value:''}).value;
@@ -2707,10 +2954,14 @@ function eliminarVisitaFallida(vfId) {
 }
 
 function exportarVisitasFallidas() {
-  var rows = [['Fecha','Cuadrilla','Cliente','Motivo','OT','Técnico','Observaciones']];
-  Object.values(cache.visitas_fallidas||{}).forEach(function(v){
+  var rows = [['Fecha Registro','Hora Registro','Cuadrilla','Cliente','Motivo','Observacion','Hora Inicio','Hora Fin','Minutos Perdidos','OT','Tecnico']];
+  Object.values(cache.visitas_fallidas||{}).sort(function(a,b){return (b.tsRegistro||0)-(a.tsRegistro||0);}).forEach(function(v){
     var c = getCuad(v.cuadrillaId);
-    rows.push([fmtDT(v.fecha), c?c.nombre:'', v.cliente||'', v.motivo||'', v.ot||'', v.tecnico||'', v.obs||'']);
+    var tsReg = v.tsRegistro ? new Date(v.tsRegistro) : null;
+    var fechaReg = tsReg ? tsReg.toLocaleDateString('es-HN') : (v.fecha||'');
+    var horaReg  = tsReg ? tsReg.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'}) : '';
+    rows.push([fechaReg, horaReg, c?c.nombre:'', v.cliente||'', v.motivo||'', v.obs||'',
+      v.horaIni||'', v.horaFin||'', v.minutosPercibidos||0, v.ot||'', v.tecnico||'']);
   });
   var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c||'').replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
   var a = document.createElement('a');
@@ -2718,6 +2969,7 @@ function exportarVisitasFallidas() {
   a.download = 'VisitasFallidas_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
 }
+
 
 // ══════════════════════════════════════════════════════
 // 2. PARCHES DE SEGURIDAD ANTIHACKEOS
@@ -3189,56 +3441,81 @@ function renderEfectividad() {
   var allAsigs = asigListFiltrada().filter(function(a){
     return !a.anulada && a.fecha >= rango.ini && a.fecha <= rango.fin;
   });
+  var allVFs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
+    return v.fecha >= rango.ini && v.fecha <= rango.fin;
+  });
 
-  // Calcular realizados por cuadrilla
   var datos = cuads.map(function(cu) {
     var asigsCuad = allAsigs.filter(function(a){ return a.cuadrillaId===cu.id; });
+    var vfsCuad   = allVFs.filter(function(v){ return v.cuadrillaId===cu.id; });
     var meta = cu.meta || 0;
     var realizados = asigsCuad.length;
-    var pct = meta > 0 ? Math.round(Math.min(realizados/meta*100, 100)) : null;
-    return { cu:cu, realizados:realizados, meta:meta, pct:pct, asigs:asigsCuad };
-  }).sort(function(a,b){ return b.realizados - a.realizados; });
+    var fallidas   = vfsCuad.length;
+    var total      = realizados + fallidas; // para gauge con meta
+    var pct        = meta > 0 ? Math.round(Math.min(total/meta*100, 100)) : null;
+    var pctReal    = meta > 0 ? Math.round(Math.min(realizados/meta*100, 100)) : null;
+    return { cu:cu, realizados:realizados, fallidas:fallidas, total:total, meta:meta, pct:pct, pctReal:pctReal, asigs:asigsCuad, vfs:vfsCuad };
+  }).sort(function(a,b){ return b.total - a.total; });
 
   if (!datos.length) {
     grid.innerHTML = '<p style="color:var(--ink3);font-size:13px;grid-column:1/-1;">Sin cuadrillas registradas.</p>';
     return;
   }
 
-  // Máximo del grupo para escalar el gauge cuando no hay meta
-  var maxRealizados = datos.reduce(function(m,d){ return Math.max(m, d.realizados); }, 1);
+  var maxTotal = datos.reduce(function(m,d){ return Math.max(m, d.total); }, 1);
 
   grid.innerHTML = datos.map(function(d) {
     var cu = d.cu;
     var hasMeta = d.pct !== null;
-    // Gauge: si tiene meta usar %, si no usar proporción relativa al máximo del grupo
-    var gaugeValue = hasMeta ? d.pct : Math.round((d.realizados / maxRealizados) * 100);
-    var color = hasMeta ? efecGaugeColor(d.pct) : '#3b82f6';
-    // El número central siempre muestra los trabajos realizados
-    var centerText = d.realizados;
-    var subText = hasMeta ? d.realizados+'/'+d.meta+' trab.' : d.realizados+' trab.';
+    var gaugeValue = hasMeta ? d.pct : Math.round((d.total / maxTotal) * 100);
+    var gaugeColor = hasMeta ? efecGaugeColor(d.pctReal||0) : '#3b82f6';
+
+    // Badge estado
     var badge = '';
     if (hasMeta) {
-      if (d.pct >= 100)    badge = '<span style="background:rgba(34,197,94,.18);color:#16a34a;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;">Meta cumplida</span>';
+      if (d.pct >= 100)     badge = '<span style="background:rgba(34,197,94,.18);color:#16a34a;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;">Meta cumplida</span>';
       else if (d.pct >= 70) badge = '<span style="background:rgba(245,158,11,.15);color:#d97706;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;">En progreso</span>';
       else                  badge = '<span style="background:rgba(239,68,68,.12);color:#dc2626;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;">Bajo meta</span>';
     } else {
-      var rankLabel = datos.indexOf(d) === 0 ? '🥇 Líder' : (d.realizados === 0 ? 'Sin registros' : d.realizados+' trab.');
+      var rankLabel = datos.indexOf(d)===0 ? '🥇 Líder' : (d.total===0 ? 'Sin registros' : d.total+' tot.');
       badge = '<span style="background:rgba(59,130,246,.12);color:var(--accent);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:600;">'+rankLabel+'</span>';
     }
 
+    // Indicador de fallidas en naranja (solo si hay)
+    var vfBadge = d.fallidas > 0
+      ? '<div style="margin-top:4px;"><span style="background:rgba(249,115,22,.15);color:#c2410c;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">⚠ '+d.fallidas+' fallida'+(d.fallidas>1?'s':'')+'</span></div>'
+      : '';
+
+    // Doble arco: realizados (color) + fallidas (naranja) sobre realizados
+    var gaugeSize = 76;
+    var r = (gaugeSize-10)/2;
+    var circ = 2*Math.PI*r;
+    var fillReal    = hasMeta ? circ*(d.realizados/(d.meta||1)) : circ*(d.realizados/Math.max(d.realizados,1))*((d.realizados/maxTotal));
+    var fillFallida = hasMeta ? circ*(Math.min(d.fallidas/(d.meta||1),1-(d.realizados/(d.meta||1)))) : (d.fallidas>0?circ*(d.fallidas/maxTotal):0);
+    // Simplificado: usar SVG doble anillo
+    var cx=gaugeSize/2, cy=gaugeSize/2;
+    var startFallida = (d.realizados/(hasMeta?(d.meta||1):maxTotal))*circ;
+    var svgDoble = '<svg width="'+gaugeSize+'" height="'+gaugeSize+'" viewBox="0 0 '+gaugeSize+' '+gaugeSize+'" style="transform:rotate(-90deg);">'
+      +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="rgba(30,35,50,.10)" stroke-width="7"/>'
+      +(d.realizados>0?'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+gaugeColor+'" stroke-width="7"'
+        +' stroke-dasharray="'+fillReal+' '+circ+'" stroke-linecap="round"/>':'')
+      +(d.fallidas>0?'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#f97316" stroke-width="7"'
+        +' stroke-dasharray="'+fillFallida+' '+circ+'" stroke-dashoffset="'+(-startFallida)+'" stroke-linecap="round"/>':'')
+      +'</svg>';
+
     return '<div onclick="abrirEfecDetalle(\''+cu.id+'\')" style="background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:14px 10px 12px;cursor:pointer;text-align:center;transition:all .15s;position:relative;"'
-      + ' onmouseover="this.style.borderColor=\''+color+'\';this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 16px rgba(30,35,50,.10)\'"'
-      + ' onmouseout="this.style.borderColor=\'var(--border)\';this.style.transform=\'\';this.style.boxShadow=\'\'">'
-      + '<div style="display:flex;justify-content:center;margin-bottom:6px;position:relative;">'
-      +   efecGaugeSVG(gaugeValue, color, 76)
-      +   '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--display);font-weight:700;font-size:18px;color:'+color+';">'
-      +     centerText
-      +   '</div>'
-      + '</div>'
-      + '<div style="font-weight:600;font-size:12px;color:var(--accent);margin-bottom:2px;">'+esc(cu.nombre)+'</div>'
-      + '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">'+subText+'</div>'
-      + badge
-      + '</div>';
+      +' onmouseover="this.style.borderColor=\''+gaugeColor+'\';this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 16px rgba(30,35,50,.10)\'"'
+      +' onmouseout="this.style.borderColor=\'var(--border)\';this.style.transform=\'\';this.style.boxShadow=\'\'">'
+      +'<div style="display:flex;justify-content:center;margin-bottom:6px;position:relative;">'
+      +  svgDoble
+      +'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--display);font-weight:700;font-size:18px;color:'+gaugeColor+';">'
+      +  d.realizados+'</div></div>'
+      +'<div style="font-weight:600;font-size:12px;color:var(--accent);margin-bottom:2px;">'+esc(cu.nombre)+'</div>'
+      +'<div style="font-size:11px;color:var(--ink3);margin-bottom:5px;">'
+      +  (hasMeta ? d.realizados+'+<span style="color:#f97316;">'+d.fallidas+'</span>/'+d.meta : d.realizados+(d.fallidas>0?'+<span style="color:#f97316;">'+d.fallidas+'</span>':''))
+      +' trab.</div>'
+      + badge + vfBadge
+      +'</div>';
   }).join('');
 }
 
@@ -3250,60 +3527,97 @@ function abrirEfecDetalle(cuadId) {
     return !a.anulada && a.cuadrillaId===cuadId && a.fecha>=rango.ini && a.fecha<=rango.fin;
   }).sort(function(a,b){ return (b.fecha+'').localeCompare(a.fecha+''); });
 
-  var meta = cu.meta || 0;
-  var pct = meta > 0 ? Math.round(Math.min(asigs.length/meta*100,100)) : null;
+  var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
+    return v.cuadrillaId===cuadId && v.fecha>=rango.ini && v.fecha<=rango.fin;
+  }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
+
+  var meta  = cu.meta || 0;
+  var total = asigs.length + vfs.length;
+  var pct   = meta > 0 ? Math.round(Math.min(asigs.length/meta*100,100)) : null;
+  var pctTot= meta > 0 ? Math.round(Math.min(total/meta*100,100)) : null;
   var color = pct !== null ? efecGaugeColor(pct) : '#3b82f6';
-  var gaugeValue = pct !== null ? pct : Math.min(asigs.length*5,100);
+  var gaugeValue = pctTot !== null ? pctTot : Math.min(asigs.length*5,100);
 
   // Gauge grande
   document.getElementById('efec-det-gauge').innerHTML =
     '<div style="position:relative;display:inline-block;">'
     + efecGaugeSVG(gaugeValue, color, 88)
     + '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:17px;color:'+color+';">'
-    + (pct !== null ? pct+'%' : asigs.length) + '</div></div>';
+    + asigs.length + '</div></div>';
 
   document.getElementById('efec-det-nombre').textContent = cu.nombre;
-  document.getElementById('efec-det-sub').textContent = periodoLabel + ' — ' + asigs.length + ' trabajo(s) realizados'+(meta>0?' / meta: '+meta:'');
+  document.getElementById('efec-det-sub').textContent = periodoLabel + ' — '
+    + asigs.length + ' realizados'
+    + (vfs.length ? ' + ' + vfs.length + ' fallidas' : '')
+    + (meta ? ' / meta: '+meta : '');
 
-  // KPIs por tipo de trabajo
+  // KPIs
   var tcount = {};
   asigs.forEach(function(a){ tcount[a.tipo||'Sin tipo']=(tcount[a.tipo||'Sin tipo']||0)+1; });
   var totalMats = 0;
   asigs.forEach(function(a){ (a.materiales||[]).forEach(function(m){ totalMats+=m.qty; }); });
-  var kpiArr = Object.entries(tcount).sort(function(a,b){return b[1]-a[1];}).slice(0,3);
+  var totalMinsFallidas = vfs.reduce(function(s,v){ return s+(v.minutosPercibidos||0); },0);
+  var mhStr = totalMinsFallidas>=60 ? Math.floor(totalMinsFallidas/60)+'h '+(totalMinsFallidas%60)+'min' : totalMinsFallidas+'min';
+  var kpiArr = Object.entries(tcount).sort(function(a,b){return b[1]-a[1];}).slice(0,2);
+
   document.getElementById('efec-det-kpis').innerHTML =
     '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
     +'<div style="font-size:22px;font-weight:700;color:'+color+';">'+asigs.length+'</div>'
-    +'<div style="font-size:11px;color:var(--ink3);">Asignaciones</div></div>'
+    +'<div style="font-size:11px;color:var(--ink3);">Realizadas</div></div>'
+    + (vfs.length ? '<div style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);border-radius:var(--r);padding:.6rem .8rem;">'
+        +'<div style="font-size:22px;font-weight:700;color:#c2410c;">'+vfs.length+'</div>'
+        +'<div style="font-size:11px;color:var(--ink3);">Fallidas</div></div>'
+        +'<div style="background:rgba(249,115,22,.07);border:1px solid rgba(249,115,22,.15);border-radius:var(--r);padding:.6rem .8rem;">'
+        +'<div style="font-size:18px;font-weight:700;color:#c2410c;">'+mhStr+'</div>'
+        +'<div style="font-size:11px;color:var(--ink3);">Tiempo perdido</div></div>' : '')
     + kpiArr.map(function(e){
         return '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
-          +'<div style="font-size:22px;font-weight:700;color:var(--accent);">'+e[1]+'</div>'
+          +'<div style="font-size:20px;font-weight:700;color:var(--accent);">'+e[1]+'</div>'
           +'<div style="font-size:11px;color:var(--ink3);">'+esc(e[0])+'</div></div>';
       }).join('')
     + '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
     +'<div style="font-size:22px;font-weight:700;color:var(--ink);">'+totalMats+'</div>'
-    +'<div style="font-size:11px;color:var(--ink3);">Materiales usados</div></div>';
+    +'<div style="font-size:11px;color:var(--ink3);">Materiales</div></div>';
 
-  // Lista de trabajos
+  // Lista trabajos realizados
   var lista = document.getElementById('efec-det-lista');
-  if (!asigs.length) {
-    lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;padding:.5rem 0;">Sin trabajos en este período.</p>';
-  } else {
-    lista.innerHTML = '<div class="table-wrap"><table>'
-      +'<thead><tr><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>OT</th><th>Técnico</th><th>Materiales</th><th></th></tr></thead><tbody>'
+  var realizadosHTML = !asigs.length ? ''
+    : '<div style="margin-bottom:.75rem;">'
+      +'<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.4rem;">✅ Trabajos realizados</div>'
+      +'<div class="table-wrap"><table>'
+      +'<thead><tr><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>OT</th><th>Técnico</th><th>Mats.</th><th></th></tr></thead><tbody>'
       +asigs.map(function(a){
-        var mcount = (a.materiales||[]).length;
+        var mc = (a.materiales||[]).length;
         return '<tr>'
           +'<td style="font-size:11px;white-space:nowrap;">'+esc(a.fecha)+'</td>'
           +'<td style="font-size:12px;font-weight:500;">'+esc(a.cliente||'—')+'</td>'
           +'<td><span class="badge badge-blue" style="font-size:10px;">'+esc(a.tipo||'—')+'</span></td>'
           +'<td style="font-size:11px;font-family:monospace;">'+esc(a.ot||'—')+'</td>'
           +'<td style="font-size:11px;">'+esc(a.tecnico||'—')+'</td>'
-          +'<td style="font-size:11px;text-align:center;">'+(mcount>0?'<span class="badge badge-gray">'+mcount+'</span>':'—')+'</td>'
+          +'<td style="text-align:center;">'+(mc>0?'<span class="badge badge-gray">'+mc+'</span>':'—')+'</td>'
           +'<td><button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button></td>'
           +'</tr>';
-      }).join('')+'</tbody></table></div>';
-  }
+      }).join('')+'</tbody></table></div></div>';
+
+  var fallidasHTML = !vfs.length ? ''
+    : '<div>'
+      +'<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#c2410c;margin-bottom:.4rem;">⚠ Visitas fallidas</div>'
+      +'<div class="table-wrap"><table>'
+      +'<thead><tr><th>Cliente</th><th>Motivo</th><th>Observación</th><th>Horario</th><th>Tiempo</th></tr></thead><tbody>'
+      +vfs.map(function(v){
+        var mins = v.minutosPercibidos||0;
+        var tStr = mins>=60?Math.floor(mins/60)+'h '+(mins%60)+'min':mins+'min';
+        return '<tr style="background:rgba(249,115,22,.04);">'
+          +'<td style="font-size:12px;font-weight:500;">'+esc(v.cliente||'—')+'</td>'
+          +'<td><span style="background:rgba(249,115,22,.15);color:#c2410c;border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;">'+esc(v.motivo||'—')+'</span></td>'
+          +'<td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="'+esc(v.obs||'')+'">'+esc(v.obs||'—')+'</td>'
+          +'<td style="font-size:11px;white-space:nowrap;">'+(v.horaIni||'—')+' – '+(v.horaFin||'—')+'</td>'
+          +'<td style="font-weight:700;color:#c2410c;font-size:12px;white-space:nowrap;">'+tStr+'</td>'
+          +'</tr>';
+      }).join('')+'</tbody></table></div></div>';
+
+  lista.innerHTML = realizadosHTML + fallidasHTML
+    || '<p style="color:var(--ink3);font-size:13px;padding:.5rem 0;">Sin registros en este período.</p>';
 
   var modal = document.getElementById('modal-efec-detalle');
   if (modal) modal.style.display = 'flex';
@@ -3574,6 +3888,12 @@ function initFirebaseListeners() {
       if (currentUser.tipo==='admin' && currentSection==='admin-red-interna') renderAdminRedInterna();
     }
   });
+  // Motivos de visita fallida (dinámicos)
+  db.ref('motivos_vf').on('value', function(snap) {
+    cache.motivos_vf = snap.val() || {};
+    poblarSelectMotivosVF();
+    if (currentUser && currentUser.tipo==='admin' && currentSection==='admin-motivos-vf') renderMotivosVF();
+  });
   // Tipos de trabajo Red Interna (dinámicos)
   db.ref('tipos_red_interna').on('value', function(snap) {
     cache.tipos_red_interna = snap.val() || {};
@@ -3626,6 +3946,7 @@ function renderCurrentSection() {
     'admin-herramientas': renderAdminHerramientas,
     'admin-catalogo-herramientas': renderCatalogoHerramientasAdmin,
     'admin-tipos-ri': renderTiposRI,
+    'admin-motivos-vf': renderMotivosVF,
     'red-interna': renderRedInterna,
     'admin-red-interna': renderAdminRedInterna,
     'visitas-fallidas': renderVisitasFallidas,
@@ -3769,7 +4090,7 @@ function expandNavGroupForSection(section) {
     'inventario':'navg-inventario','alertas':'navg-inventario','historial':'navg-inventario',
     'herramientas':'navg-inventario','red-interna':'navg-inventario',
     'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion',
-    'admin-herramientas':'navg-control','admin-catalogo-herramientas':'navg-control','admin-tipos-ri':'navg-control','admin-red-interna':'navg-control',
+    'admin-herramientas':'navg-control','admin-catalogo-herramientas':'navg-control','admin-tipos-ri':'navg-control','admin-motivos-vf':'navg-control','admin-red-interna':'navg-control',
     'admin-logs':'navg-sistema','admin-config':'navg-sistema'
   };
   var targetGroup = sectionToGroup[section];
@@ -4845,14 +5166,14 @@ function guardarCatalogoHerr() {
   ref.set(data).then(function(){
     toast(editId ? 'Herramienta actualizada' : 'Herramienta agregada al catálogo', 'success');
     closeModal('modal-catalogo-herr');
-  });
+  }).catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
 }
 
 function eliminarCatalogoHerr(id, nombre) {
   showConfirm('Eliminar del catálogo','¿Eliminar <strong>'+esc(nombre)+'</strong> del catálogo? Las herramientas ya asignadas a cuadrillas no se verán afectadas.', function(){
     db.ref('catalogo_herramientas/'+id).remove().then(function(){
       toast('Herramienta eliminada del catálogo','success');
-    });
+    }).catch(function(e){ toast('Error al eliminar: '+e.message,'error'); });
   });
 }
 
@@ -4935,12 +5256,12 @@ function guardarTipoRI() {
   ref.set({nombre:nombre, orden:orden}).then(function(){
     toast(editId ? 'Tipo actualizado' : 'Tipo de trabajo agregado','success');
     closeModal('modal-tipo-ri');
-  });
+  }).catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
 }
 
 function eliminarTipoRI(id, nombre) {
   showConfirm('Eliminar tipo','¿Eliminar el tipo <strong>'+esc(nombre)+'</strong>? Los registros existentes no se ven afectados.', function(){
-    db.ref('tipos_red_interna/'+id).remove().then(function(){ toast('Tipo eliminado','success'); });
+    db.ref('tipos_red_interna/'+id).remove().then(function(){ toast('Tipo eliminado','success'); }).catch(function(e){ toast('Error: '+e.message,'error'); });
   });
 }
 
@@ -5521,7 +5842,7 @@ function showSection(id) {
 
   // ── Guardia de roles ─────────────────────────────────
   var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
-                   'admin-logs','admin-config','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-red-interna'];
+                   'admin-logs','admin-config','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-motivos-vf','admin-red-interna'];
   var superOnly = ['admin-logs'];
   var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas'];
 
@@ -8377,6 +8698,9 @@ function cargarDatosIniciales() {
     safeOnce(db.ref('herramientas')),
     safeOnce(db.ref('redInterna')),
     safeOnce(db.ref('visitas_fallidas')),
+    safeOnce(db.ref('catalogo_herramientas')),
+    safeOnce(db.ref('tipos_red_interna')),
+    safeOnce(db.ref('motivos_vf')),
     safeOnce(db.ref('config/adminPass')),
     safeOnce(db.ref('config/admin2Pass')),
     safeOnce(db.ref('config/superPass')),
@@ -8406,21 +8730,24 @@ function cargarDatosIniciales() {
       return;
     }
 
-    cache.cuadrillas      = snaps[0].val() || {};
-    cache.materiales      = snaps[1].val() || {};
-    cache.stocks          = snaps[2].val() || {};
-    cache.kardex          = snaps[3].val() || {};
-    cache.asignaciones    = snaps[4].val() || {};
-    cache.sectores        = snaps[5].val() || {};
-    SECTORES_CACHE        = cache.sectores;
-    cache.herramientas    = snaps[6].val() || {};
-    cache.redInterna      = snaps[7].val() || {};
-    cache.visitas_fallidas = snaps[8].val() || {};
-    if (snaps[9].val())  ADMIN_PASS     = snaps[9].val();
-    if (snaps[10].val()) ADMIN2_PASS    = snaps[10].val();
-    if (snaps[11].val()) SUPER_PASS     = snaps[11].val();
-    if (snaps[12].val()) SECTOR1_NOMBRE = snaps[12].val();
-    if (snaps[13].val()) SECTOR2_NOMBRE = snaps[13].val();
+    cache.cuadrillas        = snaps[0].val() || {};
+    cache.materiales        = snaps[1].val() || {};
+    cache.stocks            = snaps[2].val() || {};
+    cache.kardex            = snaps[3].val() || {};
+    cache.asignaciones      = snaps[4].val() || {};
+    cache.sectores          = snaps[5].val() || {};
+    SECTORES_CACHE          = cache.sectores;
+    cache.herramientas      = snaps[6].val() || {};
+    cache.redInterna        = snaps[7].val() || {};
+    cache.visitas_fallidas  = snaps[8].val() || {};
+    cache.catalogo_herramientas = snaps[9].val() || {};
+    cache.tipos_red_interna = snaps[10].val() || {};
+    cache.motivos_vf        = snaps[11].val() || {};
+    if (snaps[12].val()) ADMIN_PASS     = snaps[12].val();
+    if (snaps[13].val()) ADMIN2_PASS    = snaps[13].val();
+    if (snaps[14].val()) SUPER_PASS     = snaps[14].val();
+    if (snaps[15].val()) SECTOR1_NOMBRE = snaps[15].val();
+    if (snaps[16].val()) SECTOR2_NOMBRE = snaps[16].val();
 
     // Si no hay sectores, migrar legado
     if (Object.keys(cache.sectores).length === 0) {
