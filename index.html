@@ -5,7 +5,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet v2.19b — Control de Materiales ISP</title>
+<title>BodegaNet v2.20 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -115,10 +115,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 .section.active{display:block;}
 
 /* ── BOTTOM NAV ── */
-.bottom-nav{display:none;background:rgba(245,246,248,.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:99;height:60px;}
+.bottom-nav{display:none;background:rgba(245,246,248,.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:200;height:60px;}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;color:var(--ink3);font-size:10px;font-family:var(--sans);transition:all .15s;border-radius:8px;margin:4px 2px;}
 .bn-item.active{color:var(--accent);background:var(--accent-light);}
 .bn-item svg{width:20px;height:20px;}
+.bn-drawer-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:var(--bg3);border:1.5px solid var(--border);border-radius:12px;cursor:pointer;color:var(--ink2);font-size:11px;font-family:var(--sans);padding:10px 6px;transition:all .15s;}
+.bn-drawer-item:active{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+.bn-drawer-item svg{width:22px;height:22px;}
 
 /* ── COMPONENTS ── */
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:12px;}
@@ -301,7 +304,7 @@ select option{background:var(--bg3);color:var(--ink);}
         <input class="login-input" type="password" id="login-cuad-pass" placeholder="••••••" style="padding-right:40px" onkeypress="if(event.key==='Enter'){loginCuadrilla();return false;}">
         <button class="pass-toggle" onclick="togglePass('login-cuad-pass')" style="top:50%;transform:translateY(-50%)">&#128065;</button>
       </div>
-      <button class="login-btn" onclick="loginCuadrilla()">Ingresar</button>
+      <button class="login-btn" id="btn-login-cuad" onclick="loginCuadrilla()">Ingresar</button>
       <div id="login-err-cuad" style="display:none;background:var(--red-light);border:1px solid #f5c5c5;border-radius:var(--r);padding:9px 12px;font-size:13px;color:var(--red);margin-top:10px;text-align:center;font-weight:500;"></div>
       <div class="login-divider">o</div>
       <div class="admin-link"><a onclick="showAdminLogin()">Acceso Administrador</a></div>
@@ -317,7 +320,7 @@ select option{background:var(--bg3);color:var(--ink);}
         <input class="login-input" type="password" id="admin-pass" placeholder="••••••" style="padding-right:40px" onkeypress="if(event.key==='Enter'){loginAdmin();return false;}">
         <button class="pass-toggle" onclick="togglePass('admin-pass')" style="top:50%;transform:translateY(-50%)">👁</button>
       </div>
-      <button class="login-btn dark" onclick="loginAdmin()">Entrar</button>
+      <button class="login-btn dark" id="btn-login-admin" onclick="loginAdmin()">Entrar</button>
       <div id="login-err-admin" style="display:none;background:var(--red-light);border:1px solid #f5c5c5;border-radius:var(--r);padding:9px 12px;font-size:13px;color:var(--red);margin-top:10px;text-align:center;font-weight:500;"></div>
       <div class="login-divider">o</div>
       <div class="admin-link"><a onclick="showCuadrillaLogin()">← Volver</a></div>
@@ -385,6 +388,9 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="nav-item" id="nav-red-interna" onclick="showSection('red-interna')" style="display:none;">
             <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="4" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="3" cy="16" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="17" cy="16" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v4M10 10l-5.5 4M10 10l5.5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Red Interna
           </button>
+          <button class="nav-item" id="nav-visita-cuad" onclick="showSection('visitas-fallidas-cuad')" style="color:#f97316;">
+            <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#f97316" stroke-width="1.5"/><path d="M10 7v4M10 14h.01" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/></svg>Visitas fallidas
+          </button>
         </div>
       </div>
       <div class="nav-group" id="admin-nav" style="display:none">
@@ -407,6 +413,9 @@ select option{background:var(--bg3);color:var(--ink);}
               </button>
               <button class="nav-item" onclick="showSection('admin-reportes')">
                 <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Reportes / Excel
+              </button>
+              <button class="nav-item" onclick="showSection('admin-visitas-fallidas')" style="color:#f97316;">
+                <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#f97316" stroke-width="1.5"/><path d="M10 7v4M10 14h.01" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/></svg>Visitas fallidas
               </button>
             </div>
           </div>
@@ -1369,6 +1378,7 @@ select option{background:var(--bg3);color:var(--ink);}
     /* ── Visitas fallidas ── */
     "visitas_fallidas": { ".read": true, ".write": true },
     "motivos_vf":       { ".read": true, ".write": true },
+    "bloqueos_login":   { ".read": true, ".write": true },
 
     /* ── Config: solo lectura pública, escritura restringida ── */
     "config": {
@@ -1444,6 +1454,18 @@ select option{background:var(--bg3);color:var(--ink);}
         <div class="card">
           <div class="card-header"><h3>Sesiones activas</h3><button class="btn btn-sm" onclick="renderSesionesActivasConfig()">🔄 Actualizar</button></div>
           <div id="sesiones-lista"><p style="color:var(--ink3);font-size:13px;">Cargando...</p></div>
+        </div>
+
+        <!-- 8. Dispositivos bloqueados -->
+        <div class="card" style="border-color:rgba(220,38,38,.2);">
+          <div class="card-header">
+            <div>
+              <h3>🔒 Dispositivos bloqueados</h3>
+              <p style="font-size:12px;color:var(--ink3);margin-top:2px;">Dispositivos que superaron los 5 intentos fallidos de contraseña</p>
+            </div>
+            <button class="btn btn-sm" onclick="renderBloqueosLogin()">🔄 Actualizar</button>
+          </div>
+          <div id="bloqueos-login-lista"><p style="color:var(--ink3);font-size:13px;">Haz clic en Actualizar para cargar.</p></div>
         </div>
       </section>
 
@@ -1925,22 +1947,114 @@ select option{background:var(--bg3);color:var(--ink);}
       </div>
     </main>
   </div>
+  <!-- BOTTOM NAV — máximo 4 ítems fijos + botón Más -->
   <nav class="bottom-nav" id="bottom-nav">
-    <button class="bn-item active" id="bn-dashboard" onclick="showSection('dashboard')"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>Inicio</button>
-    <!-- Cuadrilla -->
-    <button class="bn-item bn-cuad" onclick="showSection('kardex')"><svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Kardex</button>
-    <button class="bn-item bn-cuad" onclick="showSection('asignar')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Asignar</button>
-    <button class="bn-item bn-cuad" onclick="showSection('historial')"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Mi día</button>
-    <!-- 1. Visita Fallida visible para cuadrilla en móvil -->
-    <!-- Botón Fallida oculto — no implementado actualmente -->
-    <button class="bn-item bn-cuad" onclick="showSection('alertas')"><svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>Alertas</button>
-    <button class="bn-item bn-cuad" onclick="showSection('herramientas')"><svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l-3 3-2-2 3-3a4 4 0 00-5.5 5.5L3 11a1.41 1.41 0 002 2l4-4a4 4 0 005.5-5.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Herram.</button>
-    <button class="bn-item bn-cuad bn-ri" id="bn-red-interna" onclick="showSection('red-interna')" style="display:none;"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="4" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="3" cy="16" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="17" cy="16" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v4M10 10l-5.5 4M10 10l5.5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Red Int.</button>
-    <!-- Admin en móvil -->
-    <button class="bn-item bn-admin" id="bn-nuevo-mat" onclick="irNuevoMaterial()" style="display:none;color:var(--accent);"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>+ Material</button>
-    <button class="bn-item bn-admin" style="display:none;" onclick="showSection('admin-reportes')"><svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Reportes</button>
-    <!-- Botón Fallidas admin oculto — no implementado actualmente -->
+    <!-- CUADRILLA: Inicio / Kardex / Asignar / Más -->
+    <button class="bn-item active bn-cuad-nav" id="bn-dashboard" onclick="showSection('dashboard')">
+      <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+      Inicio
+    </button>
+    <button class="bn-item bn-cuad" onclick="showSection('kardex')">
+      <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Kardex
+    </button>
+    <button class="bn-item bn-cuad" onclick="showSection('asignar')">
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Asignar
+    </button>
+    <!-- Visita fallida: botón rápido de acción directa -->
+    <button class="bn-item bn-cuad" id="bn-vf-quick" onclick="abrirModalVF()" style="color:#f97316;">
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 7v4M10 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Fallida
+    </button>
+    <!-- Más: abre drawer con resto de opciones cuadrilla -->
+    <button class="bn-item bn-cuad" id="bn-mas-cuad" onclick="toggleBnDrawer('drawer-cuad')">
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="4" cy="10" r="1.5" fill="currentColor"/><circle cx="10" cy="10" r="1.5" fill="currentColor"/><circle cx="16" cy="10" r="1.5" fill="currentColor"/></svg>
+      Más
+    </button>
+
+    <!-- ADMIN: Inicio / Kardex / Asignar / Más -->
+    <button class="bn-item bn-admin" id="bn-dashboard-admin" onclick="showSection('dashboard')" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
+      Inicio
+    </button>
+    <button class="bn-item bn-admin" id="bn-nuevo-mat" onclick="irNuevoMaterial()" style="display:none;color:var(--accent);">
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      + Material
+    </button>
+    <button class="bn-item bn-admin" style="display:none;" onclick="showSection('admin-reportes')">
+      <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Reportes
+    </button>
+    <button class="bn-item bn-admin" style="display:none;" onclick="toggleBnDrawer('drawer-admin')">
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="4" cy="10" r="1.5" fill="currentColor"/><circle cx="10" cy="10" r="1.5" fill="currentColor"/><circle cx="16" cy="10" r="1.5" fill="currentColor"/></svg>
+      Más
+    </button>
   </nav>
+
+  <!-- DRAWER CUADRILLA: opciones adicionales -->
+  <div id="drawer-cuad" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:200;background:rgba(245,246,248,.98);backdrop-filter:blur(16px);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:12px 8px 8px;box-shadow:0 -4px 24px rgba(30,35,50,.12);">
+    <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 12px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      <button class="bn-drawer-item" onclick="bnNav('historial','drawer-cuad')">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Mi día
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('herramientas','drawer-cuad')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l-3 3-2-2 3-3a4 4 0 00-5.5 5.5L3 11a1.41 1.41 0 002 2l4-4a4 4 0 005.5-5.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Herram.
+      </button>
+      <button class="bn-drawer-item bn-ri-drawer" id="bn-red-interna" onclick="bnNav('red-interna','drawer-cuad')" style="display:none;">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="4" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="3" cy="16" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="17" cy="16" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v4M10 10l-5.5 4M10 10l5.5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Red Int.
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('alertas','drawer-cuad')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>
+        Alertas
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('visitas-fallidas-cuad','drawer-cuad')" style="color:#f97316;">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#f97316" stroke-width="1.5"/><path d="M10 7v4M10 14h.01" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Mis VF
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('inventario','drawer-cuad')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M2 5l8-3 8 3v7c0 3-8 6-8 6S2 15 2 12V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        Inventario
+      </button>
+    </div>
+  </div>
+
+  <!-- DRAWER ADMIN: opciones adicionales -->
+  <div id="drawer-admin" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:200;background:rgba(245,246,248,.98);backdrop-filter:blur(16px);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:12px 8px 8px;box-shadow:0 -4px 24px rgba(30,35,50,.12);">
+    <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 12px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      <button class="bn-drawer-item" onclick="bnNav('historial','drawer-admin')">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Historial
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('inventario','drawer-admin')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M2 5l8-3 8 3v7c0 3-8 6-8 6S2 15 2 12V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        Inventario
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('alertas','drawer-admin')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>
+        Alertas
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('admin-visitas-fallidas','drawer-admin')" style="color:#f97316;">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#f97316" stroke-width="1.5"/><path d="M10 7v4M10 14h.01" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/></svg>
+        VF
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('admin-herramientas','drawer-admin')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l-3 3-2-2 3-3a4 4 0 00-5.5 5.5L3 11a1.41 1.41 0 002 2l4-4a4 4 0 005.5-5.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Herram.
+      </button>
+      <button class="bn-drawer-item" onclick="bnNav('admin-config','drawer-admin')">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M14.4 4.2l-1.4 1.4M4.2 14.4l1.4 1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Config
+      </button>
+    </div>
+  </div>
+  <!-- Backdrop para cerrar drawers -->
+  <div id="bn-backdrop" onclick="cerrarBnDrawers()" style="display:none;position:fixed;inset:0;bottom:60px;z-index:199;background:rgba(20,25,40,.25);backdrop-filter:blur(1px);"></div>
 </div>
 
 <!-- MODALES -->
@@ -2288,14 +2402,11 @@ const db = firebase.database();
 
 // 1. Rate limiting — persistente en localStorage (sobrevive recargas)
 var MAX_LOGIN_ATTEMPTS = 5;
-var LOGIN_BLOCK_MS = 5 * 60 * 1000; // 5 minutos
+var LOGIN_BLOCK_FIREBASE = true; // bloqueo persistido en Firebase, desbloqueable por admin
 
 function _rlKey() { return 'bn_rl_' + (window.location.hostname||'local'); }
 function _getRLState() {
-  try {
-    var s = JSON.parse(localStorage.getItem(_rlKey()) || '{}');
-    return { attempts: s.attempts||0, blockedUntil: s.blockedUntil||0 };
-  } catch(e) { return { attempts:0, blockedUntil:0 }; }
+  try { return JSON.parse(localStorage.getItem(_rlKey()) || '{}'); } catch(e) { return {}; }
 }
 function _setRLState(s) {
   try { localStorage.setItem(_rlKey(), JSON.stringify(s)); } catch(e) {}
@@ -2304,29 +2415,74 @@ function _setRLState(s) {
 function checkLoginRateLimit() {
   var s = _getRLState();
   var ahora = Date.now();
-  if (ahora < s.blockedUntil) {
+  if (s.blockedUntil && ahora < s.blockedUntil) {
     var restante = Math.ceil((s.blockedUntil - ahora) / 60000);
-    toast('Demasiados intentos fallidos. Espera '+restante+' minuto(s).', 'error');
+    mostrarBloqueoLogin('Este dispositivo está bloqueado. Espera '+restante+' minuto(s) o contacta al Administrador para desbloquear.');
     return false;
   }
-  // Limpiar bloqueo expirado
-  if (s.blockedUntil > 0 && ahora >= s.blockedUntil) _setRLState({attempts:0, blockedUntil:0});
+  if (s.bloqueadoPorAdmin) {
+    mostrarBloqueoLogin('Acceso bloqueado por exceso de intentos fallidos. Solicita al Administrador que desbloquee este dispositivo.');
+    return false;
+  }
+  if (s.blockedUntil && ahora >= s.blockedUntil) _setRLState({attempts:0});
   return true;
 }
-function registrarIntentoFallido() {
+
+function mostrarBloqueoLogin(msg) {
+  // Mostrar panel de bloqueo en ambos formularios
+  ['login-err-cuad','login-err-admin'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) {
+      el.innerHTML = '<span style="font-size:18px;">🔒</span> <strong>Dispositivo bloqueado</strong><br><span style="font-size:12px;">'+msg+'</span>';
+      el.style.display = 'block';
+      el.style.background = 'rgba(220,38,38,.12)';
+      el.style.border = '1.5px solid rgba(220,38,38,.3)';
+      el.style.borderRadius = 'var(--r)';
+      el.style.padding = '10px 14px';
+    }
+  });
+}
+
+function registrarIntentoFallido(usuario, tipoLogin) {
   var s = _getRLState();
   s.attempts = (s.attempts||0) + 1;
+  var restantes = MAX_LOGIN_ATTEMPTS - s.attempts;
+
   if (s.attempts >= MAX_LOGIN_ATTEMPTS) {
-    s.blockedUntil = Date.now() + LOGIN_BLOCK_MS;
+    // Bloqueo persistente — solo desbloqueable por admin
+    s.bloqueadoPorAdmin = true;
     s.attempts = 0;
-    toast('Acceso bloqueado por 5 minutos por múltiples intentos fallidos.', 'error');
-    // Registrar en Firebase para auditoría
-    try { db.ref('seguridad_logs').push({ timestamp: Date.now(), tipo: 'bloqueo_login',
-      ip: 'client', agente: navigator.userAgent.substring(0,80) }); } catch(e) {}
+    s.bloqueadoEn = Date.now();
+    s.bloqueadoUsuario = usuario || 'desconocido';
+    _setRLState(s);
+    // Guardar en Firebase para que admin pueda ver y desbloquear
+    try {
+      var bloqueoId = Date.now()+'_'+Math.random().toString(36).slice(2,6);
+      db.ref('bloqueos_login/'+bloqueoId).set({
+        ts: Date.now(), usuario: usuario||'—', tipo: tipoLogin||'—',
+        agente: navigator.userAgent.substring(0,120),
+        hostname: window.location.hostname
+      });
+    } catch(e){}
+    mostrarBloqueoLogin('Acceso bloqueado por 5 intentos fallidos. Solicita al Administrador que desbloquee este dispositivo.');
+    return 0;
   }
+
   _setRLState(s);
+  return restantes;
 }
-function resetLoginAttempts() { _setRLState({attempts:0, blockedUntil:0}); }
+
+function resetLoginAttempts() { _setRLState({attempts:0, bloqueadoPorAdmin:false, bloqueadoEn:null}); }
+
+// Desbloqueo por Admin (llamado desde panel de configuración)
+function desbloquearDispositivo(hostname) {
+  db.ref('bloqueos_login').orderByChild('hostname').equalTo(hostname).once('value', function(snap){
+    var updates = {};
+    snap.forEach(function(c){ updates['bloqueos_login/'+c.key+'/desbloqueado'] = true; });
+    db.ref().update(updates);
+  });
+  toast('Dispositivo desbloqueado en Firebase','success');
+}
 
 // 2. Timeout de sesión por inactividad (30 minutos)
 var _sessionTimer = null;
@@ -2508,6 +2664,12 @@ function asigListFiltrada() {
 }
 function fmtDate(d) { return new Date(d).toLocaleDateString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric'}); }
 function fmtDT(d) { return new Date(d).toLocaleString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+// Hora de transacción: usa tsRegistro si existe, si no parsea la fecha ISO
+function fmtDTK(k) {
+  if (k.tsRegistro) return fmtDT(k.tsRegistro);
+  if (k.fecha && k.fecha.length > 10) return fmtDTK(k);
+  return (k.fecha||'—') + (k.horaRegistro ? ' '+k.horaRegistro : '');
+}
 function nowISO() { return new Date().toISOString(); }
 function togglePass(id) { var e=document.getElementById(id); e.type=e.type==='password'?'text':'password'; }
 
@@ -3163,7 +3325,7 @@ function renderRepKardex() {
     var c=getCuad(k.cuadrillaId), m=getMat(k.matId);
     var bc=k.tipo==='ingreso'?'badge-green':'badge-accent';
     return '<tr>'
-      +'<td style="font-size:11px;">'+fmtDT(k.fecha)+'</td>'
+      +'<td style="font-size:11px;">'+fmtDTK(k)+'</td>'
       +'<td style="font-size:12px;">'+esc(c?c.nombre:'')+'</td>'
       +'<td><span class="badge '+bc+'">'+esc(k.tipo)+'</span></td>'
       +'<td style="font-size:12px;">'+esc(m?m.nombre:'')+'</td>'
@@ -3179,7 +3341,7 @@ function exportarKardexCSV() {
   var rows=[['Fecha','Cuadrilla','Tipo','Material','MAC','Cantidad','Unidad','Responsable','Referencia']];
   kardexList().forEach(function(k){
     var c=getCuad(k.cuadrillaId), m=getMat(k.matId);
-    rows.push([fmtDT(k.fecha), c?c.nombre:'—', k.tipo, m?m.nombre:'—', k.mac||'', k.qty, m?m.unidad:'', k.resp||'', k.ref||'']);
+    rows.push([fmtDTK(k), c?c.nombre:'—', k.tipo, m?m.nombre:'—', k.mac||'', k.qty, m?m.unidad:'', k.resp||'', k.ref||'']);
   });
   var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var a=document.createElement('a');
@@ -3633,6 +3795,39 @@ document.addEventListener('click', function(e) {
   if (m && e.target === m) cerrarEfecDetalle();
 });
 
+// ── Bottom Nav Drawer ─────────────────────────────────
+function toggleBnDrawer(id) {
+  var drawer = document.getElementById(id);
+  var backdrop = document.getElementById('bn-backdrop');
+  var isOpen = drawer && drawer.style.display !== 'none';
+  cerrarBnDrawers();
+  if (!isOpen && drawer) {
+    drawer.style.display = 'block';
+    if (backdrop) backdrop.style.display = 'block';
+    // Animar entrada
+    drawer.style.transform = 'translateY(100%)';
+    drawer.style.transition = 'transform .22s cubic-bezier(.32,.72,0,1)';
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){ drawer.style.transform = 'translateY(0)'; });
+    });
+  }
+}
+function cerrarBnDrawers() {
+  ['drawer-cuad','drawer-admin'].forEach(function(id){
+    var d = document.getElementById(id);
+    if (d && d.style.display !== 'none') {
+      d.style.transform = 'translateY(100%)';
+      setTimeout(function(){ d.style.display = 'none'; d.style.transform = ''; }, 200);
+    }
+  });
+  var bd = document.getElementById('bn-backdrop');
+  if (bd) bd.style.display = 'none';
+}
+function bnNav(section, drawerId) {
+  cerrarBnDrawers();
+  setTimeout(function(){ showSection(section); }, 50);
+}
+
 function setGrafPeriodo(p) {
   grafPeriodo = p;
   ['dia','semana','mes'].forEach(function(k) {
@@ -3852,7 +4047,47 @@ function renderChartTrabajosXCuadrilla(){ renderGraficosAdmin(); }
 // ══════════════════════════════════════════════════════
 // FIREBASE — LISTENERS EN TIEMPO REAL
 // ══════════════════════════════════════════════════════
+// Monitor de desbloqueo remoto — cuando admin desbloquea en Firebase,
+// el dispositivo limpia su localStorage y reactiva el formulario de login
+function iniciarMonitorDesbloqueo() {
+  var s = _getRLState();
+  if (!s.bloqueadoPorAdmin || !s.bloqueadoEn) return; // no está bloqueado, nada que monitorear
+  var hostname = window.location.hostname;
+  // Escuchar en tiempo real si algún bloqueo de este hostname fue desbloqueado
+  db.ref('bloqueos_login').orderByChild('hostname').equalTo(hostname).on('value', function(snap) {
+    var hayDesbloqueado = false;
+    snap.forEach(function(c) {
+      var v = c.val();
+      if (v && v.desbloqueado === true && !v._procesado) {
+        hayDesbloqueado = true;
+        // Marcar como procesado para no re-procesar
+        db.ref('bloqueos_login/'+c.key+'/_procesado').set(true);
+      }
+    });
+    if (hayDesbloqueado) {
+      resetLoginAttempts();
+      // Limpiar mensajes de error y rehabilitar formularios
+      ['login-err-cuad','login-err-admin'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) { el.style.display='none'; el.innerHTML=''; }
+      });
+      ['login-cuad-pass','admin-pass'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) { el.disabled=false; el.style.borderColor=''; }
+      });
+      ['btn-login-cuad','btn-login-admin'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
+      toast('✅ Tu acceso ha sido desbloqueado por el Administrador. Puedes intentar ingresar nuevamente.', 'success');
+    }
+  });
+}
+
 function initFirebaseListeners() {
+  // Monitor de desbloqueo — escucha si el admin desbloqueó este dispositivo
+  iniciarMonitorDesbloqueo();
+
   db.ref('cuadrillas').on('value', function(snap) {
     cache.cuadrillas = snap.val() || {};
     populateLoginSelect();
@@ -3941,7 +4176,7 @@ function renderCurrentSection() {
     'admin-cuadrillas': renderAdminCuadrillas,
     'admin-reportes': renderAdminReportes,
     'admin-logs': renderAdminLogs,
-    'admin-config': function(){ renderSesionesActivasConfig(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); },
+    'admin-config': function(){ renderSesionesActivasConfig(); renderBloqueosLogin(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); },
     'herramientas': renderHerramientas,
     'admin-herramientas': renderAdminHerramientas,
     'admin-catalogo-herramientas': renderCatalogoHerramientasAdmin,
@@ -3950,6 +4185,7 @@ function renderCurrentSection() {
     'red-interna': renderRedInterna,
     'admin-red-interna': renderAdminRedInterna,
     'visitas-fallidas': renderVisitasFallidas,
+    'admin-visitas-fallidas': renderVisitasFallidas,
     'visitas-fallidas-cuad': renderVisitasFallidasCuad
   };
   if (renders[currentSection]) renders[currentSection]();
@@ -4031,10 +4267,20 @@ function loginCuadrilla() {
   if (!match.pass) { showLoginError('cuad', 'Esta cuenta no tiene contraseña configurada.'); return; }
   verifyPass(pass, match.pass).then(function(ok) {
     if (!ok) {
-      registrarIntentoFallido();
+      var restantes = registrarIntentoFallido(match.nombre, 'cuadrilla');
       registrarLog(match.nombre, 'cuadrilla', 'fallido');
-      var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
-      showLoginError('cuad', '⚠ Contraseña incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
+      if (restantes > 0) {
+        var puntos = '●'.repeat(MAX_LOGIN_ATTEMPTS - restantes) + '○'.repeat(restantes);
+        showLoginError('cuad', '⚠ Contraseña incorrecta. Te quedan <strong>'+restantes+'</strong> intento(s).<br><span style="font-family:monospace;letter-spacing:3px;font-size:14px;">'+puntos+'</span>');
+      } else {
+        // Bloqueo — deshabilitar formulario
+        var btnC = document.getElementById('btn-login-cuad');
+        var passC = document.getElementById('login-cuad-pass');
+        if (btnC) btnC.disabled = true;
+        if (passC) { passC.disabled = true; passC.style.opacity = '0.5'; }
+        // Iniciar monitor de desbloqueo
+        iniciarMonitorDesbloqueo();
+      }
       if (navigator.vibrate) navigator.vibrate([100,50,100]);
       return;
     }
@@ -4090,7 +4336,7 @@ function expandNavGroupForSection(section) {
     'inventario':'navg-inventario','alertas':'navg-inventario','historial':'navg-inventario',
     'herramientas':'navg-inventario','red-interna':'navg-inventario',
     'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion',
-    'admin-herramientas':'navg-control','admin-catalogo-herramientas':'navg-control','admin-tipos-ri':'navg-control','admin-motivos-vf':'navg-control','admin-red-interna':'navg-control',
+    'admin-visitas-fallidas':'navg-gestion','admin-herramientas':'navg-control','admin-catalogo-herramientas':'navg-control','admin-tipos-ri':'navg-control','admin-motivos-vf':'navg-control','admin-red-interna':'navg-control',
     'admin-logs':'navg-sistema','admin-config':'navg-sistema'
   };
   var targetGroup = sectionToGroup[section];
@@ -4137,10 +4383,18 @@ function loginAdmin() {
 
   verifyPass(pass, passEsperada).then(function(ok) {
     if (!ok) {
-      registrarIntentoFallido();
+      var restantes = registrarIntentoFallido(nombreRol, 'admin');
       registrarLog(nombreRol, 'admin', 'fallido');
-      var rest = MAX_LOGIN_ATTEMPTS - _loginAttempts;
-      showLoginError('admin', '⚠ Clave incorrecta.' + (rest > 0 ? ' Te quedan '+rest+' intento(s).' : ' Acceso bloqueado 5 min.'));
+      if (restantes > 0) {
+        var puntos = '●'.repeat(MAX_LOGIN_ATTEMPTS - restantes) + '○'.repeat(restantes);
+        showLoginError('admin', '⚠ Clave incorrecta. Te quedan <strong>'+restantes+'</strong> intento(s).<br><span style="font-family:monospace;letter-spacing:3px;font-size:14px;">'+puntos+'</span>');
+      } else {
+        var btnA = document.getElementById('btn-login-admin');
+        var passA = document.getElementById('admin-pass');
+        if (btnA) btnA.disabled = true;
+        if (passA) { passA.disabled = true; passA.style.opacity = '0.5'; }
+        iniciarMonitorDesbloqueo();
+      }
       if (navigator.vibrate) navigator.vibrate([100,50,100]);
       return;
     }
@@ -4213,6 +4467,13 @@ function startApp() {
     // Admin: mostrar btns admin en bottom nav, ocultar cuadrilla
     document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='flex'; });
     document.querySelectorAll('.bn-cuad').forEach(function(b){ b.style.display='none'; });
+    // Mostrar items de admin en bottom nav
+    document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='flex'; });
+    // Dashboard compartido — usar versión admin
+    var bnDash = document.getElementById('bn-dashboard');
+    var bnDashAdmin = document.getElementById('bn-dashboard-admin');
+    if (bnDash) bnDash.style.display = 'none';
+    if (bnDashAdmin) bnDashAdmin.style.display = 'flex';
     // 6. Ocultar alertas y visita fallida cuad del sidebar para admin
     var navAlertas = document.getElementById('nav-alertas-cuad');
     if (navAlertas) navAlertas.style.display = 'none';
@@ -4243,6 +4504,12 @@ function startApp() {
     if (navRI) navRI.style.display = tieneRI ? 'flex' : 'none';
     if (bnRI)  bnRI.style.display  = tieneRI ? 'flex' : 'none';
     // Restaurar nav items de cuadrilla (por si hubo sesión admin previa)
+    document.querySelectorAll('.bn-cuad').forEach(function(b){ b.style.display='flex'; });
+    document.querySelectorAll('.bn-admin').forEach(function(b){ b.style.display='none'; });
+    var bnDash = document.getElementById('bn-dashboard');
+    var bnDashAdmin = document.getElementById('bn-dashboard-admin');
+    if (bnDash) bnDash.style.display = 'flex';
+    if (bnDashAdmin) bnDashAdmin.style.display = 'none';
     var navHerrCuad = document.getElementById('nav-herramientas-cuad');
     if (navHerrCuad) navHerrCuad.style.display = 'flex';
     var navAlertasCuad = document.getElementById('nav-alertas-cuad');
@@ -4483,12 +4750,15 @@ function renderRedInterna() {
     return;
   }
   lista.innerHTML = '<div class="table-wrap"><table>'
-    + '<thead><tr><th>Fecha</th><th>Tipo</th><th># Orden</th><th>Nodo/HE</th><th>Técnico</th><th>Inicio</th><th>Fin</th><th>Duración</th><th>Mat.</th><th></th></tr></thead>'
+    + '<thead><tr><th>Registrado</th><th>Tipo</th><th># Orden</th><th>Nodo/HE</th><th>Técnico</th><th>Inicio</th><th>Fin</th><th>Duración</th><th>Mat.</th><th></th></tr></thead>'
     + '<tbody>' + items.map(function(r) {
         var mCount = r.materiales ? Object.keys(r.materiales).length : 0;
         var dur = riDuracion(r.horaIni, r.horaFin);
+        var tsReg = r.tsRegistro
+          ? new Date(r.tsRegistro).toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'})
+          : (r.fecha||'—');
         return '<tr>'
-          + '<td style="font-size:11px;white-space:nowrap;">'+esc(r.fecha)+'</td>'
+          + '<td style="font-size:11px;white-space:nowrap;color:var(--ink3);">'+esc(tsReg)+'</td>'
           + '<td><span class="badge badge-blue" style="font-size:11px;">'+esc(r.tipo)+'</span></td>'
           + '<td style="font-family:monospace;font-size:12px;">'+esc(r.orden)+'</td>'
           + '<td style="font-size:12px;">'+esc(r.nodo)+'</td>'
@@ -4499,6 +4769,7 @@ function renderRedInterna() {
           + '<td>'+(mCount>0?'<span class="badge badge-gray">'+mCount+'</span>':'—')+'</td>'
           + '<td style="display:flex;gap:4px;">'
             + '<button class="btn btn-sm" onclick="verDetalleRI(\''+r.id+'\')">👁</button>'
+            + '<button class="btn btn-sm btn-accent" onclick="copiarTextoRI(\''+r.id+'\')" title="Copiar texto"><svg width="11" height="11" viewBox="0 0 20 20" fill="none"><rect x="8" y="2" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="5" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="var(--bg)"/></svg></button>'
             + '<button class="btn btn-sm btn-red" onclick="eliminarRI(\''+r.id+'\')">✕</button>'
           + '</td></tr>';
       }).join('') + '</tbody></table></div>';
@@ -4617,6 +4888,7 @@ function guardarRedInterna() {
     materiales: mats,
     cuadrillaId: currentUser.cuadrillaId,
     fecha: new Date().toISOString().slice(0,10),
+    tsRegistro: Date.now(),
     creadoEn: new Date().toISOString()
   };
   var ref = editId ? db.ref('redInterna/'+editId) : db.ref('redInterna').push();
@@ -4639,33 +4911,69 @@ function eliminarRI(id) {
   );
 }
 
+function copiarTextoRI(id) {
+  var r = cache.redInterna[id]; if (!r) return;
+  var cuad = getCuad(r.cuadrillaId);
+  var mats = r.materiales ? Object.entries(r.materiales).map(function(e){
+    var m = getMat(e[0]);
+    return '  \u2022 ' + (m?m.nombre:'?') + ' \xd7 ' + e[1] + (m?' '+m.unidad:'');
+  }).join('\n') : '  Sin materiales';
+  var dur = riDuracion(r.horaIni, r.horaFin);
+  var texto = [
+    '\U0001f5a7 Trabajo en Red Interna',
+    '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+    '# Orden : ' + (r.orden||'\u2014'),
+    'Tipo    : ' + (r.tipo||'\u2014'),
+    'Nodo/HE : ' + (r.nodo||'\u2014'),
+    'T\xe9cnico : ' + (r.tecnico||'\u2014'),
+    'Cuadrilla: ' + (cuad?cuad.nombre:'\u2014'),
+    'Fecha   : ' + (r.fecha||'\u2014'),
+    'Inicio  : ' + (r.horaIni||'\u2014') + (r.horaFin?' \u2014 Fin: '+r.horaFin:'') + (dur?' ('+dur+')':''),
+    'Materiales:\n' + mats,
+    r.obs ? 'Obs: ' + r.obs : ''
+  ].filter(Boolean).join('\n');
+  navigator.clipboard.writeText(texto).then(function(){
+    toast('Texto copiado al portapapeles \u2713','success');
+  }).catch(function(){
+    var ta = document.createElement('textarea');
+    ta.value = texto; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Texto copiado al portapapeles \u2713','success');
+  });
+}
+
 function verDetalleRI(id) {
   var r = cache.redInterna[id]; if (!r) return;
   var cuad = getCuad(r.cuadrillaId);
   var mats = r.materiales ? Object.entries(r.materiales).map(function(e){
     var m = getMat(e[0]);
-    return (m?esc(m.nombre):'?') + ' × ' + e[1] + (m?' '+esc(m.unidad):'');
-  }).join('<br>') : '—';
+    return (m?esc(m.nombre):'?') + ' \xd7 ' + e[1] + (m?' '+esc(m.unidad):'');
+  }).join('<br>') : '\u2014';
   var dur = riDuracion(r.horaIni, r.horaFin);
+  var tsReg = r.tsRegistro ? fmtDT(r.tsRegistro) : (r.fecha||'\u2014');
   var html = '<div style="font-size:13px;">'
     + '<table style="width:100%;border-collapse:collapse;">'
     + '<tr><td style="padding:4px 8px;color:var(--ink3);width:40%"># Orden</td><td style="font-family:monospace;">'+esc(r.orden)+'</td></tr>'
     + '<tr><td style="padding:4px 8px;color:var(--ink3);">Tipo</td><td><span class="badge badge-blue">'+esc(r.tipo)+'</span></td></tr>'
     + '<tr><td style="padding:4px 8px;color:var(--ink3);">Nodo/HE</td><td>'+esc(r.nodo)+'</td></tr>'
-    + '<tr><td style="padding:4px 8px;color:var(--ink3);">Técnico</td><td>'+esc(r.tecnico)+'</td></tr>'
+    + '<tr><td style="padding:4px 8px;color:var(--ink3);">T\xe9cnico</td><td>'+esc(r.tecnico)+'</td></tr>'
     + '<tr><td style="padding:4px 8px;color:var(--ink3);">Cuadrilla</td><td>'+esc(cuad?cuad.nombre:'?')+'</td></tr>'
-    + '<tr><td style="padding:4px 8px;color:var(--ink3);">Fecha</td><td>'+esc(r.fecha)+'</td></tr>'
+    + '<tr><td style="padding:4px 8px;color:var(--ink3);">Fecha registro</td><td style="font-weight:600;">'+tsReg+'</td></tr>'
     + '<tr><td style="padding:4px 8px;color:var(--ink3);">Inicio</td><td style="font-family:monospace;">'+esc(r.horaIni)+'</td></tr>'
-    + '<tr><td style="padding:4px 8px;color:var(--ink3);">Fin</td><td style="font-family:monospace;">'+esc(r.horaFin||'—')+'</td></tr>'
-    + (dur?'<tr><td style="padding:4px 8px;color:var(--ink3);">Duración</td><td>'+esc(dur)+'</td></tr>':'') 
+    + '<tr><td style="padding:4px 8px;color:var(--ink3);">Fin</td><td style="font-family:monospace;">'+esc(r.horaFin||'\u2014')+'</td></tr>'
+    + (dur?'<tr><td style="padding:4px 8px;color:var(--ink3);">Duraci\xf3n</td><td>'+esc(dur)+'</td></tr>':'')
     + '<tr><td style="padding:4px 8px;color:var(--ink3);vertical-align:top;">Materiales</td><td>'+mats+'</td></tr>'
     + (r.obs?'<tr><td style="padding:4px 8px;color:var(--ink3);vertical-align:top;">Obs.</td><td>'+esc(r.obs)+'</td></tr>':'')
     + '</table></div>';
   var overlay = document.getElementById('confirm-overlay');
   var box = document.getElementById('confirm-box');
   if (overlay && box) {
-    box.innerHTML = '<h3 style="margin-bottom:.75rem;">🖧 Detalle del registro</h3>' + html
-      + '<div class="btn-row" style="margin-top:1rem;"><button class="btn btn-ghost" onclick="closeConfirm()">Cerrar</button></div>';
+    box.innerHTML = '<h3 style="margin-bottom:.75rem;">\U0001f5a7 Detalle del registro</h3>' + html
+      + '<div class="btn-row" style="margin-top:1rem;">'
+      + '<button class="btn btn-ghost" onclick="closeConfirm()">Cerrar</button>'
+      + '<button class="btn btn-accent" onclick="copiarTextoRI(\''+id+'\');" style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><rect x="8" y="2" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="5" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="var(--bg)"/></svg> Copiar texto</button>'
+      + '</div>';
     overlay.style.display = 'flex';
   }
 }
@@ -4708,13 +5016,14 @@ function renderAdminRedInterna() {
   if (!lista) return;
   if (!items.length) { lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin registros para los filtros seleccionados.</p>'; return; }
   lista.innerHTML = '<div class="table-wrap"><table>'
-    + '<thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Tipo</th><th># Orden</th><th>Nodo/HE</th><th>Técnico</th><th>Inicio</th><th>Fin</th><th>Dur.</th><th>Mat.</th><th></th></tr></thead>'
+    + '<thead><tr><th>Registrado</th><th>Cuadrilla</th><th>Tipo</th><th># Orden</th><th>Nodo/HE</th><th>Técnico</th><th>Inicio</th><th>Fin</th><th>Dur.</th><th>Mat.</th><th></th></tr></thead>'
     + '<tbody>' + items.map(function(r) {
         var cuad = getCuad(r.cuadrillaId);
         var mCount = r.materiales ? Object.keys(r.materiales).length : 0;
         var dur = riDuracion(r.horaIni, r.horaFin);
+        var tsReg = r.tsRegistro ? fmtDT(r.tsRegistro) : esc(r.fecha||'—');
         return '<tr>'
-          + '<td style="font-size:11px;white-space:nowrap;">'+esc(r.fecha)+'</td>'
+          + '<td style="font-size:11px;white-space:nowrap;">'+tsReg+'</td>'
           + '<td style="font-size:12px;">'+esc(cuad?cuad.nombre:'?')+'</td>'
           + '<td><span class="badge badge-blue" style="font-size:11px;">'+esc(r.tipo)+'</span></td>'
           + '<td style="font-family:monospace;font-size:12px;">'+esc(r.orden)+'</td>'
@@ -4724,7 +5033,10 @@ function renderAdminRedInterna() {
           + '<td style="font-size:12px;font-family:monospace;">'+esc(r.horaFin||'—')+'</td>'
           + '<td style="font-size:11px;color:var(--ink3);">'+esc(dur)+'</td>'
           + '<td>'+(mCount>0?'<span class="badge badge-gray">'+mCount+'</span>':'—')+'</td>'
-          + '<td><button class="btn btn-sm" onclick="verDetalleRI(\''+r.id+'\')">👁</button></td>'
+          + '<td style="display:flex;gap:3px;">'
+          +   '<button class="btn btn-sm" onclick="verDetalleRI(\''+r.id+'\')">👁</button>'
+          +   '<button class="btn btn-sm btn-accent" onclick="copiarTextoRI(\''+r.id+'\')" title="Copiar"><svg width="11" height="11" viewBox="0 0 20 20" fill="none"><rect x="8" y="2" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="5" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="var(--bg)"/></svg></button>'
+          + '</td>'
           + '</tr>';
       }).join('') + '</tbody></table></div>';
 }
@@ -4757,17 +5069,20 @@ function toggleRiPermiso(cuadId, habilitado) {
 }
 
 function exportarRedInternaCSV() {
-  var rows = [['Fecha','Cuadrilla','Tipo','# Orden','Nodo/HE','Técnico','Inicio','Fin','Duración','Materiales','Observaciones']];
-  riListFiltrada().sort(function(a,b){return (b.fecha+b.horaIni).localeCompare(a.fecha+a.horaIni);}).forEach(function(r){
+  var rows = [['Fecha Registro','Hora Registro','Cuadrilla','Tipo','# Orden','Nodo/HE','T\xe9cnico','Inicio','Fin','Duraci\xf3n','Materiales','Observaciones']];
+  riListFiltrada().sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); }).forEach(function(r){
     var cuad = getCuad(r.cuadrillaId);
     var mats = r.materiales ? Object.entries(r.materiales).map(function(e){
       var m=getMat(e[0]); return (m?m.nombre:'?')+'x'+e[1];
     }).join('; ') : '';
-    rows.push([r.fecha, cuad?cuad.nombre:'', r.tipo, r.orden, r.nodo, r.tecnico,
+    var tsReg = r.tsRegistro ? new Date(r.tsRegistro) : null;
+    var fechaReg = tsReg ? tsReg.toLocaleDateString('es-HN') : (r.fecha||'');
+    var horaReg  = tsReg ? tsReg.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'}) : '';
+    rows.push([fechaReg, horaReg, cuad?cuad.nombre:'', r.tipo, r.orden, r.nodo, r.tecnico,
       r.horaIni||'', r.horaFin||'', riDuracion(r.horaIni,r.horaFin), mats, r.obs||'']);
   });
-  var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'\"')+'"';}).join(',');}).join('\n');
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='red_interna_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
 }
@@ -5842,7 +6157,7 @@ function showSection(id) {
 
   // ── Guardia de roles ─────────────────────────────────
   var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
-                   'admin-logs','admin-config','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-motivos-vf','admin-red-interna'];
+                   'admin-logs','admin-config','admin-visitas-fallidas','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-motivos-vf','admin-red-interna'];
   var superOnly = ['admin-logs'];
   var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas'];
 
@@ -6397,8 +6712,13 @@ function registrarKardex(){
         var nuevoStock=kardexTipo==='ingreso'?curStock+r.qty:Math.max(0,curStock-r.qty);
         updates['stocks/'+cid+'/'+mid]=nuevoStock!==undefined?nuevoStock:0;
         var kid=uid();
-        var entradaKardex = {fecha:fecha+'T'+new Date().toTimeString().slice(0,8),tipo:kardexTipo,
-          matId:mid,qty:r.qty,ref:ref||'',resp:resp||'',obs:obs||'',cuadrillaId:cid,saldo:nuevoStock};
+        var entradaKardex = {
+          fecha: fecha+'T'+new Date().toTimeString().slice(0,8),
+          tsRegistro: Date.now(),
+          tipo: kardexTipo,
+          matId: mid, qty: r.qty, ref: ref||'', resp: resp||'', obs: obs||'',
+          cuadrillaId: cid, saldo: nuevoStock
+        };
         if (r.mac) entradaKardex.mac = r.mac.toUpperCase();
         updates['kardex/'+kid]=entradaKardex;
       });
@@ -6437,7 +6757,7 @@ function renderKardex(){
   var hayMAC = rows.some(function(k){ return k.mac; });
   tbody.innerHTML=rows.map(function(k){
     var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
-    return '<tr><td style="font-size:11px;white-space:nowrap">'+fmtDT(k.fecha)+'</td>'
+    return '<tr><td style="font-size:11px;white-space:nowrap">'+fmtDTK(k)+'</td>'
       +'<td><span class="badge '+(k.tipo==='ingreso'?'badge-green':'badge-accent')+'">'+k.tipo+'</span></td>'
       +'<td>'+esc(mat?mat.nombre:'')+'</td>'
       +(k.mac
@@ -6626,7 +6946,7 @@ function buscarUsoMaterial() {
       + '</tr></thead><tbody>';
     html += egresos.map(function(k) {
       return '<tr>'
-        + '<td style="font-size:11px;white-space:nowrap">' + fmtDT(k.fecha) + '</td>'
+        + '<td style="font-size:11px;white-space:nowrap">' + fmtDTK(k) + '</td>'
         + '<td style="font-weight:600;color:var(--red);">-' + k.qty + ' ' + esc(mat.unidad || '') + '</td>'
         + '<td style="font-size:12px;">' + esc(k.ref || '—') + '</td>'
         + '<td style="font-size:12px;">' + esc(k.resp || '—') + '</td>'
@@ -6729,7 +7049,7 @@ function buscarPorMAC() {
     enKardex.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);}).forEach(function(k){
       var mat=getMat(k.matId);
       html += '<tr>'
-        + '<td style="font-size:11px;white-space:nowrap">' + fmtDT(k.fecha) + '</td>'
+        + '<td style="font-size:11px;white-space:nowrap">' + fmtDTK(k) + '</td>'
         + '<td><span class="badge '+(k.tipo==='ingreso'?'badge-green':'badge-accent')+'">' + k.tipo + '</span></td>'
         + '<td style="font-size:12px;">' + esc(mat?mat.nombre:'—') + '</td>'
         + '<td style="font-family:monospace;font-size:11px;color:var(--accent);">' + esc(k.mac) + '</td>'
@@ -7343,7 +7663,7 @@ function generarInformePDF(tipo) {
     rows = krows.map(function(k){
       var mat=getMat(k.matId), cuad=getCuad(k.cuadrillaId);
       return [
-        fmtDT(k.fecha),
+        fmtDTK(k),
         k.tipo === 'ingreso' ? 'Ingreso' : 'Egreso',
         mat ? mat.nombre : '—',
         (k.tipo==='ingreso'?'+':'-') + k.qty + ' ' + (mat?mat.unidad:''),
@@ -7459,7 +7779,7 @@ function generarInformePDF(tipo) {
     .map(function(k){
       var c=getCuad(k.cuadrillaId), m=getMat(k.matId);
       return [
-        fmtDT(k.fecha),
+        fmtDTK(k),
         c ? c.nombre : '—',
         k.tipo === 'ingreso' ? 'Ingreso' : 'Egreso',
         m ? m.nombre : '—',
@@ -8015,7 +8335,7 @@ function exportCSV(){
   var rows=[['Fecha','Tipo','Material','Cantidad','Referencia','Responsable','Cuadrilla']];
   (cid ? kardexList().filter(function(k){return k.cuadrillaId===cid;}) : kardexListFiltrada()).forEach(function(k){
     var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
-    rows.push([fmtDT(k.fecha),k.tipo,mat?mat.nombre:'—',k.qty,k.ref||'',k.resp||'',cuad?cuad.nombre:'']);
+    rows.push([fmtDTK(k),k.tipo,mat?mat.nombre:'—',k.qty,k.ref||'',k.resp||'',cuad?cuad.nombre:'']);
   });
   var csv=rows.map(function(r){return r.map(function(c){return'"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='historial.csv';a.click();
@@ -8466,7 +8786,7 @@ function previsualizarReporte(){
     filtrarPorRango(kardexListFiltrada()).forEach(function(k){
       var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
       rows.push({
-        fecha:fmtDT(k.fecha), cuadrilla:cuad?cuad.nombre:'—',
+        fecha:fmtDTK(k), cuadrilla:cuad?cuad.nombre:'—',
         tipo:k.tipo==='ingreso'?'Ingreso':'Egreso', cliente:k.ref||'—', ot:'—',
         tecnico:k.resp||'—', horaInicio:'—', horaFin:'—',
         materiales:(mat?mat.nombre:'—')+' × '+k.qty+' '+(mat?mat.unidad:''),
@@ -8513,7 +8833,7 @@ function exportarExcel(){
   if(tipo==='kardex'||tipo==='ambos'){
     filtrarPorRango(kardexListFiltrada()).forEach(function(k){
       var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
-      rows.push([fmtDT(k.fecha),cuad?cuad.nombre:'—',k.tipo,k.ref||'—','—',k.resp||'—','—','—',
+      rows.push([fmtDTK(k),cuad?cuad.nombre:'—',k.tipo,k.ref||'—','—',k.resp||'—','—','—',
         (mat?mat.nombre:'—')+' × '+k.qty+' '+(mat?mat.unidad:''),k.obs||'']);
     });
   }
@@ -8548,6 +8868,47 @@ function limpiarSesionesAntiguas() {
     if (Object.keys(updates).length > 0) {
       db.ref().update(updates);
     }
+  });
+}
+
+function renderBloqueosLogin() {
+  var el = document.getElementById('bloqueos-login-lista');
+  if (!el) return;
+  db.ref('bloqueos_login').orderByChild('ts').limitToLast(50).once('value', function(snap) {
+    var items = [];
+    snap.forEach(function(c) {
+      var v = c.val(); if (!v) return;
+      if (!v.desbloqueado) items.push(Object.assign({_key:c.key}, v));
+    });
+    items.reverse(); // más recientes primero
+    if (!items.length) {
+      el.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin dispositivos bloqueados actualmente.</p>';
+      return;
+    }
+    el.innerHTML = '<div class="table-wrap"><table>'
+      +'<thead><tr><th>Fecha / Hora</th><th>Usuario</th><th>Tipo</th><th>Dispositivo</th><th>Acción</th></tr></thead><tbody>'
+      + items.map(function(v){
+          var ts = v.ts ? fmtDT(v.ts) : '—';
+          var disp = (v.hostname||'—').substring(0,40);
+          return '<tr>'
+            +'<td style="font-size:11px;white-space:nowrap;">'+ts+'</td>'
+            +'<td style="font-size:12px;font-weight:600;">'+esc(v.usuario||'—')+'</td>'
+            +'<td><span class="badge '+(v.tipo==='admin'?'badge-blue':'badge-gray')+'" style="font-size:10px;">'+esc(v.tipo||'—')+'</span></td>'
+            +'<td style="font-size:11px;font-family:monospace;max-width:160px;overflow:hidden;text-overflow:ellipsis;">'+esc(disp)+'</td>'
+            +'<td><button class="btn btn-sm btn-green" onclick="desbloquearEntrada(\''+v._key+'\')">🔓 Desbloquear</button></td>'
+            +'</tr>';
+        }).join('')
+      +'</tbody></table></div>';
+  });
+}
+
+function desbloquearEntrada(key) {
+  showConfirm('Desbloquear dispositivo','¿Confirmas desbloquear este dispositivo? El usuario podrá intentar ingresar nuevamente.', function(){
+    db.ref('bloqueos_login/'+key).update({desbloqueado: true, desbloqueadoEn: Date.now(), desbloqueadoPor: currentUser.nombre||'admin'})
+      .then(function(){
+        toast('Dispositivo desbloqueado ✓','success');
+        renderBloqueosLogin();
+      });
   });
 }
 
@@ -8762,6 +9123,24 @@ function cargarDatosIniciales() {
     loadScreen.style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     populateLoginSelect();
+    // Verificar si este dispositivo ya estaba bloqueado al cargar
+    (function aplicarBloqueoSiExiste() {
+      var s = _getRLState();
+      if (s.bloqueadoPorAdmin) {
+        var msg = '🔒 Dispositivo bloqueado por exceso de intentos. Solicita al Administrador que desbloquee este dispositivo.';
+        mostrarBloqueoLogin(msg);
+        var btnC = document.getElementById('btn-login-cuad');
+        var btnA = document.getElementById('btn-login-admin');
+        var passC = document.getElementById('login-cuad-pass');
+        var passA = document.getElementById('admin-pass');
+        if (btnC) btnC.disabled = true;
+        if (btnA) btnA.disabled = true;
+        if (passC) { passC.disabled = true; passC.style.opacity = '0.5'; }
+        if (passA) { passA.disabled = true; passA.style.opacity = '0.5'; }
+        // Iniciar escucha de desbloqueo remoto
+        iniciarMonitorDesbloqueo();
+      }
+    })();
     initFirebaseListeners();
   }).catch(function(err) {
     clearTimeout(timeoutId);
