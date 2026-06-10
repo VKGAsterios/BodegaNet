@@ -2667,7 +2667,7 @@ function fmtDT(d) { return new Date(d).toLocaleString('es-HN',{day:'2-digit',mon
 // Hora de transacción: usa tsRegistro si existe, si no parsea la fecha ISO
 function fmtDTK(k) {
   if (k.tsRegistro) return fmtDT(k.tsRegistro);
-  if (k.fecha && k.fecha.length > 10) return fmtDTK(k);
+  if (k.fecha && k.fecha.length > 10) return fmtDT(k.fecha); // ISO con hora
   return (k.fecha||'—') + (k.horaRegistro ? ' '+k.horaRegistro : '');
 }
 function nowISO() { return new Date().toISOString(); }
@@ -3563,12 +3563,20 @@ function setEfecPeriodo(p) {
 
 function efecRango() {
   var hoy = new Date();
-  var fin = hoy.toISOString().slice(0,10);
+  var fechaHoy = hoy.toISOString().slice(0,10); // YYYY-MM-DD
+  // fin usa T23:59:59 para capturar registros con fecha ISO completa (ej: "2025-06-10T14:30:00Z")
+  var fin = fechaHoy + 'T23:59:59';
   var ini;
-  if (efecPeriodo==='dia') { ini = fin; }
-  else if (efecPeriodo==='semana') { var d=new Date(hoy); d.setDate(d.getDate()-6); ini=d.toISOString().slice(0,10); }
-  else { var d2=new Date(hoy); d2.setDate(1); ini=d2.toISOString().slice(0,10); }
-  return { ini:ini, fin:fin };
+  if (efecPeriodo==='dia') {
+    ini = fechaHoy; // "2025-06-10" < "2025-06-10T00:..." siempre cumple >=
+  } else if (efecPeriodo==='semana') {
+    var d = new Date(hoy); d.setDate(d.getDate()-6);
+    ini = d.toISOString().slice(0,10);
+  } else {
+    var d2 = new Date(hoy); d2.setDate(1);
+    ini = d2.toISOString().slice(0,10);
+  }
+  return { ini:ini, fin:fin, fechaHoy:fechaHoy };
 }
 
 function efecGaugeColor(pct) {
@@ -3842,9 +3850,10 @@ function setGrafPeriodo(p) {
 
 function grafRango() {
   var hoy = new Date();
-  var fin = hoy.toISOString().slice(0,10);
+  var fechaHoy = hoy.toISOString().slice(0,10);
+  var fin = fechaHoy + 'T23:59:59';
   var ini;
-  if (grafPeriodo === 'dia') { ini = fin; }
+  if (grafPeriodo === 'dia') { ini = fechaHoy; }
   else if (grafPeriodo === 'semana') { var d=new Date(hoy); d.setDate(d.getDate()-6); ini=d.toISOString().slice(0,10); }
   else { var d2=new Date(hoy); d2.setDate(1); ini=d2.toISOString().slice(0,10); }
   return { ini: ini, fin: fin };
@@ -7460,7 +7469,7 @@ function registrarAsignacion(){
         return {matId:mid,qty:r.qty};
       });
       var aid=uid();
-      var asig={id:aid,fecha:nowISO(),cliente:nombre,
+      var asig={id:aid, fecha:nowISO(), tsRegistro:Date.now(), cliente:nombre,
         tel:document.getElementById('cli-tel').value,
         dir:document.getElementById('cli-dir').value,
         municipio:document.getElementById('cli-municipio').value,
