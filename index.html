@@ -5433,8 +5433,8 @@ function renderHerramientas() {
       + '<button class="btn btn-sm btn-accent" style="flex-shrink:0;margin-left:4px;" onclick="event.stopPropagation();abrirModalCambioEstado(\''+h.id+'\')">'
       +   '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       +   ' Cambiar estado</button>'
-      + '<button class="btn btn-sm" onclick="event.stopPropagation();verHistorialHerr(''+h.id+'')" title="Historial de cambios" style="flex-shrink:0;margin-left:4px;">🕐 Historial</button>'
-      + '<button onclick="event.stopPropagation();editarHerramientaPropia(''+h.id+'')" title="Editar" style="background:none;border:1px solid var(--border);border-radius:var(--r);padding:5px 8px;cursor:pointer;color:var(--ink3);font-size:12px;flex-shrink:0;">✏️</button>'
+      + '<button class="btn btn-sm" onclick="event.stopPropagation();verHistorialHerr(this.dataset.id)" data-id="'+h.id+'" title="Historial de cambios" style="flex-shrink:0;margin-left:4px;">🕐 Historial</button>'
+      + '<button onclick="event.stopPropagation();editarHerramientaPropia(this.dataset.id)" data-id="'+h.id+'" title="Editar" style="background:none;border:1px solid var(--border);border-radius:var(--r);padding:5px 8px;cursor:pointer;color:var(--ink3);font-size:12px;flex-shrink:0;">✏️</button>'
       + '</div>'
       + '<div class="herr-card-body" id="hbody-'+h.id+'" style="display:none;">'
       +   '<div style="display:flex;gap:10px;font-size:11px;color:var(--ink3);margin:10px 0 6px;flex-wrap:wrap;">'
@@ -5500,7 +5500,7 @@ function renderHerrKardex() {
           + '<td><span class="badge '+(BADGE_HERR[mv.estadoNuevo]||'badge-gray')+'" style="font-size:10px;">'+esc(mv.estadoNuevo||'\u2014')+'</span></td>'
           + '<td style="font-size:12px;">'+esc(mv.responsable||'\u2014')+'</td>'
           + '<td style="font-size:11px;color:var(--ink3);max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="'+esc(mv.obs||'')+'">'+esc(mv.obs||'\u2014')+'</td>'
-          + '<td><button class="btn btn-sm" onclick="verHistorialHerr(\''+mv.herrId+'\')" title="Ver historial completo">\U0001f550</button></td>'
+          + '<td><button class="btn btn-sm" onclick="verHistorialHerr(this.dataset.id)" data-id="'+mv.herrId+'" title="Ver historial completo">🕐</button></td>'
           + '</tr>';
       }).join('')
     + '</tbody></table></div>';
