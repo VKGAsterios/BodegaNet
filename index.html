@@ -10,8 +10,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- jsPDF — carga diferida para no bloquear Firebase -->
-<!-- Tesseract.js OCR — escáner de MAC por foto -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<!-- Tesseract.js se carga de forma diferida solo al usar el escáner de MAC -->
 <!-- Firebase SDK v10 compat — más estable -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -7433,10 +7432,26 @@ function ocrSetStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-// ── Precargar worker Tesseract (lo hace en background al abrir) ──
+// ── Carga diferida de Tesseract.js (solo al abrir el escáner) ──
+var tesseractLoaded = false;
+function cargarTesseract() {
+  return new Promise(function(resolve, reject) {
+    if (tesseractLoaded || (typeof Tesseract !== 'undefined')) {
+      tesseractLoaded = true; resolve(); return;
+    }
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload  = function() { tesseractLoaded = true; resolve(); };
+    s.onerror = function() { reject(new Error('No se pudo cargar Tesseract.js')); };
+    document.head.appendChild(s);
+  });
+}
+
+// ── Precargar worker Tesseract (solo al abrir el escáner) ──
 async function ocrPrecargarWorker() {
   if (scannerTesseract) return;
   try {
+    await cargarTesseract();
     scannerTesseract = await Tesseract.createWorker('eng', 1, { logger: function(){} });
     await scannerTesseract.setParameters({
       tessedit_char_whitelist: '0123456789ABCDEFabcdef:- .'
