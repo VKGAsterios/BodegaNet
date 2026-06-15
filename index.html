@@ -114,6 +114,30 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 .section.active{display:block;}
 
 /* ── BOTTOM NAV ── */
+.mat-search-wrap{position:relative;}
+.mat-search-input{width:100%;padding:7px 32px 7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);outline:none;box-sizing:border-box;}
+.mat-search-input:focus{border-color:var(--accent);}
+.mat-search-icon{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:13px;pointer-events:none;}
+.mat-search-dropdown{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--bg);border:1.5px solid var(--accent);border-radius:var(--r);z-index:500;max-height:200px;overflow-y:auto;box-shadow:0 6px 20px rgba(20,25,40,.14);display:none;}
+.mat-search-dropdown.open{display:block;}
+.mat-search-opt{padding:8px 12px;font-size:13px;cursor:pointer;color:var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.mat-search-opt:hover,.mat-search-opt.sel{background:rgba(59,130,246,.08);}
+.mat-search-opt .opt-name{flex:1;font-weight:500;}
+.mat-search-opt .opt-meta{font-size:11px;color:var(--ink3);white-space:nowrap;}
+.mat-search-empty{padding:10px 12px;font-size:12px;color:var(--ink3);text-align:center;}
+
+.mat-search-wrap{position:relative;}
+.mat-search-input{width:100%;padding:7px 32px 7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);outline:none;box-sizing:border-box;}
+.mat-search-input:focus{border-color:var(--accent);}
+.mat-search-icon{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:13px;pointer-events:none;}
+.mat-search-dropdown{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--bg);border:1.5px solid var(--accent);border-radius:var(--r);z-index:600;max-height:200px;overflow-y:auto;box-shadow:0 6px 20px rgba(20,25,40,.14);display:none;}
+.mat-search-dropdown.open{display:block;}
+.mat-search-opt{padding:8px 12px;font-size:13px;cursor:pointer;color:var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.mat-search-opt:hover,.mat-search-opt.sel{background:rgba(59,130,246,.08);}
+.mat-search-opt .opt-name{flex:1;font-weight:500;}
+.mat-search-opt .opt-meta{font-size:11px;color:var(--ink3);white-space:nowrap;}
+.mat-search-empty{padding:10px 12px;font-size:12px;color:var(--ink3);text-align:center;}
+
 .bottom-nav{display:none;background:rgba(245,246,248,.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:200;height:60px;}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;color:var(--ink3);font-size:10px;font-family:var(--sans);transition:all .15s;border-radius:8px;margin:4px 2px;}
 .bn-item.active{color:var(--accent);background:var(--accent-light);}
@@ -1745,12 +1769,19 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="modal-close" onclick="closeModal('modal-herr-recepcion')">&#x2715;</button>
           <h3 style="margin-bottom:.25rem;">&#x1F4E6; Registrar recepción de herramientas</h3>
           <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;" id="herr-rec-subtitle">Selecciona las herramientas recibidas del catálogo</p>
-          <div style="position:relative;margin-bottom:.75rem;">
-            <input type="text" id="herr-rec-buscar" placeholder="Buscar en catálogo..." oninput="filtrarCatalogoRec(this.value)"
-              style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink);outline:none;">
-            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:14px;pointer-events:none;">&#x1F50D;</span>
+          <!-- Buscador catálogo mejorado -->
+          <div style="position:relative;margin-bottom:.5rem;">
+            <input type="text" id="herr-rec-buscar" placeholder="🔍 Escribe para buscar en el catálogo..." oninput="filtrarCatalogoRec(this.value)"
+              style="width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink);outline:none;box-sizing:border-box;"
+              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            <button onclick="document.getElementById('herr-rec-buscar').value='';filtrarCatalogoRec('');" title="Limpiar búsqueda"
+              style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink3);font-size:16px;padding:0;">✕</button>
           </div>
-          <div id="herr-rec-catalogo" style="max-height:240px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:1rem;"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+            <span style="font-size:11px;color:var(--ink3);">Toca una herramienta para seleccionarla</span>
+            <span id="herr-rec-counter" style="font-size:11px;font-weight:700;color:var(--accent);">0 seleccionadas</span>
+          </div>
+          <div id="herr-rec-catalogo" style="max-height:260px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:1rem;"></div>
           <div id="herr-rec-seleccion-wrap" style="display:none;margin-bottom:1rem;">
             <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.5rem;">Herramientas a recibir</div>
             <div id="herr-rec-seleccion"></div>
@@ -5065,22 +5096,80 @@ function renderRiMaterialRows() {
   }
   cont.innerHTML = riMaterialRows.map(function(row) {
     var mat = row.matId ? getMat(row.matId) : null;
-    var label = mat ? mat.nombre : 'Seleccionar material...';
-    var mats = materialesList();
-    var opts = mats.map(function(m){
-      return '<option value="'+m.id+'"'+(row.matId===m.id?' selected':'')+'>'+esc(m.nombre)+'</option>';
-    }).join('');
-    return '<div class="mat-row" style="grid-template-columns:1fr 70px auto;margin-bottom:6px;">'
-      + '<select onchange="setRiMat(\''+row.uid+'\',this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);">'
-      + '<option value="">-- Seleccionar material --</option>'+opts
-      + '</select>'
-      + '<input type="number" min="1" value="'+row.qty+'" onchange="setRiQty(\''+row.uid+'\',this.value)" style="width:64px;">'
-      + '<button class="remove-row-btn" onclick="removeRiMaterialRow(\''+row.uid+'\')">✕</button>'
+    var label = mat ? mat.nombre : '';
+    return '<div style="display:grid;grid-template-columns:1fr 72px auto;gap:6px;align-items:center;margin-bottom:8px;">'
+
+      // Buscador con autocomplete
+      + '<div class="mat-search-wrap">'
+      +   '<input type="text" class="mat-search-input"'
+      +     ' id="rimsq_'+row.uid+'"'
+      +     ' value="'+esc(label)+'"'
+      +     ' placeholder="Buscar material..."'
+      +     ' autocomplete="off"'
+      +     ' oninput="riMatBuscar(\''+row.uid+'\',this.value)"'
+      +     ' onfocus="riMatBuscar(\''+row.uid+'\',this.value)"'
+      +     ' onblur="setTimeout(function(){riMatCerrar(\''+row.uid+'\')},180)"'
+      +   '>'
+      +   '<span class="mat-search-icon">🔍</span>'
+      +   '<div class="mat-search-dropdown" id="rimsdd_'+row.uid+'"></div>'
+      + '</div>'
+
+      // Cantidad
+      + '<input type="number" min="1" value="'+row.qty+'"'
+      +   ' onchange="setRiQty(\''+row.uid+'\',this.value)"'
+      +   ' style="width:68px;padding:7px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;text-align:center;">'
+
+      // Quitar
+      + '<button onclick="removeRiMaterialRow(\''+row.uid+'\')" style="width:28px;height:28px;background:none;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;color:var(--ink3);font-size:13px;display:flex;align-items:center;justify-content:center;">✕</button>'
+
       + '</div>';
   }).join('');
 }
 
-// ── GUARDAR REGISTRO ──────────────────────────────────
+// ── Buscador autocomplete para materiales en Red Interna ──
+function riMatBuscar(uid, q) {
+  var row = riMaterialRows.find(function(r){ return r.uid===uid; }); if (!row) return;
+  q = (q||'').toLowerCase().trim();
+  var dd = document.getElementById('rimsdd_'+uid); if (!dd) return;
+  var mats = materialesList().filter(function(m){
+    return !q || m.nombre.toLowerCase().includes(q) || (m.categoria||'').toLowerCase().includes(q);
+  }).slice(0,30);
+  if (!mats.length) {
+    dd.innerHTML = '<div class="mat-search-empty">Sin resultados para "'+esc(q)+'"</div>';
+  } else {
+    dd.innerHTML = mats.map(function(m){
+      var stk = getStock(row.cuadId || (currentUser&&currentUser.cuadrillaId)||'', m.id);
+      return '<div class="mat-search-opt" onmousedown="riMatSeleccionar(\''+uid+'\',\''+m.id+'\',\''+esc(m.nombre)+'\')">'+
+        '<span class="opt-name">'+esc(m.nombre)+'</span>'+
+        '<span class="opt-meta">'+esc(m.categoria||'')+(stk!==undefined?' · Stock: '+stk:'')+'</span>'+
+        '</div>';
+    }).join('');
+  }
+  dd.classList.add('open');
+}
+
+function riMatSeleccionar(uid, matId, nombre) {
+  var row = riMaterialRows.find(function(r){ return r.uid===uid; }); if (!row) return;
+  row.matId = matId;
+  var inp = document.getElementById('rimsq_'+uid);
+  if (inp) inp.value = nombre;
+  riMatCerrar(uid);
+}
+
+function riMatCerrar(uid) {
+  var dd = document.getElementById('rimsdd_'+uid);
+  if (dd) dd.classList.remove('open');
+  // Si el campo quedó vacío o no coincide con ningún material seleccionado, limpiar la selección
+  var row = riMaterialRows.find(function(r){ return r.uid===uid; }); if (!row) return;
+  var inp = document.getElementById('rimsq_'+uid);
+  if (inp && row.matId) {
+    var mat = getMat(row.matId);
+    // Si el texto no coincide con el material seleccionado, limpiar
+    if (mat && inp.value.toLowerCase() !== mat.nombre.toLowerCase()) {
+      row.matId = '';
+    }
+  }
+}
 var riUltimoId = null; // ID del último registro de RI guardado
 
 function copiarTextoRIUltimo() {
@@ -5918,6 +6007,7 @@ function abrirModalRecepcionHerramientas() {
   document.getElementById('herr-rec-obs').value = '';
   var sub = document.getElementById('herr-rec-subtitle');
   if (sub && cuad) sub.textContent = cuad.nombre + ' — Selecciona herramientas del catálogo';
+  actualizarContadorHerr();
   filtrarCatalogoRec('');
   renderRecSeleccion();
   openModal('modal-herr-recepcion');
@@ -5925,39 +6015,56 @@ function abrirModalRecepcionHerramientas() {
 
 function filtrarCatalogoRec(q) {
   q = (q||'').toLowerCase();
-  var items = catalogoHerrList().filter(function(h){ return h.activo !== false && (!q || h.nombre.toLowerCase().includes(q) || (h.categoria||'').toLowerCase().includes(q)); })
-    .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  var items = catalogoHerrList().filter(function(h){
+    return h.activo !== false && (!q || h.nombre.toLowerCase().includes(q) || (h.categoria||'').toLowerCase().includes(q));
+  }).sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
   var el = document.getElementById('herr-rec-catalogo'); if (!el) return;
   if (!items.length) {
-    el.innerHTML = '<div style="padding:1.25rem;text-align:center;color:var(--ink3);font-size:13px;">'
-      +(catalogoHerrList().length===0 ? '⚠️ El administrador aún no ha creado el catálogo de herramientas.' : 'Sin resultados para "'+esc(q)+'".')+'</div>';
-    return;
+    el.innerHTML = '<div style="padding:1.5rem;text-align:center;">'
+      + (catalogoHerrList().length===0
+          ? '<div style="font-size:28px;margin-bottom:.4rem;">\U0001f4cb</div><p style="color:var(--ink3);font-size:13px;">El administrador a\xfan no ha creado el cat\xe1logo.</p>'
+          : '<div style="font-size:22px;margin-bottom:.4rem;">\U0001f50d</div><p style="color:var(--ink3);font-size:13px;">Sin resultados para "<strong>'+esc(q)+'</strong>"</p>')
+      + '</div>';
+    actualizarContadorHerr(); return;
   }
-  var cat_icons = {'Herramienta manual':'🔨','Herramienta eléctrica':'⚡','Medición':'📏','Seguridad':'🦺','Escalera / Acceso':'🪜','Vehículo / Transporte':'🚗','Otro':'📦'};
+  var cat_icons = {'Herramienta manual':'\U0001f528','Herramienta el\xe9ctrica':'\u26a1','Medici\xf3n':'\U0001f4cf','Seguridad':'\U0001f9ba','Escalera / Acceso':'\U0001faa4','Veh\xedculo / Transporte':'\U0001f697','Otro':'\U0001f4e6'};
   el.innerHTML = items.map(function(h){
     var sel = !!herrRecSeleccion[h.id];
-    return '<div onclick="toggleRecItem(\''+h.id+'\')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;'+(sel?'background:rgba(59,130,246,.09);':'')+'"'
-      +' onmouseover="this.style.background=\'rgba(59,130,246,.06)\'" onmouseout="this.style.background=\''+(sel?'rgba(59,130,246,.09)':'')+'\'">'+
-      '<div style="width:20px;height:20px;border-radius:5px;border:2px solid '+(sel?'var(--accent)':'var(--border)')+';background:'+(sel?'var(--accent)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s;">'
-      +(sel?'<svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+'</div>'
-      +'<span style="font-size:16px;">'+(cat_icons[h.categoria]||'📦')+'</span>'
-      +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;">'+esc(h.nombre)+'</div>'
-      +'<div style="font-size:11px;color:var(--ink3);">'+esc(h.categoria||'Sin categoría')+'</div></div>'
-      +(sel?'<span style="font-size:11px;font-weight:700;color:var(--accent);">Seleccionada ✓</span>':'')
+    return '<div onclick="toggleRecItem(\''+h.id+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;background:'+(sel?'rgba(59,130,246,.08)':'transparent')+'"'
+      +' onmouseover="this.style.background=\''+(sel?'rgba(59,130,246,.12)':'rgba(59,130,246,.04)')+'\'"'
+      +' onmouseout="this.style.background=\''+(sel?'rgba(59,130,246,.08)':'transparent')+'\'">'
+      +'<div style="width:22px;height:22px;border-radius:6px;border:2px solid '+(sel?'var(--accent)':'var(--border2)')+';background:'+(sel?'var(--accent)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s;">'
+      +(sel?'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')
+      +'</div>'
+      +'<span style="font-size:18px;flex-shrink:0;">'+(cat_icons[h.categoria]||'\U0001f4e6')+'</span>'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-size:13px;font-weight:600;color:'+(sel?'var(--accent)':'var(--ink)')+';">'+esc(h.nombre)+'</div>'
+      +'<div style="font-size:11px;color:var(--ink3);">'+esc(h.categoria||'Sin categor\xeda')+'</div>'
+      +'</div>'
+      +(sel?'<span style="font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;">\u2713 Selec.</span>':'')
       +'</div>';
   }).join('');
+  actualizarContadorHerr();
+}
+
+function actualizarContadorHerr() {
+  var n = Object.keys(herrRecSeleccion).length;
+  var c = document.getElementById('herr-rec-counter');
+  if (c) {
+    c.textContent = n + (n===1?' seleccionada':' seleccionadas');
+    c.style.color = n>0 ? 'var(--accent)' : 'var(--ink3)';
+  }
 }
 
 function toggleRecItem(catId) {
   var h = cache.catalogo_herramientas[catId]; if (!h) return;
-  if (herrRecSeleccion[catId]) {
-    delete herrRecSeleccion[catId];
-  } else {
-    herrRecSeleccion[catId] = {nombre:h.nombre, categoria:h.categoria||'', cantidad:1, estado:'Buen Estado'};
-  }
+  if (herrRecSeleccion[catId]) { delete herrRecSeleccion[catId]; }
+  else { herrRecSeleccion[catId] = {nombre:h.nombre, categoria:h.categoria||'', cantidad:1, estado:'Buen Estado'}; }
   filtrarCatalogoRec((document.getElementById('herr-rec-buscar')||{}).value||'');
   renderRecSeleccion();
+  actualizarContadorHerr();
 }
+
 
 function renderRecSeleccion() {
   var wrap = document.getElementById('herr-rec-seleccion-wrap');
