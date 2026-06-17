@@ -10,7 +10,8 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- jsPDF — carga diferida para no bloquear Firebase -->
-<!-- Tesseract.js se carga de forma diferida solo al usar el escáner de MAC -->
+<!-- Tesseract.js OCR — escáner de MAC por foto -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <!-- Firebase SDK v10 compat — más estable -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -114,30 +115,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 .section.active{display:block;}
 
 /* ── BOTTOM NAV ── */
-.mat-search-wrap{position:relative;}
-.mat-search-input{width:100%;padding:7px 32px 7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);outline:none;box-sizing:border-box;}
-.mat-search-input:focus{border-color:var(--accent);}
-.mat-search-icon{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:13px;pointer-events:none;}
-.mat-search-dropdown{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--bg);border:1.5px solid var(--accent);border-radius:var(--r);z-index:500;max-height:200px;overflow-y:auto;box-shadow:0 6px 20px rgba(20,25,40,.14);display:none;}
-.mat-search-dropdown.open{display:block;}
-.mat-search-opt{padding:8px 12px;font-size:13px;cursor:pointer;color:var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px;}
-.mat-search-opt:hover,.mat-search-opt.sel{background:rgba(59,130,246,.08);}
-.mat-search-opt .opt-name{flex:1;font-weight:500;}
-.mat-search-opt .opt-meta{font-size:11px;color:var(--ink3);white-space:nowrap;}
-.mat-search-empty{padding:10px 12px;font-size:12px;color:var(--ink3);text-align:center;}
-
-.mat-search-wrap{position:relative;}
-.mat-search-input{width:100%;padding:7px 32px 7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);outline:none;box-sizing:border-box;}
-.mat-search-input:focus{border-color:var(--accent);}
-.mat-search-icon{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:13px;pointer-events:none;}
-.mat-search-dropdown{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--bg);border:1.5px solid var(--accent);border-radius:var(--r);z-index:600;max-height:200px;overflow-y:auto;box-shadow:0 6px 20px rgba(20,25,40,.14);display:none;}
-.mat-search-dropdown.open{display:block;}
-.mat-search-opt{padding:8px 12px;font-size:13px;cursor:pointer;color:var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px;}
-.mat-search-opt:hover,.mat-search-opt.sel{background:rgba(59,130,246,.08);}
-.mat-search-opt .opt-name{flex:1;font-weight:500;}
-.mat-search-opt .opt-meta{font-size:11px;color:var(--ink3);white-space:nowrap;}
-.mat-search-empty{padding:10px 12px;font-size:12px;color:var(--ink3);text-align:center;}
-
 .bottom-nav{display:none;background:rgba(245,246,248,.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:200;height:60px;}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;color:var(--ink3);font-size:10px;font-family:var(--sans);transition:all .15s;border-radius:8px;margin:4px 2px;}
 .bn-item.active{color:var(--accent);background:var(--accent-light);}
@@ -261,8 +238,6 @@ tr:hover td{background:rgba(59,130,246,.05);}
   .bottom-nav{display:flex;}
   .asignar-action-bar{position:sticky;top:54px;z-index:50;background:var(--bg);padding:10px 0 6px;margin-bottom:0;border-bottom:1px solid var(--border);}
   .asignar-action-bar .btn{font-size:13px;padding:10px 8px;}
-  /* Dashboard cuadrilla: apilar paneles en móvil */
-  #dash-cuad-panels{grid-template-columns:1fr !important;}
 }
 @media(min-width:769px){
   .bottom-nav{display:none;}
@@ -308,8 +283,7 @@ select option{background:var(--bg3);color:var(--ink);}
 <div id="loading-screen">
   <h1>Bodega<span>Net</span></h1>
   <div class="spinner"></div>
-  <p id="loading-msg">Verificando conexión...</p>
-  <p id="loading-detail" style="font-size:12px;color:var(--ink3);margin-top:-8px;"></p>
+  <p id="loading-msg">Conectando con Firebase...</p>
 </div>
 
 <!-- LOGIN -->
@@ -593,34 +567,10 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
-        <!-- Vista CUADRILLA: 2 paneles -->
+        <!-- Vista CUADRILLA: solo total de materiales -->
         <div id="dash-cuad-view" style="display:none;">
-          <!-- KPIs cuadrilla -->
+          <!-- KPI cuadrilla: total de materiales en bodega -->
           <div class="kpi-grid" id="kpi-grid-cuad"></div>
-          <!-- Layout de 2 columnas en desktop, apilado en móvil -->
-          <div id="dash-cuad-panels" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-            <!-- Panel izquierdo: Stock actual -->
-            <div>
-              <div class="card" style="height:100%;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-                  <div class="card-title" style="margin-bottom:0;">Stock en bodega</div>
-                  <input type="text" id="dash-stock-search" placeholder="Buscar..." oninput="renderDashStockCuad()"
-                    style="padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:12px;outline:none;width:130px;">
-                </div>
-                <div id="dash-stock-list" style="max-height:420px;overflow-y:auto;"></div>
-              </div>
-            </div>
-            <!-- Panel derecho: Asignaciones del día -->
-            <div>
-              <div class="card" style="height:100%;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-                  <div class="card-title" style="margin-bottom:0;">Asignaciones de hoy</div>
-                  <span id="dash-asig-count" style="font-size:12px;color:var(--ink3);"></span>
-                </div>
-                <div id="dash-asig-hoy" style="max-height:420px;overflow-y:auto;"></div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -784,7 +734,7 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
           <div class="form-grid">
             <div class="field"><label>Hora de inicio de tarea</label><input type="time" id="cli-hora-inicio" placeholder="Opcional"></div>
-            <div class="field"><label>Hora de finalización <span style="font-size:10px;color:var(--ink3);font-weight:400;">(auto)</span></label><input type="time" id="cli-hora-fin"></div>
+            <div class="field"><label>Hora de finalización <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automática)</span></label><input type="time" id="cli-hora-fin" readonly style="background:var(--bg3);color:var(--ink2);cursor:not-allowed;"></div>
           </div>
           <div class="field"><label>Observaciones</label><textarea id="cli-obs" placeholder="Notas..."></textarea></div>
         </div>
@@ -1769,19 +1719,12 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="modal-close" onclick="closeModal('modal-herr-recepcion')">&#x2715;</button>
           <h3 style="margin-bottom:.25rem;">&#x1F4E6; Registrar recepción de herramientas</h3>
           <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;" id="herr-rec-subtitle">Selecciona las herramientas recibidas del catálogo</p>
-          <!-- Buscador catálogo mejorado -->
-          <div style="position:relative;margin-bottom:.5rem;">
-            <input type="text" id="herr-rec-buscar" placeholder="🔍 Escribe para buscar en el catálogo..." oninput="filtrarCatalogoRec(this.value)"
-              style="width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink);outline:none;box-sizing:border-box;"
-              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-            <button onclick="document.getElementById('herr-rec-buscar').value='';filtrarCatalogoRec('');" title="Limpiar búsqueda"
-              style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink3);font-size:16px;padding:0;">✕</button>
+          <div style="position:relative;margin-bottom:.75rem;">
+            <input type="text" id="herr-rec-buscar" placeholder="Buscar en catálogo..." oninput="filtrarCatalogoRec(this.value)"
+              style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink);outline:none;">
+            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:14px;pointer-events:none;">&#x1F50D;</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
-            <span style="font-size:11px;color:var(--ink3);">Toca una herramienta para seleccionarla</span>
-            <span id="herr-rec-counter" style="font-size:11px;font-weight:700;color:var(--accent);">0 seleccionadas</span>
-          </div>
-          <div id="herr-rec-catalogo" style="max-height:260px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:1rem;"></div>
+          <div id="herr-rec-catalogo" style="max-height:240px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:1rem;"></div>
           <div id="herr-rec-seleccion-wrap" style="display:none;margin-bottom:1rem;">
             <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.5rem;">Herramientas a recibir</div>
             <div id="herr-rec-seleccion"></div>
@@ -2008,8 +1951,8 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="field"><label>Hora de inicio *</label>
               <input type="time" id="ri-hora-ini" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
             </div>
-            <div class="field"><label>Hora de fin <span style="font-size:11px;color:var(--ink3);">(auto al guardar)</span></label>
-              <input type="time" id="ri-hora-fin" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            <div class="field"><label>Hora de fin <span style="font-size:11px;color:var(--ink3);">(automática)</span></label>
+              <input type="time" id="ri-hora-fin" readonly style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink2);outline:none;cursor:not-allowed;">
               <span id="ri-duracion" style="font-size:11px;color:var(--ink3);margin-top:2px;"></span>
             </div>
           </div>
@@ -2773,6 +2716,16 @@ function fmtDTK(k) {
   return (k.fecha||'—') + (k.horaRegistro ? ' '+k.horaRegistro : '');
 }
 function nowISO() { return new Date().toISOString(); }
+// FIX BUG FECHA: nowISO() usa UTC, lo que adelanta el día en registros nocturnos
+// (ej: 11pm Honduras = 5am UTC del día siguiente). Esta función arma un ISO
+// con la fecha/hora LOCAL del dispositivo, para que "Meta/efectividad" agrupe
+// los trabajos en el día correcto según la hora real de Honduras.
+function nowISOLocal() {
+  var d = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())
+    +'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+}
 function togglePass(id) { var e=document.getElementById(id); e.type=e.type==='password'?'text':'password'; }
 
 // ══════════════════════════════════════════════════════
@@ -3770,18 +3723,21 @@ function setEfecPeriodo(p) {
 
 function efecRango() {
   var hoy = new Date();
-  var fechaHoy = hoy.toISOString().slice(0,10); // YYYY-MM-DD
-  // fin usa T23:59:59 para capturar registros con fecha ISO completa (ej: "2025-06-10T14:30:00Z")
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  // FIX BUG FECHA: usar fecha LOCAL (no UTC) para que "hoy" coincida con el
+  // día real en Honduras, igual que nowISOLocal() al guardar asignaciones.
+  var fechaHoy = hoy.getFullYear()+'-'+pad(hoy.getMonth()+1)+'-'+pad(hoy.getDate());
+  // fin usa T23:59:59 para capturar registros con fecha ISO completa (ej: "2025-06-10T14:30:00")
   var fin = fechaHoy + 'T23:59:59';
   var ini;
   if (efecPeriodo==='dia') {
     ini = fechaHoy; // "2025-06-10" < "2025-06-10T00:..." siempre cumple >=
   } else if (efecPeriodo==='semana') {
     var d = new Date(hoy); d.setDate(d.getDate()-6);
-    ini = d.toISOString().slice(0,10);
+    ini = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   } else {
     var d2 = new Date(hoy); d2.setDate(1);
-    ini = d2.toISOString().slice(0,10);
+    ini = d2.getFullYear()+'-'+pad(d2.getMonth()+1)+'-'+pad(d2.getDate());
   }
   return { ini:ini, fin:fin, fechaHoy:fechaHoy };
 }
@@ -4091,12 +4047,14 @@ function setGrafPeriodo(p) {
 
 function grafRango() {
   var hoy = new Date();
-  var fechaHoy = hoy.toISOString().slice(0,10);
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  // FIX BUG FECHA: usar fecha LOCAL (no UTC), igual que en efecRango()
+  var fechaHoy = hoy.getFullYear()+'-'+pad(hoy.getMonth()+1)+'-'+pad(hoy.getDate());
   var fin = fechaHoy + 'T23:59:59';
   var ini;
   if (grafPeriodo === 'dia') { ini = fechaHoy; }
-  else if (grafPeriodo === 'semana') { var d=new Date(hoy); d.setDate(d.getDate()-6); ini=d.toISOString().slice(0,10); }
-  else { var d2=new Date(hoy); d2.setDate(1); ini=d2.toISOString().slice(0,10); }
+  else if (grafPeriodo === 'semana') { var d=new Date(hoy); d.setDate(d.getDate()-6); ini=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  else { var d2=new Date(hoy); d2.setDate(1); ini=d2.getFullYear()+'-'+pad(d2.getMonth()+1)+'-'+pad(d2.getDate()); }
   return { ini: ini, fin: fin };
 }
 
@@ -5038,17 +4996,19 @@ function openModalRedInterna() {
   document.getElementById('ri-obs').value = '';
   document.getElementById('ri-edit-id').value = '';
   document.getElementById('ri-modal-title').textContent = '🖧 Nuevo trabajo en red';
-  // Hora inicio = ahora
+  // FIX HORA ESTRICTA: la hora de inicio se autocompleta como punto de
+  // partida pero permanece EDITABLE (el técnico puede ajustarla si la tarea
+  // empezó antes de abrir la app). Solo la hora de fin queda bloqueada
+  // (readonly en el HTML) y se vuelve a fijar al momento exacto de guardar
+  // (ver guardarRedInterna) para reflejar el tiempo real del registro.
   var ahora = new Date();
   var hh = String(ahora.getHours()).padStart(2,'0');
   var mm = String(ahora.getMinutes()).padStart(2,'0');
   document.getElementById('ri-hora-ini').value = hh+':'+mm;
-  document.getElementById('ri-hora-fin').value = '';
+  document.getElementById('ri-hora-fin').value = hh+':'+mm;
   document.getElementById('ri-duracion').textContent = '';
-  // Listeners para calcular duración en tiempo real
-  ['ri-hora-ini','ri-hora-fin'].forEach(function(id){
-    document.getElementById(id).oninput = actualizarDuracionRI;
-  });
+  // Listener solo en hora-ini (la única editable) para recalcular duración
+  document.getElementById('ri-hora-ini').oninput = actualizarDuracionRI;
   riMaterialRows = [];
   renderRiMaterialRows();
   openModal('modal-red-interna');
@@ -5096,80 +5056,22 @@ function renderRiMaterialRows() {
   }
   cont.innerHTML = riMaterialRows.map(function(row) {
     var mat = row.matId ? getMat(row.matId) : null;
-    var label = mat ? mat.nombre : '';
-    return '<div style="display:grid;grid-template-columns:1fr 72px auto;gap:6px;align-items:center;margin-bottom:8px;">'
-
-      // Buscador con autocomplete
-      + '<div class="mat-search-wrap">'
-      +   '<input type="text" class="mat-search-input"'
-      +     ' id="rimsq_'+row.uid+'"'
-      +     ' value="'+esc(label)+'"'
-      +     ' placeholder="Buscar material..."'
-      +     ' autocomplete="off"'
-      +     ' oninput="riMatBuscar(\''+row.uid+'\',this.value)"'
-      +     ' onfocus="riMatBuscar(\''+row.uid+'\',this.value)"'
-      +     ' onblur="setTimeout(function(){riMatCerrar(\''+row.uid+'\')},180)"'
-      +   '>'
-      +   '<span class="mat-search-icon">🔍</span>'
-      +   '<div class="mat-search-dropdown" id="rimsdd_'+row.uid+'"></div>'
-      + '</div>'
-
-      // Cantidad
-      + '<input type="number" min="1" value="'+row.qty+'"'
-      +   ' onchange="setRiQty(\''+row.uid+'\',this.value)"'
-      +   ' style="width:68px;padding:7px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;text-align:center;">'
-
-      // Quitar
-      + '<button onclick="removeRiMaterialRow(\''+row.uid+'\')" style="width:28px;height:28px;background:none;border:1.5px solid var(--border);border-radius:var(--r);cursor:pointer;color:var(--ink3);font-size:13px;display:flex;align-items:center;justify-content:center;">✕</button>'
-
+    var label = mat ? mat.nombre : 'Seleccionar material...';
+    var mats = materialesList();
+    var opts = mats.map(function(m){
+      return '<option value="'+m.id+'"'+(row.matId===m.id?' selected':'')+'>'+esc(m.nombre)+'</option>';
+    }).join('');
+    return '<div class="mat-row" style="grid-template-columns:1fr 70px auto;margin-bottom:6px;">'
+      + '<select onchange="setRiMat(\''+row.uid+'\',this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);">'
+      + '<option value="">-- Seleccionar material --</option>'+opts
+      + '</select>'
+      + '<input type="number" min="1" value="'+row.qty+'" onchange="setRiQty(\''+row.uid+'\',this.value)" style="width:64px;">'
+      + '<button class="remove-row-btn" onclick="removeRiMaterialRow(\''+row.uid+'\')">✕</button>'
       + '</div>';
   }).join('');
 }
 
-// ── Buscador autocomplete para materiales en Red Interna ──
-function riMatBuscar(uid, q) {
-  var row = riMaterialRows.find(function(r){ return r.uid===uid; }); if (!row) return;
-  q = (q||'').toLowerCase().trim();
-  var dd = document.getElementById('rimsdd_'+uid); if (!dd) return;
-  var mats = materialesList().filter(function(m){
-    return !q || m.nombre.toLowerCase().includes(q) || (m.categoria||'').toLowerCase().includes(q);
-  }).slice(0,30);
-  if (!mats.length) {
-    dd.innerHTML = '<div class="mat-search-empty">Sin resultados para "'+esc(q)+'"</div>';
-  } else {
-    dd.innerHTML = mats.map(function(m){
-      var stk = getStock(row.cuadId || (currentUser&&currentUser.cuadrillaId)||'', m.id);
-      return '<div class="mat-search-opt" onmousedown="riMatSeleccionar(\''+uid+'\',\''+m.id+'\',\''+esc(m.nombre)+'\')">'+
-        '<span class="opt-name">'+esc(m.nombre)+'</span>'+
-        '<span class="opt-meta">'+esc(m.categoria||'')+(stk!==undefined?' · Stock: '+stk:'')+'</span>'+
-        '</div>';
-    }).join('');
-  }
-  dd.classList.add('open');
-}
-
-function riMatSeleccionar(uid, matId, nombre) {
-  var row = riMaterialRows.find(function(r){ return r.uid===uid; }); if (!row) return;
-  row.matId = matId;
-  var inp = document.getElementById('rimsq_'+uid);
-  if (inp) inp.value = nombre;
-  riMatCerrar(uid);
-}
-
-function riMatCerrar(uid) {
-  var dd = document.getElementById('rimsdd_'+uid);
-  if (dd) dd.classList.remove('open');
-  // Si el campo quedó vacío o no coincide con ningún material seleccionado, limpiar la selección
-  var row = riMaterialRows.find(function(r){ return r.uid===uid; }); if (!row) return;
-  var inp = document.getElementById('rimsq_'+uid);
-  if (inp && row.matId) {
-    var mat = getMat(row.matId);
-    // Si el texto no coincide con el material seleccionado, limpiar
-    if (mat && inp.value.toLowerCase() !== mat.nombre.toLowerCase()) {
-      row.matId = '';
-    }
-  }
-}
+// ── GUARDAR REGISTRO ──────────────────────────────────
 var riUltimoId = null; // ID del último registro de RI guardado
 
 function copiarTextoRIUltimo() {
@@ -5190,10 +5092,11 @@ function guardarRedInterna() {
   if (!nodo)   { toast('Ingresa el nombre del nodo/headend', 'error'); return; }
   if (!tec)    { toast('Ingresa el nombre del técnico', 'error'); return; }
   if (!ini)    { toast('La hora de inicio es obligatoria', 'error'); return; }
-  // Hora fin: por defecto = hora actual del sistema si no fue ingresada
+  // FIX HORA ESTRICTA: la hora de fin SIEMPRE se fija al momento real de
+  // guardado, sin importar lo que tenga el campo (que además es readonly).
+  // Esto garantiza que el registro refleje el tiempo real, en tiempo y forma.
   var ahora = new Date();
-  var finDefault = String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
-  var fin = document.getElementById('ri-hora-fin').value || finDefault;
+  var fin = String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
   // Materiales
   var mats = {};
   riMaterialRows.forEach(function(r) {
@@ -5521,8 +5424,8 @@ function renderHerramientas() {
       + '<button class="btn btn-sm btn-accent" style="flex-shrink:0;margin-left:4px;" onclick="event.stopPropagation();abrirModalCambioEstado(\''+h.id+'\')">'
       +   '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       +   ' Cambiar estado</button>'
-      + '<button class="btn btn-sm" onclick="event.stopPropagation();verHistorialHerr(this.dataset.id)" data-id="'+h.id+'" title="Historial de cambios" style="flex-shrink:0;margin-left:4px;">🕐 Historial</button>'
-      + '<button onclick="event.stopPropagation();editarHerramientaPropia(this.dataset.id)" data-id="'+h.id+'" title="Editar" style="background:none;border:1px solid var(--border);border-radius:var(--r);padding:5px 8px;cursor:pointer;color:var(--ink3);font-size:12px;flex-shrink:0;">✏️</button>'
+      + '<button class="btn btn-sm" onclick="event.stopPropagation();verHistorialHerr(''+h.id+'')" title="Historial de cambios" style="flex-shrink:0;margin-left:4px;">🕐 Historial</button>'
+      + '<button onclick="event.stopPropagation();editarHerramientaPropia(''+h.id+'')" title="Editar" style="background:none;border:1px solid var(--border);border-radius:var(--r);padding:5px 8px;cursor:pointer;color:var(--ink3);font-size:12px;flex-shrink:0;">✏️</button>'
       + '</div>'
       + '<div class="herr-card-body" id="hbody-'+h.id+'" style="display:none;">'
       +   '<div style="display:flex;gap:10px;font-size:11px;color:var(--ink3);margin:10px 0 6px;flex-wrap:wrap;">'
@@ -5588,7 +5491,7 @@ function renderHerrKardex() {
           + '<td><span class="badge '+(BADGE_HERR[mv.estadoNuevo]||'badge-gray')+'" style="font-size:10px;">'+esc(mv.estadoNuevo||'\u2014')+'</span></td>'
           + '<td style="font-size:12px;">'+esc(mv.responsable||'\u2014')+'</td>'
           + '<td style="font-size:11px;color:var(--ink3);max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="'+esc(mv.obs||'')+'">'+esc(mv.obs||'\u2014')+'</td>'
-          + '<td><button class="btn btn-sm" onclick="verHistorialHerr(this.dataset.id)" data-id="'+mv.herrId+'" title="Ver historial completo">🕐</button></td>'
+          + '<td><button class="btn btn-sm" onclick="verHistorialHerr(\''+mv.herrId+'\')" title="Ver historial completo">\U0001f550</button></td>'
           + '</tr>';
       }).join('')
     + '</tbody></table></div>';
@@ -6007,7 +5910,6 @@ function abrirModalRecepcionHerramientas() {
   document.getElementById('herr-rec-obs').value = '';
   var sub = document.getElementById('herr-rec-subtitle');
   if (sub && cuad) sub.textContent = cuad.nombre + ' — Selecciona herramientas del catálogo';
-  actualizarContadorHerr();
   filtrarCatalogoRec('');
   renderRecSeleccion();
   openModal('modal-herr-recepcion');
@@ -6015,56 +5917,39 @@ function abrirModalRecepcionHerramientas() {
 
 function filtrarCatalogoRec(q) {
   q = (q||'').toLowerCase();
-  var items = catalogoHerrList().filter(function(h){
-    return h.activo !== false && (!q || h.nombre.toLowerCase().includes(q) || (h.categoria||'').toLowerCase().includes(q));
-  }).sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  var items = catalogoHerrList().filter(function(h){ return h.activo !== false && (!q || h.nombre.toLowerCase().includes(q) || (h.categoria||'').toLowerCase().includes(q)); })
+    .sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
   var el = document.getElementById('herr-rec-catalogo'); if (!el) return;
   if (!items.length) {
-    el.innerHTML = '<div style="padding:1.5rem;text-align:center;">'
-      + (catalogoHerrList().length===0
-          ? '<div style="font-size:28px;margin-bottom:.4rem;">\U0001f4cb</div><p style="color:var(--ink3);font-size:13px;">El administrador a\xfan no ha creado el cat\xe1logo.</p>'
-          : '<div style="font-size:22px;margin-bottom:.4rem;">\U0001f50d</div><p style="color:var(--ink3);font-size:13px;">Sin resultados para "<strong>'+esc(q)+'</strong>"</p>')
-      + '</div>';
-    actualizarContadorHerr(); return;
+    el.innerHTML = '<div style="padding:1.25rem;text-align:center;color:var(--ink3);font-size:13px;">'
+      +(catalogoHerrList().length===0 ? '⚠️ El administrador aún no ha creado el catálogo de herramientas.' : 'Sin resultados para "'+esc(q)+'".')+'</div>';
+    return;
   }
-  var cat_icons = {'Herramienta manual':'\U0001f528','Herramienta el\xe9ctrica':'\u26a1','Medici\xf3n':'\U0001f4cf','Seguridad':'\U0001f9ba','Escalera / Acceso':'\U0001faa4','Veh\xedculo / Transporte':'\U0001f697','Otro':'\U0001f4e6'};
+  var cat_icons = {'Herramienta manual':'🔨','Herramienta eléctrica':'⚡','Medición':'📏','Seguridad':'🦺','Escalera / Acceso':'🪜','Vehículo / Transporte':'🚗','Otro':'📦'};
   el.innerHTML = items.map(function(h){
     var sel = !!herrRecSeleccion[h.id];
-    return '<div onclick="toggleRecItem(\''+h.id+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;background:'+(sel?'rgba(59,130,246,.08)':'transparent')+'"'
-      +' onmouseover="this.style.background=\''+(sel?'rgba(59,130,246,.12)':'rgba(59,130,246,.04)')+'\'"'
-      +' onmouseout="this.style.background=\''+(sel?'rgba(59,130,246,.08)':'transparent')+'\'">'
-      +'<div style="width:22px;height:22px;border-radius:6px;border:2px solid '+(sel?'var(--accent)':'var(--border2)')+';background:'+(sel?'var(--accent)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s;">'
-      +(sel?'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')
-      +'</div>'
-      +'<span style="font-size:18px;flex-shrink:0;">'+(cat_icons[h.categoria]||'\U0001f4e6')+'</span>'
-      +'<div style="flex:1;min-width:0;">'
-      +'<div style="font-size:13px;font-weight:600;color:'+(sel?'var(--accent)':'var(--ink)')+';">'+esc(h.nombre)+'</div>'
-      +'<div style="font-size:11px;color:var(--ink3);">'+esc(h.categoria||'Sin categor\xeda')+'</div>'
-      +'</div>'
-      +(sel?'<span style="font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;">\u2713 Selec.</span>':'')
+    return '<div onclick="toggleRecItem(\''+h.id+'\')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;'+(sel?'background:rgba(59,130,246,.09);':'')+'"'
+      +' onmouseover="this.style.background=\'rgba(59,130,246,.06)\'" onmouseout="this.style.background=\''+(sel?'rgba(59,130,246,.09)':'')+'\'">'+
+      '<div style="width:20px;height:20px;border-radius:5px;border:2px solid '+(sel?'var(--accent)':'var(--border)')+';background:'+(sel?'var(--accent)':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s;">'
+      +(sel?'<svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+'</div>'
+      +'<span style="font-size:16px;">'+(cat_icons[h.categoria]||'📦')+'</span>'
+      +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;">'+esc(h.nombre)+'</div>'
+      +'<div style="font-size:11px;color:var(--ink3);">'+esc(h.categoria||'Sin categoría')+'</div></div>'
+      +(sel?'<span style="font-size:11px;font-weight:700;color:var(--accent);">Seleccionada ✓</span>':'')
       +'</div>';
   }).join('');
-  actualizarContadorHerr();
-}
-
-function actualizarContadorHerr() {
-  var n = Object.keys(herrRecSeleccion).length;
-  var c = document.getElementById('herr-rec-counter');
-  if (c) {
-    c.textContent = n + (n===1?' seleccionada':' seleccionadas');
-    c.style.color = n>0 ? 'var(--accent)' : 'var(--ink3)';
-  }
 }
 
 function toggleRecItem(catId) {
   var h = cache.catalogo_herramientas[catId]; if (!h) return;
-  if (herrRecSeleccion[catId]) { delete herrRecSeleccion[catId]; }
-  else { herrRecSeleccion[catId] = {nombre:h.nombre, categoria:h.categoria||'', cantidad:1, estado:'Buen Estado'}; }
+  if (herrRecSeleccion[catId]) {
+    delete herrRecSeleccion[catId];
+  } else {
+    herrRecSeleccion[catId] = {nombre:h.nombre, categoria:h.categoria||'', cantidad:1, estado:'Buen Estado'};
+  }
   filtrarCatalogoRec((document.getElementById('herr-rec-buscar')||{}).value||'');
   renderRecSeleccion();
-  actualizarContadorHerr();
 }
-
 
 function renderRecSeleccion() {
   var wrap = document.getElementById('herr-rec-seleccion-wrap');
@@ -6673,7 +6558,7 @@ function renderDashboard() {
     renderEfectividad();
 
   } else {
-    // ── Vista CUADRILLA: stock + asignaciones del día ──
+    // ── Vista CUADRILLA: solo total de materiales en bodega ──
     document.getElementById('dash-admin-view').style.display = 'none';
     document.getElementById('dash-cuad-view').style.display = 'block';
     document.getElementById('dash-acciones').style.display = 'flex';
@@ -6682,17 +6567,10 @@ function renderDashboard() {
     var dashBarCuad = document.getElementById('dash-bodega-bar');
     if (dashBarCuad) dashBarCuad.style.display = 'none';
 
-    // KPIs cuadrilla
+    // KPI cuadrilla: únicamente total de materiales registrados en bodega
     var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
-    var asigHoyCuad = asigList().filter(function(a){ return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today; });
-    var bajoCuad = matsCuad.filter(function(m){ return getStock(cid,m.id) < m.min; }).length;
     document.getElementById('kpi-grid-cuad').innerHTML =
-      kpi('Items en bodega', matsCuad.length, 'materiales asignados', 'c-accent') +
-      kpi('Asignaciones hoy', asigHoyCuad.length, 'clientes atendidos', 'c-green') +
-      kpi('Stock bajo', bajoCuad, 'por debajo del mínimo', bajoCuad>0?'c-amber':'c-green');
-
-    renderDashStockCuad();
-    renderDashAsigCuad();
+      kpi('Materiales en bodega', matsCuad.length, 'tipos de material registrados', 'c-accent');
   }
 }
 
@@ -6751,83 +6629,6 @@ function renderChartMateriales() {
   html += '</div>';
   container.innerHTML = html;
 }
-function renderDashStockCuad() {
-  var cid = currentUser.cuadrillaId;
-  var q = (document.getElementById('dash-stock-search').value||'').toLowerCase();
-  var mats = materialesList().filter(function(m){
-    return tieneExistenciaRegistrada(cid, m.id) &&
-      (!q || m.nombre.toLowerCase().includes(q) || (m.codigo||'').toLowerCase().includes(q));
-  });
-  var el = document.getElementById('dash-stock-list');
-  if (!mats.length) {
-    el.innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Sin materiales en bodega</p>';
-    return;
-  }
-  el.innerHTML = mats.map(function(m) {
-    var stk = getStock(cid, m.id);
-    var pct = Math.min(100, Math.round(stk / Math.max(m.min*2,1) * 100));
-    var color = stk===0 ? 'var(--red)' : stk<m.min ? 'var(--amber)' : 'var(--green)';
-    var badge = stk===0 ? 'badge-red' : stk<m.min ? 'badge-amber' : 'badge-green';
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;">'
-      + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+m.nombre+'</div>'
-        + '<div style="font-size:11px;color:var(--ink3);">'+m.cat+'</div>'
-        + '<div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:4px;width:80px;">'
-          + '<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:2px;"></div>'
-        + '</div>'
-      + '</div>'
-      + '<div style="text-align:right;flex-shrink:0;">'
-        + '<strong style="font-size:15px;color:'+color+';">'+stk+'</strong>'
-        + '<div style="font-size:10px;color:var(--ink3);">'+m.unidad+'</div>'
-        + '<span class="badge '+badge+'" style="font-size:10px;padding:2px 6px;">'+(stk===0?'Agotado':stk<m.min?'Bajo':'OK')+'</span>'
-      + '</div>'
-      + '</div>';
-  }).join('');
-}
-
-// Panel derecho: asignaciones del día con PDF individual
-function renderDashAsigCuad() {
-  var cid = currentUser.cuadrillaId;
-  var today = fmtDate(new Date());
-  var asigs = asigList().filter(function(a){
-    return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today;
-  }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
-
-  document.getElementById('dash-asig-count').textContent = asigs.length + ' registro(s)';
-  var el = document.getElementById('dash-asig-hoy');
-
-  if (!asigs.length) {
-    el.innerHTML = '<div style="text-align:center;padding:2rem 1rem;color:var(--ink3);">'
-      + '<svg width="36" height="36" viewBox="0 0 48 48" fill="none" style="opacity:.25;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;">'
-      + '<rect x="8" y="8" width="32" height="32" rx="4" stroke="currentColor" stroke-width="2"/>'
-      + '<path d="M16 24h16M16 32h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
-      + '<p style="font-size:13px;">Sin asignaciones hoy</p></div>';
-    return;
-  }
-
-  el.innerHTML = asigs.map(function(a) {
-    var hora = a.horaInicio ? a.horaInicio+(a.horaFin?' — '+a.horaFin:'') : fmtDT(a.fecha).split(' ')[1]||'';
-    var mlist = (a.materiales||[]).map(function(m){
-      var mt = getMat(m.matId);
-      return mt ? '<span style="font-size:11px;background:var(--blue-light);color:var(--blue);padding:2px 7px;border-radius:20px;display:inline-block;margin:2px 2px 0 0;">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>' : '';
-    }).join('');
-    return '<div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px;background:var(--bg);">'
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">'
-        + '<div>'
-          + '<strong style="font-size:14px;">'+esc(a.cliente||'')+'</strong>'
-          + '<span style="font-size:11px;background:var(--accent-light);color:var(--accent);padding:2px 7px;border-radius:20px;margin-left:6px;">'+( a.tipo||'')+'</span>'
-          + '<p style="font-size:11px;color:var(--ink3);margin-top:2px;">OT: '+(a.ot||'—')+' · '+hora+'</p>'
-          + (a.tecnico?'<p style="font-size:11px;color:var(--ink3);">Técnico: '+esc(a.tecnico)+'</p>':'')
-        + '</div>'
-        + '<button class="btn btn-sm btn-accent" onclick="rePDF(\''+a.id+'\')" style="white-space:nowrap;flex-shrink:0;">'
-            + '<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> PDF'
-          + '</button>'
-      + '</div>'
-      + '<div>'+mlist+'</div>'
-      + '</div>';
-  }).join('');
-}
-
 // Descargar PDF resumen de todo el día
 function descargarPDFDia() {
   var cid = currentUser.cuadrillaId;
@@ -6914,7 +6715,7 @@ function renderKardexRows(){
           +'<div id="drop-km-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
             +'<input type="text" placeholder="Escribir para buscar..." oninput="buscarEnFila(\'km\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" '
               +'style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
-            +'<div id="drop-km-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;"></div>'
+            +'<div id="drop-km-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
           +'</div>'
         +'</div>'
         +'<span class="stock-label" style="color:'+sc+'">'+stk+'</span>'
@@ -7022,7 +6823,21 @@ function buscarEnFila(ctx, rowUid, q) {
         if (drop) drop.style.display = 'none';
         elegirMatFila(_ctx, _rowUid, _matId);
       }
-      item.addEventListener('touchstart', seleccionar, {passive:false});
+      // FIX SCROLL SENSIBLE: distinguir un TAP de un ARRASTRE (scroll).
+      // Antes, touchstart con preventDefault disparaba la selección apenas
+      // se tocaba un ítem, bloqueando el gesto de scroll nativo en móvil.
+      // Ahora solo se confirma la selección si el dedo no se movió (tap real).
+      var touchStartY = 0, touchMoved = false;
+      item.addEventListener('touchstart', function(e){
+        touchStartY = e.touches[0].clientY;
+        touchMoved = false;
+      }, {passive:true});
+      item.addEventListener('touchmove', function(e){
+        if (Math.abs(e.touches[0].clientY - touchStartY) > 8) touchMoved = true;
+      }, {passive:true});
+      item.addEventListener('touchend', function(e){
+        if (!touchMoved) seleccionar(e);
+      }, {passive:false});
       item.addEventListener('mousedown',  seleccionar, false);
     })(ctx, rowUid, m.id);
 
@@ -7539,26 +7354,10 @@ function ocrSetStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-// ── Carga diferida de Tesseract.js (solo al abrir el escáner) ──
-var tesseractLoaded = false;
-function cargarTesseract() {
-  return new Promise(function(resolve, reject) {
-    if (tesseractLoaded || (typeof Tesseract !== 'undefined')) {
-      tesseractLoaded = true; resolve(); return;
-    }
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    s.onload  = function() { tesseractLoaded = true; resolve(); };
-    s.onerror = function() { reject(new Error('No se pudo cargar Tesseract.js')); };
-    document.head.appendChild(s);
-  });
-}
-
-// ── Precargar worker Tesseract (solo al abrir el escáner) ──
+// ── Precargar worker Tesseract (lo hace en background al abrir) ──
 async function ocrPrecargarWorker() {
   if (scannerTesseract) return;
   try {
-    await cargarTesseract();
     scannerTesseract = await Tesseract.createWorker('eng', 1, { logger: function(){} });
     await scannerTesseract.setParameters({
       tessedit_char_whitelist: '0123456789ABCDEFabcdef:- .'
@@ -7794,14 +7593,16 @@ document.addEventListener('click', function(e) {
 function initAsignar(){
   if(!asigRows.length)asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
-  // Auto-llenar hora de finalización con la hora actual del dispositivo
+  // FIX HORA ESTRICTA: la hora de inicio permanece editable/manual (el técnico
+  // puede ajustarla si la tarea empezó antes de abrir la app). Solo la hora
+  // de fin se autocompleta y queda bloqueada (readonly en el HTML) — se vuelve
+  // a fijar al momento exacto de guardar (ver registrarAsignacion) para
+  // reflejar el tiempo real del registro y evitar que se manipule manualmente.
+  var ahora=new Date();
+  var hh=String(ahora.getHours()).padStart(2,'0');
+  var mm=String(ahora.getMinutes()).padStart(2,'0');
   var horaFinEl=document.getElementById('cli-hora-fin');
-  if(horaFinEl){
-    var now=new Date();
-    var hh=String(now.getHours()).padStart(2,'0');
-    var mm=String(now.getMinutes()).padStart(2,'0');
-    horaFinEl.value=hh+':'+mm;
-  }
+  if(horaFinEl) horaFinEl.value=hh+':'+mm;
 }
 function addAsigRow(){if(asigRows.length>=15){toast('Máximo 15','info');return;}asigRows.push({uid:uid(),matId:'',qty:1});renderAsigRows();}
 function removeAsigRow(u){if(asigRows.length<=1)return;asigRows=asigRows.filter(function(r){return r.uid!==u;});renderAsigRows();}
@@ -7828,7 +7629,7 @@ function renderAsigRows(){
         +'<div id="drop-ar-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
           +'<input type="text" placeholder="Escribir para buscar..." oninput="buscarEnFila(\'ar\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" '
             +'style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
-          +'<div id="drop-ar-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;"></div>'
+          +'<div id="drop-ar-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
         +'</div>'
       +'</div>'
       +'<span class="stock-label" style="color:'+sc+'">'+stk+'</span>'
@@ -7909,15 +7710,20 @@ function registrarAsignacion(){
         return {matId:mid,qty:r.qty};
       });
       var aid=uid();
-      var asig={id:aid, fecha:nowISO(), tsRegistro:Date.now(), cliente:nombre,
+      // FIX HORA ESTRICTA: la hora de fin se recalcula AQUÍ, en el instante
+      // real de guardado (tras confirmar el modal), no en el instante en que
+      // se abrió el formulario. Así el registro siempre refleja el tiempo
+      // real transcurrido, sin posibilidad de editarlo manualmente.
+      var horaFinReal=(function(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');})();
+      var asig={id:aid, fecha:nowISOLocal(), tsRegistro:Date.now(), cliente:nombre,
         tel:document.getElementById('cli-tel').value,
         dir:document.getElementById('cli-dir').value,
         municipio:document.getElementById('cli-municipio').value,
         ot:document.getElementById('cli-ot').value,
         tipo:document.getElementById('cli-tipo').value,
         tecnico:document.getElementById('cli-tecnico').value,
-        horaInicio:document.getElementById('cli-hora-inicio').value||'',
-        horaFin:document.getElementById('cli-hora-fin').value||'',
+        horaInicio:horaInicio||'',
+        horaFin:horaFinReal,
         obs:document.getElementById('cli-obs').value,
         materiales:matsData,cuadrillaId:cid};
       updates['asignaciones/'+aid]=asig;
@@ -9434,24 +9240,7 @@ document.querySelectorAll('.modal-overlay').forEach(function(ov){
 // INIT — conectar Firebase y mostrar login
 // ══════════════════════════════════════════════════════
 var loadMsg = document.getElementById('loading-msg');
-
-// ── PRE-FLIGHT: verificar conectividad básica antes de intentar Firebase ──
-
-function cargarDatosIniciales() {
-  loadMsg.textContent = 'Conectando con Firebase...';
-  var detail = document.getElementById('loading-detail');
-  if (detail) detail.textContent = 'Base de datos: bodeganet-41a58';
-  var errBox = document.getElementById('firebase-error-box');
-  if (errBox) errBox.remove();
-  iniciarCargaFirebase();
-}
-
-
-function iniciarCargaFirebase() {
-  loadMsg.textContent = 'Conectando con Firebase...';
-  var detail = document.getElementById('loading-detail');
-  if (detail) detail.textContent = 'Base de datos: bodeganet-41a58';
-  var loadScreen = document.getElementById('loading-screen');
+loadMsg.textContent = 'Conectando con Firebase...';
 
 // ── Detectar apertura como file:// ──────────────────────
 if (window.location.protocol === 'file:') {
@@ -9473,23 +9262,44 @@ if (window.location.protocol === 'file:') {
   jsPDFScript.onerror = function() { console.warn('jsPDF no cargó — PDF deshabilitado'); };
   document.head.appendChild(jsPDFScript);
 
-  // ── Carga inicial de todos los nodos Firebase ──────
+  cargarDatosIniciales();
+}
+db.ref('.info/connected').on('value', function(snap) {
+  var connected = snap.val();
+  var ind = document.getElementById('sync-indicator');
+  if (ind) {
+    if (connected) { ind.className='topbar-sync sync-ok'; ind.textContent='● En línea'; }
+    else { ind.className='topbar-sync sync-off'; ind.textContent='● Sin conexión'; }
+  }
+});
+
+// ── Función de carga inicial (reutilizable para reintentos) ──
+function cargarDatosIniciales() {
+  var loadScreen = document.getElementById('loading-screen');
+  loadMsg.textContent = 'Conectando con Firebase...';
+  var errBox = document.getElementById('firebase-error-box');
+  if (errBox) errBox.remove();
+
+  // Todas las rutas usan safeOnce para sobrevivir PERMISSION_DENIED
   function safeOnce(ref) {
-    return new Promise(function(resolve) {
-      ref.once('value').then(resolve).catch(function() { resolve({ val: function(){ return null; } }); });
+    return ref.once('value').catch(function(e) {
+      console.warn('Firebase read failed:', ref.toString(), e.code || e.message);
+      return { val: function(){ return null; }, _error: e };
     });
   }
+
+  // Timeout de 20 segundos
   var timedOut = false;
   var timeoutId = setTimeout(function() {
     timedOut = true;
     mostrarErrorFirebase(
-      '⏱ Sin respuesta en 20 segundos',
-      'Firebase tardó demasiado en responder.',
+      '⏱ Sin respuesta de Firebase',
+      'La base de datos no respondió en 20 segundos. Posibles causas:',
       [
-        'Tu conexión a internet puede ser lenta o inestable.',
-        'El proyecto Firebase puede estar pausado (plan gratuito con límite de uso).',
-        'Revisa el estado en <a href="https://status.firebase.google.com" target="_blank" style="color:#1a6daf;">status.firebase.google.com</a>',
-        'Haz clic en Reintentar cuando la conexión mejore.'
+        'Sin conexión a internet en este dispositivo',
+        'Las reglas de Firebase bloquean el acceso',
+        'El proyecto Firebase está pausado o su plan gratuito se agotó',
+        'La URL de la base de datos no es correcta'
       ]
     );
   }, 20000);
@@ -9507,37 +9317,67 @@ if (window.location.protocol === 'file:') {
     safeOnce(db.ref('catalogo_herramientas')),
     safeOnce(db.ref('tipos_red_interna')),
     safeOnce(db.ref('motivos_vf')),
-    safeOnce(db.ref('config/admin_pass')),
-    safeOnce(db.ref('config/admin2_pass')),
-    safeOnce(db.ref('config/super_pass')),
-    safeOnce(db.ref('config/sector1_nombre')),
-    safeOnce(db.ref('config/sector2_nombre'))
+    safeOnce(db.ref('config/adminPass')),
+    safeOnce(db.ref('config/admin2Pass')),
+    safeOnce(db.ref('config/superPass')),
+    safeOnce(db.ref('config/sector1Nombre')),
+    safeOnce(db.ref('config/sector2Nombre'))
   ]).then(function(snaps) {
     clearTimeout(timeoutId);
     if (timedOut) return;
-    cache.cuadrillas            = snaps[0].val() || {};
-    cache.materiales            = snaps[1].val() || {};
-    cache.stocks                = snaps[2].val() || {};
-    cache.kardex                = snaps[3].val() || {};
-    cache.asignaciones          = snaps[4].val() || {};
-    cache.sectores              = snaps[5].val() || {};
-    SECTORES_CACHE              = cache.sectores;
-    cache.herramientas          = snaps[6].val() || {};
-    cache.redInterna            = snaps[7].val() || {};
-    cache.visitas_fallidas      = snaps[8].val() || {};
+
+    // Detectar si hay errores de permisos en rutas principales
+    var permErrors = [];
+    ['cuadrillas','materiales','stocks','kardex','asignaciones'].forEach(function(r, i) {
+      if (snaps[i] && snaps[i]._error) permErrors.push(r);
+    });
+
+    if (permErrors.length > 0) {
+      mostrarErrorFirebase(
+        '🔒 Acceso denegado por Firebase Rules',
+        'Tu base de datos bloqueó la lectura en: <strong>' + permErrors.join(', ') + '</strong>',
+        [
+          'Ve a <strong>Firebase Console → Realtime Database → Rules</strong>',
+          'Cambia las reglas a: <code>{ "rules": { ".read": true, ".write": true } }</code>',
+          'Guarda los cambios y recarga esta página',
+          'Nota: estas reglas son solo para desarrollo. Usa reglas seguras en producción.'
+        ]
+      );
+      return;
+    }
+
+    cache.cuadrillas        = snaps[0].val() || {};
+    cache.materiales        = snaps[1].val() || {};
+    cache.stocks            = snaps[2].val() || {};
+    cache.kardex            = snaps[3].val() || {};
+    cache.asignaciones      = snaps[4].val() || {};
+    cache.sectores          = snaps[5].val() || {};
+    SECTORES_CACHE          = cache.sectores;
+    cache.herramientas      = snaps[6].val() || {};
+    cache.redInterna        = snaps[7].val() || {};
+    cache.visitas_fallidas  = snaps[8].val() || {};
     cache.catalogo_herramientas = snaps[9].val() || {};
-    cache.tipos_red_interna     = snaps[10].val() || {};
-    cache.motivos_vf            = snaps[11].val() || {};
+    cache.tipos_red_interna = snaps[10].val() || {};
+    cache.motivos_vf        = snaps[11].val() || {};
     if (snaps[12].val()) ADMIN_PASS     = snaps[12].val();
     if (snaps[13].val()) ADMIN2_PASS    = snaps[13].val();
     if (snaps[14].val()) SUPER_PASS     = snaps[14].val();
     if (snaps[15].val()) SECTOR1_NOMBRE = snaps[15].val();
     if (snaps[16].val()) SECTOR2_NOMBRE = snaps[16].val();
 
-    populateLoginSelect();
-    initFirebaseListeners();
+    // Si no hay sectores, migrar legado
+    if (Object.keys(cache.sectores).length === 0) {
+      Promise.all([hashPass(ADMIN_PASS), hashPass(ADMIN2_PASS)]).then(function(hashes) {
+        var mig = {};
+        mig['sector_1'] = { nombre: SECTOR1_NOMBRE || 'Sector 1', pass: hashes[0] };
+        mig['sector_2'] = { nombre: SECTOR2_NOMBRE || 'Sector 2', pass: hashes[1] };
+        db.ref('sectores').set(mig).catch(function(){});
+      });
+    }
+
     loadScreen.style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
+    populateLoginSelect();
     // Verificar si este dispositivo ya estaba bloqueado al cargar
     (function aplicarBloqueoSiExiste() {
       var s = _getRLState();
@@ -9552,6 +9392,7 @@ if (window.location.protocol === 'file:') {
         if (btnA) btnA.disabled = true;
         if (passC) { passC.disabled = true; passC.style.opacity = '0.5'; }
         if (passA) { passA.disabled = true; passA.style.opacity = '0.5'; }
+        // Iniciar escucha de desbloqueo remoto
         iniciarMonitorDesbloqueo();
       }
     })();
@@ -9560,34 +9401,28 @@ if (window.location.protocol === 'file:') {
     clearTimeout(timeoutId);
     if (timedOut) return;
     var codigo = err.code || '';
-    var titulo = '🔴 Error al conectar con Firebase';
     var causas = [];
+    var titulo = '🔴 Error al conectar con Firebase';
     if (codigo === 'PERMISSION_DENIED' || (err.message||'').indexOf('permission') > -1) {
-      titulo = '🔒 Acceso denegado por Firebase Rules';
+      titulo = '🔒 Acceso denegado por Firebase';
       causas = [
-        'Las reglas de seguridad de Firebase están bloqueando el acceso.',
-        'Ve a Firebase Console → Realtime Database → Rules y publica las reglas correctas.',
-        'Asegúrate de que las reglas permitan lectura y escritura.'
+        'Las reglas de Firebase bloquean la lectura/escritura',
+        'Ve a <strong>Firebase Console → Realtime Database → Rules</strong>',
+        'Configura: <code>{ "rules": { ".read": true, ".write": true } }</code>',
+        'Código: ' + (codigo || err.message)
       ];
+    } else if ((err.message||'').indexOf('network') > -1 || (err.message||'').indexOf('fetch') > -1) {
+      titulo = '📡 Sin conexión de red';
+      causas = ['Verifica tu conexión a internet', 'Error: ' + err.message];
     } else {
       causas = [
-        'Error: ' + (err.message || codigo || 'desconocido'),
-        'Verifica tu conexión a internet.',
-        'Haz clic en Reintentar.'
+        'Error: ' + (err.message || JSON.stringify(err)),
+        'Revisa la consola del navegador (F12 → Console) para más detalles'
       ];
     }
     mostrarErrorFirebase(titulo, 'No se pudo cargar la aplicación:', causas);
   });
 }
-db.ref('.info/connected').on('value', function(snap) {
-  var connected = snap.val();
-  var ind = document.getElementById('sync-indicator');
-  if (ind) {
-    if (connected) { ind.className='topbar-sync sync-ok'; ind.textContent='● En línea'; }
-    else { ind.className='topbar-sync sync-off'; ind.textContent='● Sin conexión'; }
-  }
-});
-} // fin iniciarCargaFirebase
 
 function mostrarErrorFirebase(titulo, subtitulo, causas) {
   loadMsg.textContent = '';
@@ -9616,10 +9451,6 @@ function mostrarErrorFirebase(titulo, subtitulo, causas) {
     +'</div>';
   loadScreen.appendChild(box);
 }
-
-
-// ── ARRANQUE ──────────────────────────────────────────
-cargarDatosIniciales();
 
 </script>
 </body>
