@@ -5396,13 +5396,8 @@ function renderHerramientas() {
       + '<div style="font-size:40px;margin-bottom:.75rem;">🔧</div>'
       + '<p style="color:var(--ink2);font-size:14px;font-weight:600;margin-bottom:.4rem;">Sin herramientas registradas</p>'
       + '<p style="color:var(--ink3);font-size:12px;margin-bottom:1.25rem;">'
-      + (filtroEstado || busqueda ? 'No hay herramientas con ese filtro.' : 'Agrega la primera herramienta de tu cuadrilla.')
+      + (filtroEstado || busqueda ? 'No hay herramientas con ese filtro.' : 'Usa "Registrar recepción" para agregar las herramientas asignadas a tu cuadrilla.')
       + '</p>'
-      + (!filtroEstado && !busqueda
-          ? '<button class="btn btn-accent" onclick="abrirModalRegistrarPrimeraHerramienta()">'
-            + '<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
-            + ' Agregar herramienta</button>'
-          : '')
       + '</div>';
     return;
   }
@@ -5425,7 +5420,6 @@ function renderHerramientas() {
       +   '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       +   ' Cambiar estado</button>'
       + '<button class="btn btn-sm" onclick="event.stopPropagation();verHistorialHerr(\''+h.id+'\')" title="Historial de cambios" style="flex-shrink:0;margin-left:4px;">🕐 Historial</button>'
-      + '<button onclick="event.stopPropagation();editarHerramientaPropia(\''+h.id+'\')" title="Editar" style="background:none;border:1px solid var(--border);border-radius:var(--r);padding:5px 8px;cursor:pointer;color:var(--ink3);font-size:12px;flex-shrink:0;">✏️</button>'
       + '</div>'
       + '<div class="herr-card-body" id="hbody-'+h.id+'" style="display:none;">'
       +   '<div style="display:flex;gap:10px;font-size:11px;color:var(--ink3);margin:10px 0 6px;flex-wrap:wrap;">'
@@ -6181,11 +6175,12 @@ function verHistorialHerramienta(herrId) {
   var hist = h.historial || [];
   var html = '<div style="max-height:60vh;overflow-y:auto;">'
     + '<h3 style="margin-bottom:.75rem;">' + h.nombre + ' \u2014 Historial</h3>'
-    + (hist.length ? '<table><thead><tr><th>Fecha</th><th>Cambio</th><th>Ref. Kardex</th><th>Verif.</th><th>Cuadrilla</th><th>Obs.</th></tr></thead><tbody>'
+    + (hist.length ? '<table><thead><tr><th>Fecha</th><th>Cambio</th><th>Responsable</th><th>Ref. Kardex</th><th>Verif.</th><th>Cuadrilla</th><th>Obs.</th></tr></thead><tbody>'
         + hist.slice().reverse().map(function(e) {
             return '<tr>'
-              + '<td style="font-size:12px;white-space:nowrap;">' + fmtDate(e.fecha) + '</td>'
+              + '<td style="font-size:12px;white-space:nowrap;">' + fmtDT(e.fecha) + '</td>'
               + '<td>' + (e.estadoAnterior||'\u2014') + ' \u2192 <span class="badge ' + (BADGE_HERR[e.estadoNuevo]||'badge-gray') + '">' + e.estadoNuevo + '</span></td>'
+              + '<td style="font-size:12px;font-weight:600;">' + esc(e.responsable||'\u2014') + '</td>'
               + '<td style="font-family:monospace;font-size:12px;">' + esc(e.kardexRef||'') + '</td>'
               + '<td>' + (e.kardexValido ? '<span class="badge badge-green">\u2713 V\u00e1lido</span>' : '<span class="badge badge-amber">\u26a0 Pendiente</span>') + '</td>'
               + '<td style="font-size:12px;">' + (e.cuadrillaNombre||'\u2014') + '</td>'
