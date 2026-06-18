@@ -279,6 +279,12 @@ select option{background:var(--bg3);color:var(--ink);}
 </head>
 <body>
 
+<!-- FIX BUG: contenedor de toasts faltante. toast() hacía document.getElementById('toasts')
+     que devolvía null y lanzaba un error silencioso, deteniendo la ejecución de la función
+     que lo llamaba (incluyendo el closeModal() que normalmente sigue después). Esto causaba
+     que varios formularios (ej. Visitas fallidas) no mostraran confirmación ni cerraran el modal. -->
+<div id="toasts" style="position:fixed;top:16px;right:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
+
 <!-- LOADING -->
 <div id="loading-screen">
   <h1>Bodega<span>Net</span></h1>
@@ -706,7 +712,10 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
           <div class="form-grid g1"><div class="field full"><label>Dirección</label><input type="text" id="cli-dir" placeholder="Colonia, calle, casa..."></div></div>
           <div class="form-grid">
-            <div class="field"><label>Municipio</label><input type="text" id="cli-municipio"></div>
+            <div class="field"><label>ID de cliente</label><input type="text" id="cli-idcliente" placeholder="Ej: 100234"></div>
+            <div class="field"><label>IP del cliente</label><input type="text" id="cli-ip" placeholder="Ej: 192.168.1.10"></div>
+          </div>
+          <div class="form-grid">
             <div class="field"><label>Orden de trabajo (OT)</label><input type="text" id="cli-ot" placeholder="OT-0001"></div>
           </div>
           <div class="form-grid">
@@ -806,6 +815,23 @@ select option{background:var(--bg3);color:var(--ink);}
               <input type="date" id="hist-fecha-filtro" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;" onchange="renderHistorial()">
             </div>
             <button class="btn btn-sm" onclick="document.getElementById('hist-fecha-filtro').value=new Date().toISOString().slice(0,10);renderHistorial();" style="white-space:nowrap;">Hoy</button>
+          </div>
+        </div>
+        <!-- Filtros — solo visibles para admin: cuadrilla + búsqueda libre (cliente/MAC/OT/material) -->
+        <div id="hist-filtro-admin" class="card" style="display:none;margin-bottom:1rem;">
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div class="field" style="flex:0 0 220px;margin-bottom:0;">
+              <label>Cuadrilla</label>
+              <select id="hist-admin-cuadrilla" onchange="renderHistorial()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="">Todas las cuadrillas</option>
+              </select>
+            </div>
+            <div class="field" style="flex:1;min-width:220px;margin-bottom:0;">
+              <label>Buscar (cliente, MAC, OT o material)</label>
+              <input type="text" id="hist-admin-search" oninput="renderHistorial()" placeholder="Ej: Juan Pérez, 80F1A855F46E, OT-0001..."
+                style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="document.getElementById('hist-admin-cuadrilla').value='';document.getElementById('hist-admin-search').value='';renderHistorial();" style="white-space:nowrap;">Limpiar filtros</button>
           </div>
         </div>
         <div class="card"><div class="table-wrap"><table>
@@ -7167,7 +7193,7 @@ function buscarUsoMaterial() {
         + '<td><strong>' + esc(a.cliente || '—') + '</strong>'
           + (a.telefono ? '<br><span style="font-size:10px;color:var(--ink3);">' + esc(a.telefono) + '</span>' : '')
           + '</td>'
-        + '<td style="font-size:11px;color:var(--ink2);">' + esc((a.direccion||'') + (a.municipio?', '+a.municipio:'')) + '</td>'
+        + '<td style="font-size:11px;color:var(--ink2);">' + esc((a.direccion||'') + (a.municipio?', '+a.municipio:'') + (a.idCliente?' · ID:'+a.idCliente:'') + (a.ip?' · IP:'+a.ip:'')) + '</td>'
         + '<td style="font-size:11px;">' + esc(a.ot || '—') + '</td>'
         + '<td style="font-weight:600;color:var(--accent-dark);">' + qty + ' ' + esc(mat.unidad || '') + '</td>'
         + (esAdmin ? '<td><span class="badge badge-gray">' + esc(getCuad(a.cuadrillaId) ? getCuad(a.cuadrillaId).nombre : '—') + '</span></td>' : '')
@@ -7270,7 +7296,7 @@ function buscarPorMAC() {
           + '<td style="font-size:11px;white-space:nowrap">' + fmtDate(a.fecha) + '</td>'
           + '<td><strong>' + esc(a.cliente||'—') + '</strong>'
             + (a.telefono?'<br><span style="font-size:10px;color:var(--ink3);">'+esc(a.telefono)+'</span>':'') + '</td>'
-          + '<td style="font-size:11px;">' + esc((a.direccion||'')+(a.municipio?', '+a.municipio:'')) + '</td>'
+          + '<td style="font-size:11px;">' + esc((a.direccion||'')+(a.municipio?', '+a.municipio:'')+(a.idCliente?' · ID:'+a.idCliente:'')+(a.ip?' · IP:'+a.ip:'')) + '</td>'
           + '<td style="font-size:11px;">' + esc(a.ot||'—') + '</td>'
           + '<td style="font-size:12px;">' + esc(mat?mat.nombre:'—') + '</td>'
           + '<td style="font-family:monospace;font-size:11px;color:var(--accent);">' + esc(m.mac) + '</td>'
@@ -7713,7 +7739,8 @@ function registrarAsignacion(){
       var asig={id:aid, fecha:nowISOLocal(), tsRegistro:Date.now(), cliente:nombre,
         tel:document.getElementById('cli-tel').value,
         dir:document.getElementById('cli-dir').value,
-        municipio:document.getElementById('cli-municipio').value,
+        idCliente:document.getElementById('cli-idcliente').value,
+        ip:document.getElementById('cli-ip').value,
         ot:document.getElementById('cli-ot').value,
         tipo:document.getElementById('cli-tipo').value,
         tecnico:document.getElementById('cli-tecnico').value,
@@ -7795,7 +7822,7 @@ function registrarAsignacion(){
 }
 
 function limpiarAsignacion(){
-  ['cli-nombre','cli-tel','cli-dir','cli-municipio','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
+  ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
   asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
   // Re-auto-llenar hora de finalización tras limpiar
@@ -7828,7 +7855,7 @@ function generarPDF(asig){
   if(asig.horaInicio||asig.horaFin) r2('Hora inicio:',(asig.horaInicio||'—'),'Hora fin:',(asig.horaFin||'—'));
   y+=4;
   sec('DATOS DEL CLIENTE');
-  [['Cliente:',asig.cliente],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—'],['Municipio:',asig.municipio||'—']].forEach(function(r){r2(r[0],r[1]);});
+  [['Cliente:',asig.cliente],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—'],['ID Cliente:',asig.idCliente||'—'],['IP:',asig.ip||'—']].forEach(function(r){r2(r[0],r[1]);});
   y+=4;sec('MATERIALES UTILIZADOS');
   doc.setFillColor(26,26,25);doc.rect(L,y,170,7,'F');
   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
@@ -7992,7 +8019,7 @@ function generarInformePDF(tipo) {
       return [
         fmtDate(a.fecha),
         a.cliente||'—',
-        (a.direccion||'')+(a.municipio?', '+a.municipio:''),
+        (a.direccion||'')+(a.municipio?', '+a.municipio:'')+(a.idCliente?' · ID:'+a.idCliente:'')+(a.ip?' · IP:'+a.ip:''),
         a.ot||'—',
         a.tecnico||a.responsable||'—',
         a.horaInicio||'—',
@@ -8262,7 +8289,8 @@ function mostrarResumenTexto(){
   var nombre=document.getElementById('cli-nombre').value.trim();
   var tel=document.getElementById('cli-tel').value.trim();
   var dir=document.getElementById('cli-dir').value.trim();
-  var municipio=document.getElementById('cli-municipio').value.trim();
+  var idCliente=document.getElementById('cli-idcliente').value.trim();
+  var ip=document.getElementById('cli-ip').value.trim();
   var ot=document.getElementById('cli-ot').value.trim();
   var tipo=document.getElementById('cli-tipo').value;
   var tecnico=document.getElementById('cli-tecnico').value.trim();
@@ -8285,9 +8313,10 @@ function mostrarResumenTexto(){
   lineas.push('');
   lineas.push('── CLIENTE ──────────────');
   lineas.push('Nombre:    '+(nombre||'—'));
-  if(tel)      lineas.push('Teléfono:  '+tel);
-  if(dir)      lineas.push('Dirección: '+dir);
-  if(municipio) lineas.push('Municipio: '+municipio);
+  if(tel)       lineas.push('Teléfono:  '+tel);
+  if(dir)       lineas.push('Dirección: '+dir);
+  if(idCliente) lineas.push('ID Cliente:'+idCliente);
+  if(ip)        lineas.push('IP:        '+ip);
   lineas.push('');
   lineas.push('── MATERIALES ───────────');
   if(!validos.length){
@@ -8444,6 +8473,8 @@ function renderHistorial(){
     expBtn.style.display   = 'none';
     titEl.textContent      = 'Historial de asignaciones';
     subEl.textContent      = 'Busca por día para revisar materiales asignados';
+    var filtroAdminElCuad = document.getElementById('hist-filtro-admin');
+    if (filtroAdminElCuad) filtroAdminElCuad.style.display = 'none';
 
     // Inicializar fecha si está vacía
     var fechaInput = document.getElementById('hist-fecha-filtro');
@@ -8489,25 +8520,54 @@ function renderHistorial(){
     titEl.textContent      = 'Historial completo';
     subEl.textContent      = 'Movimientos, asignaciones y anulaciones';
 
+    // Mostrar barra de filtros admin y poblar selector de cuadrillas
+    var filtroAdminEl = document.getElementById('hist-filtro-admin');
+    if (filtroAdminEl) filtroAdminEl.style.display = 'block';
+    var selCuadHist = document.getElementById('hist-admin-cuadrilla');
+    if (selCuadHist) {
+      var valCuadHist = selCuadHist.value;
+      selCuadHist.innerHTML = '<option value="">Todas las cuadrillas</option>';
+      getCuadrillasFiltradas().sort(function(a,b){ return a.nombre.localeCompare(b.nombre); }).forEach(function(cu){
+        var o = document.createElement('option'); o.value = cu.id; o.textContent = cu.nombre;
+        if (cu.id === valCuadHist) o.selected = true;
+        selCuadHist.appendChild(o);
+      });
+    }
+    var fCuad = (document.getElementById('hist-admin-cuadrilla')||{value:''}).value;
+    var fSearch = ((document.getElementById('hist-admin-search')||{value:''}).value||'').trim().toLowerCase();
+    var fSearchMac = fSearch.replace(/[^0-9a-fA-F]/g,'').toUpperCase(); // versión solo-hex para comparar contra MAC
+
     var rows = [];
     kardexListFiltrada().forEach(function(k){
       var mat = getMat(k.matId);
+      if (fCuad && k.cuadrillaId !== fCuad) return;
       rows.push({
         fecha:k.fecha, tipo:k.tipo==='ingreso'?'Ingreso bodega':'Egreso bodega',
         mat:mat?mat.nombre:'—', qty:k.qty+(mat?' '+mat.unidad:''),
-        ref:k.ref||'—', resp:k.resp||'—', asigId:null, kardexId:k.id
+        ref:k.ref||'—', resp:k.resp||'—', mac:k.mac||'', asigId:null, kardexId:k.id
       });
     });
     asigListFiltrada().filter(function(a){ return !a.anulada; }).forEach(function(a){
+      if (fCuad && a.cuadrillaId !== fCuad) return;
       rows.push({
         fecha:a.fecha, tipo:'Asignación cliente',
         mat:(a.materiales||[]).map(function(m){
           var mt=getMat(m.matId); return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';
         }).join(', '),
         qty:'', ref:a.cliente+(a.ot?' / OT:'+a.ot:''), resp:a.tecnico||'—',
-        asigId:a.id, kardexId:null
+        mac:'', asigId:a.id, kardexId:null
       });
     });
+
+    // Filtro de búsqueda libre: cliente/ref, material, técnico o MAC
+    if (fSearch) {
+      rows = rows.filter(function(r){
+        var hayTexto = (r.ref+' '+r.mat+' '+r.resp).toLowerCase().indexOf(fSearch) > -1;
+        var hayMac = fSearchMac.length>=4 && r.mac && r.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(fSearchMac) > -1;
+        return hayTexto || hayMac;
+      });
+    }
+
     rows.sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
 
     // Reemplazar encabezados de tabla para admin
@@ -8515,7 +8575,7 @@ function renderHistorial(){
     if (thead) thead.innerHTML = '<th>Fecha</th><th>Tipo</th><th>Material/Desc.</th><th>Cant.</th><th>Cliente/Ref.</th><th>Técnico</th><th>Acciones</th>';
 
     var tbody = document.getElementById('hist-tbody');
-    if (!rows.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos')+'</td></tr>'; return; }
+    if (!rows.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos con esos filtros')+'</td></tr>'; return; }
     tbody.innerHTML = rows.map(function(r){
       var bc = r.tipo==='Ingreso bodega'?'badge-green':r.tipo==='Egreso bodega'?'badge-accent':'badge-blue';
       var acciones = '—';
@@ -8528,7 +8588,7 @@ function renderHistorial(){
       return '<tr>'
         +'<td style="font-size:11px;white-space:nowrap">'+fmtDT(r.fecha)+'</td>'
         +'<td><span class="badge '+bc+'">'+r.tipo+'</span></td>'
-        +'<td style="font-size:13px">'+r.mat+'</td>'
+        +'<td style="font-size:13px">'+r.mat+(r.mac?'<br><span style="font-family:monospace;font-size:10px;color:var(--ink3);">MAC: '+esc(r.mac)+'</span>':'')+'</td>'
         +'<td style="font-size:12px">'+r.qty+'</td>'
         +'<td style="font-size:12px">'+r.ref+'</td>'
         +'<td style="font-size:12px">'+r.resp+'</td>'
