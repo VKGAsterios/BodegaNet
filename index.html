@@ -712,9 +712,13 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
           <div class="form-grid g1"><div class="field full"><label>Dirección</label><input type="text" id="cli-dir" placeholder="Colonia, calle, casa..."></div></div>
           <div class="form-grid">
-            <div class="field"><label>ID de cliente</label><input type="text" id="cli-idcliente" placeholder="Ej: 100234"></div>
+            <div class="field"><label>ID de cliente</label><input type="text" id="cli-idcliente" placeholder="Ej: 100234" oninput="checkReincidenciaCliente()"></div>
             <div class="field"><label>IP del cliente</label><input type="text" id="cli-ip" placeholder="Ej: 192.168.1.10"></div>
           </div>
+          <!-- Alerta de reincidencia temprana: aparece si el ID de cliente tiene una visita
+               previa en los últimos 2 meses, para que el técnico refuerce la atención y evite
+               que esta se convierta en una 3ra o 4ta visita por el mismo problema. -->
+          <div id="cli-alerta-reincidencia" style="display:none;margin-bottom:1rem;"></div>
           <div class="form-grid">
             <div class="field"><label>Orden de trabajo (OT)</label><input type="text" id="cli-ot" placeholder="OT-0001"></div>
           </div>
@@ -885,12 +889,12 @@ select option{background:var(--bg3);color:var(--ink);}
       <!-- ADMIN REPORTES -->
       <section class="section" id="sec-admin-reportes">
         <div class="page-header">
-          <div><h2>Reportes</h2><p>Asignaciones, Kardex y Tiempos por Trabajo</p></div>
+          <div><h2>Reportes</h2><p>Asignaciones, Reincidencias y Tiempos por Trabajo</p></div>
         </div>
         <!-- Pestañas de reportes -->
         <div style="display:flex;gap:4px;margin-bottom:1.2rem;border-bottom:2px solid var(--border);overflow-x:auto;">
           <button class="rep-tab active" onclick="switchRepTab('asignaciones')" id="tab-asignaciones" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-2px;cursor:pointer;white-space:nowrap;">Asignaciones</button>
-          <button class="rep-tab" onclick="switchRepTab('kardex')" id="tab-kardex" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">Kardex</button>
+          <button class="rep-tab" onclick="switchRepTab('reincidencias')" id="tab-reincidencias" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">🔁 Reincidencias</button>
           <button class="rep-tab" onclick="switchRepTab('tiempos')" id="tab-tiempos" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">⏱ Tiempos por Trabajo</button>
           <!-- Tab Visitas Fallidas oculto — no implementado actualmente -->
         </div>
@@ -941,48 +945,63 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
-        <!-- Pestaña: Kardex -->
-        <div id="reptab-kardex" style="display:none;">
+        <!-- Pestaña: Reincidencias -->
+        <div id="reptab-reincidencias" style="display:none;">
           <div class="card">
-            <div class="card-title">Filtros de Kardex</div>
+            <div class="card-title">Filtros — Clientes reincidentes por ID de cliente</div>
             <div class="form-grid">
               <div class="field"><label>Cuadrilla</label>
-                <select id="km-rep-cuadrilla"><option value="">Todas</option></select>
-              </div>
-              <div class="field"><label>Tipo</label>
-                <select id="km-rep-tipo">
-                  <option value="">Todos</option>
-                  <option value="ingreso">Ingresos</option>
-                  <option value="egreso">Egresos</option>
-                </select>
+                <select id="rc-cuadrilla" onchange="renderReincidencias()"><option value="">Todas las cuadrillas</option></select>
               </div>
               <div class="field"><label>Período</label>
-                <select id="km-rep-periodo" onchange="toggleKmRepFechas()">
+                <select id="rc-periodo" onchange="toggleRcFechas();renderReincidencias()">
                   <option value="hoy">Hoy</option>
                   <option value="semana">Esta semana</option>
                   <option value="mes" selected>Este mes</option>
                   <option value="personalizado">Personalizado</option>
+                  <option value="todo">Todo el historial</option>
                 </select>
               </div>
+              <div class="field"><label>Mínimo de visitas para considerar reincidente</label>
+                <input type="number" id="rc-min-visitas" value="3" min="2" max="50" onchange="renderReincidencias()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              </div>
             </div>
-            <div class="form-grid" id="km-rep-fechas" style="display:none;">
-              <div class="field"><label>Fecha inicio</label><input type="date" id="km-rep-ini"></div>
-              <div class="field"><label>Fecha fin</label><input type="date" id="km-rep-fin"></div>
+            <div class="form-grid" id="rc-fechas" style="display:none;">
+              <div class="field"><label>Fecha inicio</label><input type="date" id="rc-fecha-ini" onchange="renderReincidencias()"></div>
+              <div class="field"><label>Fecha fin</label><input type="date" id="rc-fecha-fin" onchange="renderReincidencias()"></div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-accent" onclick="renderRepKardex()">Generar reporte</button>
-              <button class="btn btn-green" onclick="exportarKardexCSV()">Descargar CSV</button>
-              <button class="btn" id="btn-pdf-rep-kardex" style="display:none;border-color:var(--red);color:var(--red);" onclick="generarInformePDF('rep-kardex')">
-                <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-                Informe PDF
-              </button>
+              <button class="btn btn-accent" onclick="renderReincidencias()">Generar reporte</button>
+              <button class="btn btn-green" onclick="exportarReincidenciasCSV()">Descargar CSV</button>
             </div>
           </div>
-          <div class="card" id="km-rep-result" style="display:none;">
-            <div class="card-header"><h3>Movimientos de Kardex</h3><span id="km-rep-count" style="font-size:13px;color:var(--ink3);"></span></div>
+
+          <!-- KPIs -->
+          <div class="kpi-grid" id="rc-kpis" style="display:none;margin-bottom:1rem;"></div>
+
+          <div class="card" id="rc-result" style="display:none;">
+            <div class="card-header">
+              <h3>Clientes con visitas repetidas (mismo ID de cliente)</h3>
+              <span id="rc-count" style="font-size:13px;color:var(--ink3);"></span>
+            </div>
+            <div style="font-size:12px;color:var(--ink3);margin-bottom:.75rem;">
+              💡 Se agrupa por <strong>ID de cliente</strong>. Las asignaciones sin ID de cliente registrado no se pueden incluir en este análisis.
+            </div>
             <div class="table-wrap"><table>
-              <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Tipo</th><th>Material</th><th>MAC</th><th>Cantidad</th><th>Responsable</th><th>Referencia</th></tr></thead>
-              <tbody id="km-rep-tbody"></tbody>
+              <thead><tr><th>ID Cliente</th><th>Cliente</th><th>Visitas</th><th>Tipos de trabajo</th><th>Promedio entre visitas</th><th>Última visita</th><th></th></tr></thead>
+              <tbody id="rc-tbody"></tbody>
+            </table></div>
+          </div>
+
+          <!-- Detalle expandido por cliente -->
+          <div class="card" id="rc-detalle-card" style="display:none;">
+            <div class="card-header">
+              <h3 id="rc-detalle-titulo">Detalle</h3>
+              <button class="btn btn-sm btn-ghost" onclick="document.getElementById('rc-detalle-card').style.display='none';">Cerrar</button>
+            </div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>#</th><th>Fecha</th><th>Tipo de trabajo</th><th>Técnico</th><th>Tiempo desde visita anterior</th></tr></thead>
+              <tbody id="rc-detalle-tbody"></tbody>
             </table></div>
           </div>
         </div>
@@ -3435,7 +3454,7 @@ function initSidebarState() {
 // 3. PESTAÑAS DE REPORTES
 // ══════════════════════════════════════════════════════
 function switchRepTab(tab) {
-  ['asignaciones','kardex','visitas','tiempos'].forEach(function(t) {
+  ['asignaciones','reincidencias','visitas','tiempos'].forEach(function(t) {
     var panel = document.getElementById('reptab-'+t);
     var btn   = document.getElementById('tab-'+t);
     if (!panel || !btn) return;
@@ -3446,10 +3465,9 @@ function switchRepTab(tab) {
     btn.style.fontWeight   = active ? '700' : '500';
   });
   if (tab === 'visitas') renderVisitasFallidas();
-  if (tab === 'kardex')  { renderRepKardex(); poblarSelKardexRep(); }
+  if (tab === 'reincidencias') { poblarSelReincidencias(); renderReincidencias(); }
   if (tab === 'asignaciones') renderResumenMateriales();
   if (tab === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
-  if (tab === 'admin-config' || id === 'admin-config') { initConfigSeccion(); }
 }
 
 function poblarSelKardexRep() {
@@ -3535,6 +3553,235 @@ function exportarKardexCSV() {
   a.download='Kardex_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
   toast('CSV descargado','success');
+}
+
+// ══════════════════════════════════════════════════════
+// REINCIDENCIAS — Clientes con visitas repetidas (mismo ID de cliente)
+// Agrupa asignaciones por idCliente, calcula tipos de trabajo realizados
+// y el tiempo transcurrido entre visitas consecutivas — útil para medir
+// tasa de efectividad (visitas que realmente resuelven el problema vs.
+// clientes que requieren múltiples visitas para el mismo servicio).
+// ══════════════════════════════════════════════════════
+function poblarSelReincidencias() {
+  var sel = document.getElementById('rc-cuadrilla');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
+  getCuadrillasFiltradas().forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c.id; o.textContent = c.nombre;
+    sel.appendChild(o);
+  });
+}
+
+function toggleRcFechas() {
+  var p = document.getElementById('rc-periodo').value;
+  document.getElementById('rc-fechas').style.display = p==='personalizado' ? 'grid' : 'none';
+}
+
+function getRcRango() {
+  var p = document.getElementById('rc-periodo').value;
+  if (p === 'todo') return { ini: new Date(2000,0,1), fin: new Date(2999,0,1) };
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini = new Date(); ini.setHours(0,0,0,0);
+  if (p === 'semana') { ini.setDate(ini.getDate()-ini.getDay()); }
+  else if (p === 'mes') { ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
+  else if (p === 'personalizado') {
+    var iniVal = document.getElementById('rc-fecha-ini').value;
+    var finVal = document.getElementById('rc-fecha-fin').value;
+    if (iniVal) ini = new Date(iniVal+'T00:00:00');
+    if (finVal) hoy = new Date(finVal+'T23:59:59');
+  }
+  return { ini: ini, fin: hoy };
+}
+
+// Calcula los grupos de clientes reincidentes según los filtros activos.
+// Retorna un array de {idCliente, nombreCliente, visitas:[asig...], tiposUnicos, promedioDiasEntreVisitas}
+function calcularGruposReincidencia() {
+  var cid = (document.getElementById('rc-cuadrilla')||{value:''}).value || null;
+  var rango = getRcRango();
+  var minVisitas = parseInt((document.getElementById('rc-min-visitas')||{value:3}).value) || 3;
+
+  var asigs = asigListFiltrada().filter(function(a){
+    if (a.anulada) return false;
+    if (!a.idCliente || !String(a.idCliente).trim()) return false; // requiere ID de cliente
+    var f = new Date(a.fecha);
+    if (f < rango.ini || f > rango.fin) return false;
+    if (cid && a.cuadrillaId !== cid) return false;
+    return true;
+  });
+
+  var grupos = {};
+  asigs.forEach(function(a){
+    var key = String(a.idCliente).trim();
+    if (!grupos[key]) grupos[key] = { idCliente: key, nombreCliente: a.cliente||'—', visitas: [] };
+    grupos[key].visitas.push(a);
+  });
+
+  var resultado = Object.keys(grupos).map(function(key){
+    var g = grupos[key];
+    g.visitas.sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
+    g.nombreCliente = g.visitas[g.visitas.length-1].cliente || g.nombreCliente;
+    g.tiposUnicos = {};
+    g.visitas.forEach(function(v){
+      var t = v.tipo || 'Sin tipo';
+      g.tiposUnicos[t] = (g.tiposUnicos[t]||0) + 1;
+    });
+    // Tiempo entre visitas consecutivas (en días, con decimales para precisión de horas)
+    var gaps = [];
+    for (var i=1; i<g.visitas.length; i++) {
+      var dPrev = new Date(g.visitas[i-1].fecha);
+      var dCur  = new Date(g.visitas[i].fecha);
+      var diffDias = (dCur - dPrev) / 86400000;
+      gaps.push(diffDias);
+    }
+    g.gaps = gaps;
+    g.promedioDias = gaps.length ? (gaps.reduce(function(s,d){return s+d;},0)/gaps.length) : null;
+    return g;
+  }).filter(function(g){ return g.visitas.length >= minVisitas; });
+
+  resultado.sort(function(a,b){ return b.visitas.length - a.visitas.length; });
+  return resultado;
+}
+
+function fmtDiasEntre(dias) {
+  if (dias === null || dias === undefined) return '—';
+  if (dias < 1) return Math.round(dias*24) + ' h';
+  return dias.toFixed(1) + ' días';
+}
+
+var _rcUltimoCalculo = []; // cache para exportar CSV y abrir detalle sin recalcular
+
+function renderReincidencias() {
+  var grupos = calcularGruposReincidencia();
+  _rcUltimoCalculo = grupos;
+
+  var kpis = document.getElementById('rc-kpis');
+  var result = document.getElementById('rc-result');
+  var tbody = document.getElementById('rc-tbody');
+  document.getElementById('rc-detalle-card').style.display = 'none';
+
+  if (!grupos.length) {
+    kpis.style.display = 'none';
+    result.style.display = 'block';
+    document.getElementById('rc-count').textContent = '0 clientes';
+    tbody.innerHTML = '<tr><td colspan="7">'+empty('Sin clientes reincidentes con estos filtros')+'</td></tr>';
+    return;
+  }
+
+  // KPIs globales
+  var totalVisitasReinc = grupos.reduce(function(s,g){ return s+g.visitas.length; },0);
+  var todosGaps = [];
+  grupos.forEach(function(g){ todosGaps = todosGaps.concat(g.gaps); });
+  var promGeneral = todosGaps.length ? (todosGaps.reduce(function(s,d){return s+d;},0)/todosGaps.length) : null;
+  kpis.innerHTML =
+    kpi('Clientes reincidentes', grupos.length, 'con ID de cliente repetido', 'c-amber') +
+    kpi('Visitas totales (reincidentes)', totalVisitasReinc, 'suma de todas sus visitas', 'c-accent') +
+    kpi('Promedio entre visitas', fmtDiasEntre(promGeneral), 'tiempo típico de retorno', 'c-red');
+  kpis.style.display = 'grid';
+
+  result.style.display = 'block';
+  document.getElementById('rc-count').textContent = grupos.length + ' cliente(s)';
+  tbody.innerHTML = grupos.map(function(g, idx){
+    var tiposHTML = Object.keys(g.tiposUnicos).map(function(t){
+      return '<span class="badge badge-blue" style="margin:1px 2px;">'+esc(t)+' ×'+g.tiposUnicos[t]+'</span>';
+    }).join('');
+    var ultima = g.visitas[g.visitas.length-1];
+    return '<tr>'
+      + '<td style="font-family:monospace;font-size:12px;font-weight:600;">'+esc(g.idCliente)+'</td>'
+      + '<td><strong>'+esc(g.nombreCliente)+'</strong></td>'
+      + '<td style="text-align:center;"><span class="badge badge-amber" style="font-weight:700;">'+g.visitas.length+'</span></td>'
+      + '<td>'+tiposHTML+'</td>'
+      + '<td style="text-align:center;font-weight:600;color:var(--red);">'+fmtDiasEntre(g.promedioDias)+'</td>'
+      + '<td style="font-size:12px;white-space:nowrap;">'+fmtDate(ultima.fecha)+'</td>'
+      + '<td><button class="btn btn-sm" onclick="verDetalleReincidencia('+idx+')">Ver detalle</button></td>'
+      + '</tr>';
+  }).join('');
+}
+
+function verDetalleReincidencia(idx) {
+  var g = _rcUltimoCalculo[idx];
+  if (!g) return;
+  document.getElementById('rc-detalle-titulo').textContent =
+    'Detalle — ' + g.nombreCliente + ' (ID: ' + g.idCliente + ')';
+  var tbody = document.getElementById('rc-detalle-tbody');
+  tbody.innerHTML = g.visitas.map(function(v, i){
+    var gap = i===0 ? null : g.gaps[i-1];
+    return '<tr>'
+      + '<td>'+(i+1)+'</td>'
+      + '<td style="font-size:12px;white-space:nowrap;">'+fmtDT(v.fecha)+'</td>'
+      + '<td><span class="badge badge-blue">'+esc(v.tipo||'Sin tipo')+'</span></td>'
+      + '<td style="font-size:12px;">'+esc(v.tecnico||'—')+'</td>'
+      + '<td style="font-size:12px;'+(i===0?'color:var(--ink3);':'font-weight:600;color:var(--red);')+'">'+(i===0?'Primera visita':fmtDiasEntre(gap))+'</td>'
+      + '</tr>';
+  }).join('');
+  document.getElementById('rc-detalle-card').style.display = 'block';
+  document.getElementById('rc-detalle-card').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function exportarReincidenciasCSV() {
+  var grupos = _rcUltimoCalculo.length ? _rcUltimoCalculo : calcularGruposReincidencia();
+  if (!grupos.length) { toast('No hay datos para exportar','info'); return; }
+  var rows = [['ID Cliente','Nombre Cliente','Total Visitas','Tipos de Trabajo','Promedio Entre Visitas (días)','Fecha Primera Visita','Fecha Última Visita']];
+  grupos.forEach(function(g){
+    var tiposStr = Object.keys(g.tiposUnicos).map(function(t){ return t+' x'+g.tiposUnicos[t]; }).join(' | ');
+    rows.push([
+      g.idCliente, g.nombreCliente, g.visitas.length, tiposStr,
+      g.promedioDias!==null ? g.promedioDias.toFixed(2) : '',
+      fmtDate(g.visitas[0].fecha), fmtDate(g.visitas[g.visitas.length-1].fecha)
+    ]);
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c||'').replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download = 'Reincidencias_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('CSV de reincidencias descargado','success');
+}
+
+// ── ALERTA TEMPRANA DE REINCIDENCIA (en vivo, mientras se llena Asignar a cliente) ──
+// Se dispara con el mismo ID de cliente usado en el reporte de Reincidencias, pero aquí
+// alerta desde la 1ra visita previa (ventana de 2 meses), para que el técnico refuerce
+// la atención y evite que el caso escale a una 3ra o 4ta visita por el mismo problema.
+var _rcAlertaDebounce = null;
+function checkReincidenciaCliente() {
+  clearTimeout(_rcAlertaDebounce);
+  _rcAlertaDebounce = setTimeout(_checkReincidenciaClienteNow, 250); // debounce mientras tipea
+}
+
+function _checkReincidenciaClienteNow() {
+  var box = document.getElementById('cli-alerta-reincidencia');
+  if (!box) return;
+  var idVal = (document.getElementById('cli-idcliente').value||'').trim();
+  if (!idVal) { box.style.display = 'none'; box.innerHTML=''; return; }
+
+  var dosMesesAtras = new Date();
+  dosMesesAtras.setMonth(dosMesesAtras.getMonth() - 2);
+
+  var previas = asigListFiltrada().filter(function(a){
+    if (a.anulada) return false;
+    if (!a.idCliente || String(a.idCliente).trim() !== idVal) return false;
+    var f = new Date(a.fecha);
+    return f >= dosMesesAtras;
+  }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
+
+  if (!previas.length) { box.style.display = 'none'; box.innerHTML=''; return; }
+
+  var n = previas.length; // visitas previas en los últimos 2 meses
+  var ultima = previas[0];
+  var tiposPrevios = previas.map(function(a){ return a.tipo||'Sin tipo'; });
+  var tiposUnicosStr = Array.from(new Set(tiposPrevios)).join(', ');
+  var nVisitaActual = n + 1; // esta sería la visita número n+1
+
+  box.style.display = 'block';
+  box.innerHTML =
+    '<div style="background:rgba(245,158,11,.1);border:1.5px solid rgba(245,158,11,.4);border-radius:var(--r);padding:12px 14px;display:flex;gap:10px;align-items:flex-start;">'
+    + '<span style="font-size:18px;flex-shrink:0;">⚠️</span>'
+    + '<div style="font-size:13px;color:var(--ink);line-height:1.5;">'
+    + '<strong>Cliente reincidente — esta sería la visita N.º '+nVisitaActual+' en menos de 2 meses.</strong><br>'
+    + 'Última visita: <strong>'+fmtDate(ultima.fecha)+'</strong> — Motivo: <strong>'+esc(ultima.tipo||'Sin tipo')+'</strong>'
+    + (n>1 ? ' <span style="color:var(--ink3);">('+n+' visitas previas: '+esc(tiposUnicosStr)+')</span>' : '')
+    + '<br><span style="color:var(--ink2);">Verifica que el problema quede resuelto de raíz en esta visita para evitar una 3ra o 4ta llamada.</span>'
+    + '</div></div>';
 }
 
 // ══════════════════════════════════════════════════════
@@ -7624,6 +7871,8 @@ function initAsignar(){
   var mm=String(ahora.getMinutes()).padStart(2,'0');
   var horaFinEl=document.getElementById('cli-hora-fin');
   if(horaFinEl) horaFinEl.value=hh+':'+mm;
+  // Revisar de inmediato si el ID de cliente ya cargado (ej. al editar) es reincidente
+  checkReincidenciaCliente();
 }
 function addAsigRow(){if(asigRows.length>=15){toast('Máximo 15','info');return;}asigRows.push({uid:uid(),matId:'',qty:1});renderAsigRows();}
 function removeAsigRow(u){if(asigRows.length<=1)return;asigRows=asigRows.filter(function(r){return r.uid!==u;});renderAsigRows();}
@@ -7823,6 +8072,8 @@ function registrarAsignacion(){
 
 function limpiarAsignacion(){
   ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
+  var alertaBox = document.getElementById('cli-alerta-reincidencia');
+  if (alertaBox) { alertaBox.style.display = 'none'; alertaBox.innerHTML = ''; }
   asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
   // Re-auto-llenar hora de finalización tras limpiar
