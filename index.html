@@ -7628,6 +7628,29 @@ function abrirBuscadorFila(ctx, rowUid) {
   });
   var drop = document.getElementById('drop-'+ctx+'-'+rowUid);
   if (!drop) return;
+
+  // FIX: el dropdown usaba position:absolute relativo a su contenedor, lo cual
+  // lo recortaba cuando el campo estaba ubicado más abajo dentro de un modal
+  // con overflow-y:auto (ej. Retiros, donde el selector de equipo no es el
+  // primer campo). Ahora se posiciona con position:fixed calculado en base a
+  // la posición real del campo en pantalla, así nunca queda recortado sin
+  // importar el scroll del modal padre.
+  var anchor = drop.parentElement; // el div position:relative que envuelve el campo + dropdown
+  var rect = anchor.getBoundingClientRect();
+  drop.style.position = 'fixed';
+  drop.style.top   = rect.bottom + 'px';
+  drop.style.left  = rect.left + 'px';
+  drop.style.width = rect.width + 'px';
+  drop.style.right = 'auto';
+  // Si no entra hacia abajo (cerca del borde inferior de la pantalla), abrir hacia arriba
+  var espacioAbajo = window.innerHeight - rect.bottom;
+  if (espacioAbajo < 220 && rect.top > 220) {
+    drop.style.top = 'auto';
+    drop.style.bottom = (window.innerHeight - rect.top) + 'px';
+  } else {
+    drop.style.bottom = 'auto';
+  }
+
   drop.style.display = 'block';
   // Poblar con todos los materiales al abrir
   buscarEnFila(ctx, rowUid, '');
@@ -7751,6 +7774,15 @@ document.addEventListener('click', function(e){
     });
   }
 });
+// Cerrar dropdowns también si se hace scroll dentro de un modal, ya que con
+// position:fixed el dropdown no sigue automáticamente al campo al scrollear.
+document.addEventListener('scroll', function(e){
+  if (e.target && e.target.classList && e.target.classList.contains('modal')) {
+    document.querySelectorAll('[id^="drop-"]').forEach(function(d){
+      if (!d.id.endsWith('-list')) d.style.display='none';
+    });
+  }
+}, true); // captura, ya que el scroll no hace bubble
 
 function openKardexModalTipo(tipo){
   openKardexModal();
