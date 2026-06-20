@@ -389,6 +389,9 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="nav-item" id="nav-herramientas-cuad" onclick="showSection('herramientas')">
             <svg viewBox="0 0 20 20" fill="none"><path d="M14.5 3.5l-3 3-2-2 3-3a4 4 0 00-5.5 5.5L3 11a1.41 1.41 0 002 2l4-4a4 4 0 005.5-5.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Herramientas
           </button>
+          <button class="nav-item" id="nav-retiros-cuad" onclick="showSection('retiros')">
+            <svg viewBox="0 0 20 20" fill="none"><path d="M10 2v9m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 13v3a2 2 0 002 2h10a2 2 0 002-2v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Retiros / Recuperaciones
+          </button>
           <button class="nav-item" id="nav-red-interna" onclick="showSection('red-interna')" style="display:none;">
             <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="4" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="3" cy="16" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="17" cy="16" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v4M10 10l-5.5 4M10 10l5.5 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Red Interna
           </button>
@@ -681,7 +684,7 @@ select option{background:var(--bg3);color:var(--ink);}
             <button class="tab-btn" onclick="switchKardexTab('egreso',this)">Egresos</button>
           </div>
           <div class="table-wrap"><table>
-            <thead id="kardex-thead"><tr><th>Fecha/Hora</th><th>Tipo</th><th>Material</th><th>MAC</th><th>Cant.</th><th>Referencia</th><th>Responsable</th><th>Saldo</th></tr></thead>
+            <thead id="kardex-thead"><tr><th>Fecha / Hora</th><th>Tipo</th><th>Materiales</th><th>Referencia</th><th>Responsable</th><th></th></tr></thead>
             <tbody id="kardex-tbody"></tbody>
           </table></div>
         </div>
@@ -896,6 +899,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="rep-tab active" onclick="switchRepTab('asignaciones')" id="tab-asignaciones" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-2px;cursor:pointer;white-space:nowrap;">Asignaciones</button>
           <button class="rep-tab" onclick="switchRepTab('reincidencias')" id="tab-reincidencias" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">🔁 Reincidencias</button>
           <button class="rep-tab" onclick="switchRepTab('tiempos')" id="tab-tiempos" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">⏱ Tiempos por Trabajo</button>
+          <button class="rep-tab" onclick="switchRepTab('cuadres')" id="tab-cuadres" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">📦 Cuadres de retiros</button>
           <!-- Tab Visitas Fallidas oculto — no implementado actualmente -->
         </div>
 
@@ -1085,6 +1089,49 @@ select option{background:var(--bg3);color:var(--ink);}
                 <th>Hora Inicio</th><th>Hora Fin</th><th>Duración</th><th>Tipo</th>
               </tr></thead>
               <tbody id="tm-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- Pestaña: Cuadres de retiros (solo admin, solo lectura) -->
+        <div id="reptab-cuadres" style="display:none;">
+          <div class="card">
+            <div class="card-title">Filtros — Cuadres de retiros por cuadrilla</div>
+            <div class="form-grid">
+              <div class="field"><label>Cuadrilla</label>
+                <select id="rc2-cuadrilla" onchange="renderRepCuadres()"><option value="">Todas las cuadrillas</option></select>
+              </div>
+              <div class="field"><label>Período</label>
+                <select id="rc2-periodo" onchange="toggleRc2Fechas();renderRepCuadres()">
+                  <option value="hoy">Hoy</option>
+                  <option value="semana">Esta semana</option>
+                  <option value="mes" selected>Este mes</option>
+                  <option value="personalizado">Personalizado</option>
+                  <option value="todo">Todo el historial</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid" id="rc2-fechas" style="display:none;">
+              <div class="field"><label>Fecha inicio</label><input type="date" id="rc2-fecha-ini" onchange="renderRepCuadres()"></div>
+              <div class="field"><label>Fecha fin</label><input type="date" id="rc2-fecha-fin" onchange="renderRepCuadres()"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-accent" onclick="renderRepCuadres()">Generar reporte</button>
+              <button class="btn btn-green" onclick="exportarCuadresCSV()">Descargar CSV</button>
+            </div>
+          </div>
+          <div class="kpi-grid" id="rc2-kpis" style="margin-bottom:1rem;display:none;"></div>
+          <div class="card" id="rc2-result" style="display:none;">
+            <div class="card-header">
+              <h3>Historial de cuadres</h3>
+              <span id="rc2-count" style="font-size:13px;color:var(--ink3);"></span>
+            </div>
+            <div class="table-wrap"><table>
+              <thead><tr>
+                <th># Cuadre</th><th>Fecha cuadre</th><th>Cuadrilla</th>
+                <th>Equipo</th><th>Cant.</th><th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th>
+              </tr></thead>
+              <tbody id="rc2-tbody"></tbody>
             </table></div>
           </div>
         </div>
@@ -1535,6 +1582,130 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
       </section>
+
+      <!-- RETIROS / RECUPERACIONES (cuadrilla) -->
+      <section class="section" id="sec-retiros">
+        <div class="page-header">
+          <div>
+            <h2>📤 Retiros / Recuperaciones</h2>
+            <p>Equipos retirados de clientes pendientes de entrega al almacén</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-accent" onclick="abrirModalRetiro()" style="display:flex;align-items:center;gap:6px;">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Registrar retiro
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI bar -->
+        <div id="ret-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1rem;"></div>
+
+        <!-- Tabs -->
+        <div class="tabs" style="margin-bottom:1rem;">
+          <button class="tab-btn active" onclick="switchRetTab('pendientes',this)">Equipos pendientes</button>
+          <button class="tab-btn" onclick="switchRetTab('cuadres',this)">Historial de cuadres</button>
+        </div>
+
+        <!-- TAB pendientes: selección libre de equipos para cuadre -->
+        <div id="ret-tab-pendientes">
+          <div class="card" style="margin-bottom:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:.5rem;">
+              <div class="card-title" style="margin-bottom:0;">Equipos en bodega de retiros (pendientes)</div>
+              <span id="ret-sel-count" style="font-size:12px;color:var(--ink3);">0 seleccionados</span>
+            </div>
+            <div style="font-size:12px;color:var(--ink3);margin-bottom:.75rem;">
+              💡 Selecciona los equipos que entregarás físicamente al almacén en este cuadre. Puedes mezclar equipos de distintos clientes/retiros.
+            </div>
+            <div id="ret-pendientes-lista"></div>
+          </div>
+          <div class="btn-row" id="ret-cuadre-bar" style="display:none;">
+            <button class="btn btn-ghost" onclick="limpiarSeleccionRetiro()">Limpiar selección</button>
+            <button class="btn btn-accent" onclick="abrirModalCuadre()">Realizar cuadre con seleccionados</button>
+          </div>
+        </div>
+
+        <!-- TAB cuadres: historial de cuadres ya ejecutados por esta cuadrilla -->
+        <div id="ret-tab-cuadres" style="display:none;">
+          <div class="card">
+            <div id="ret-cuadres-lista"><p style="color:var(--ink3);font-size:13px;">Sin cuadres registrados aún.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MODAL: Editar materiales de asignación (cuadrilla, dentro de 12h) -->
+      <div class="modal-overlay" id="modal-editar-materiales">
+        <div class="modal" style="max-width:560px;">
+          <button class="modal-close" onclick="closeModal('modal-editar-materiales')">✕</button>
+          <h3 style="margin-bottom:.25rem;">✏️ Editar materiales</h3>
+          <p id="em-cliente-info" style="font-size:13px;color:var(--ink3);margin-bottom:1rem;"></p>
+          <div style="background:var(--amber-light);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--ink2);margin-bottom:1rem;">
+            ⏱ Solo puedes editar materiales hasta <strong>12 horas</strong> después del registro original. Los cambios ajustan el stock de tu bodega automáticamente.
+          </div>
+          <div class="field">
+            <label>Materiales asignados</label>
+            <div id="em-rows"></div>
+            <button class="btn btn-sm btn-ghost" onclick="addEmRow()" style="margin-top:6px;">+ Agregar material</button>
+          </div>
+          <input type="hidden" id="em-asig-id">
+          <div class="btn-row" style="margin-top:1rem;">
+            <button class="btn btn-ghost" onclick="closeModal('modal-editar-materiales')">Cancelar</button>
+            <button class="btn btn-accent" onclick="guardarEdicionMateriales()">Guardar cambios</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Registrar retiro -->
+      <div class="modal-overlay" id="modal-retiro">
+        <div class="modal" style="max-width:560px;">
+          <button class="modal-close" onclick="closeModal('modal-retiro')">✕</button>
+          <h3 style="margin-bottom:1rem;">📤 Registrar retiro / recuperación</h3>
+          <div class="form-grid">
+            <div class="field"><label>Nombre del cliente *</label>
+              <input type="text" id="ret-cliente" placeholder="Nombre completo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field"><label># de trabajo</label>
+              <input type="text" id="ret-num-trabajo" placeholder="Ej: RT-0001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+          </div>
+          <div class="field"><label>Fecha del trabajo *</label>
+            <input type="date" id="ret-fecha" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+          </div>
+          <div class="field">
+            <label>Equipos recuperados *</label>
+            <div id="ret-equipos-rows"></div>
+            <button class="btn btn-sm btn-ghost" onclick="addRetiroEquipoRow()" style="margin-top:6px;">+ Agregar equipo</button>
+          </div>
+          <input type="hidden" id="ret-edit-id">
+          <div class="btn-row" style="margin-top:1rem;">
+            <button class="btn btn-ghost" onclick="closeModal('modal-retiro')">Cancelar</button>
+            <button class="btn btn-accent" onclick="guardarRetiro()">Guardar retiro</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Realizar cuadre -->
+      <div class="modal-overlay" id="modal-cuadre">
+        <div class="modal" style="max-width:520px;">
+          <button class="modal-close" onclick="closeModal('modal-cuadre')">✕</button>
+          <h3 style="margin-bottom:1rem;">📦 Realizar cuadre — entrega a almacén</h3>
+          <div style="font-size:13px;color:var(--ink2);margin-bottom:1rem;background:var(--bg3);border-radius:var(--r);padding:10px 12px;">
+            <strong id="cuadre-resumen-count">0 equipos</strong> seleccionados para este cuadre.
+            <div id="cuadre-resumen-lista" style="margin-top:6px;max-height:140px;overflow-y:auto;font-size:12px;color:var(--ink3);"></div>
+          </div>
+          <div class="field"><label># de Cuadre *</label>
+            <input type="text" id="cuadre-numero" placeholder="Ej: CD-2026-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+          </div>
+          <div class="field"><label>Fecha de entrega al almacén *</label>
+            <input type="date" id="cuadre-fecha" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+          </div>
+          <div class="btn-row" style="margin-top:1rem;">
+            <button class="btn btn-ghost" onclick="closeModal('modal-cuadre')">Cancelar</button>
+            <button class="btn btn-accent" onclick="confirmarCuadre()">Confirmar cuadre</button>
+          </div>
+        </div>
+      </div>
+
       <!-- VISITAS FALLIDAS (admin — sección standalone) -->
       <section class="section" id="sec-admin-visitas-fallidas">
         <div class="page-header">
@@ -2677,7 +2848,9 @@ var cache = {
   catalogo_herramientas: {}, // {id: {nombre, descripcion, categoria, activo}}
   redInterna: {},    // {id: {orden, tipo, nodo, tecnico, horaIni, horaFin, obs, materiales, cuadrillaId, fecha}}
   tipos_red_interna: {}, // {id: {nombre, orden}}
-  motivos_vf: {}         // {id: {nombre, orden}} — motivos de visita fallida
+  motivos_vf: {},        // {id: {nombre, orden}} — motivos de visita fallida
+  retiros: {}            // {id: {cliente, numTrabajo, fecha, cuadrillaId, tsRegistro,
+                          //       equipos:[{equipoId, matId, nombreRef, cantidad, estado:'pendiente'|'cuadrado', numCuadre, fechaCuadre}]}}
 };
 
 // ── Helpers ──
@@ -2956,6 +3129,10 @@ function guardarVisitaFallida() {
   ref.set(data).then(function(){
     toast(editId?'Visita fallida actualizada':'Visita fallida registrada','success');
     closeModal('modal-visita-fallida');
+    // Re-render inmediato según qué sección esté activa, sin esperar al listener
+    if (currentSection === 'visitas-fallidas-cuad') renderVisitasFallidasCuad();
+    if (currentSection === 'admin-visitas-fallidas') renderAdminVF();
+    if (currentSection === 'admin-reportes') renderVisitasFallidas();
   }).catch(function(e){ toast('Error: '+e.message,'error'); });
 }
 
@@ -3315,7 +3492,9 @@ function eliminarVisitaFallida(vfId) {
   showConfirm('Eliminar visita fallida', '¿Eliminar este registro?', function(){
     db.ref('visitas_fallidas/'+vfId).remove().then(function(){
       toast('Eliminado', 'success');
-      renderVisitasFallidas();
+      if (currentSection === 'visitas-fallidas-cuad') renderVisitasFallidasCuad();
+      if (currentSection === 'admin-visitas-fallidas') renderAdminVF();
+      if (currentSection === 'admin-reportes') renderVisitasFallidas();
     });
   });
 }
@@ -3454,7 +3633,7 @@ function initSidebarState() {
 // 3. PESTAÑAS DE REPORTES
 // ══════════════════════════════════════════════════════
 function switchRepTab(tab) {
-  ['asignaciones','reincidencias','visitas','tiempos'].forEach(function(t) {
+  ['asignaciones','reincidencias','visitas','tiempos','cuadres'].forEach(function(t) {
     var panel = document.getElementById('reptab-'+t);
     var btn   = document.getElementById('tab-'+t);
     if (!panel || !btn) return;
@@ -3468,6 +3647,7 @@ function switchRepTab(tab) {
   if (tab === 'reincidencias') { poblarSelReincidencias(); renderReincidencias(); }
   if (tab === 'asignaciones') renderResumenMateriales();
   if (tab === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
+  if (tab === 'cuadres') { poblarSelRepCuadres(); renderRepCuadres(); }
 }
 
 function poblarSelKardexRep() {
@@ -3782,6 +3962,122 @@ function _checkReincidenciaClienteNow() {
     + (n>1 ? ' <span style="color:var(--ink3);">('+n+' visitas previas: '+esc(tiposUnicosStr)+')</span>' : '')
     + '<br><span style="color:var(--ink2);">Verifica que el problema quede resuelto de raíz en esta visita para evitar una 3ra o 4ta llamada.</span>'
     + '</div></div>';
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// REPORTE CUADRES DE RETIROS — Vista admin (solo lectura)
+// Muestra el historial de cuadres de todas las cuadrillas del sector,
+// con filtro de período y cuadrilla, y exportación a CSV.
+// ══════════════════════════════════════════════════════════════════════════
+function poblarSelRepCuadres() {
+  var sel = document.getElementById('rc2-cuadrilla');
+  if (!sel) return;
+  var val = sel.value;
+  sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
+  getCuadrillasFiltradas().forEach(function(c){
+    var o = document.createElement('option');
+    o.value=c.id; o.textContent=c.nombre;
+    if (c.id===val) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+
+function toggleRc2Fechas() {
+  var p = document.getElementById('rc2-periodo').value;
+  document.getElementById('rc2-fechas').style.display = p==='personalizado' ? 'grid' : 'none';
+}
+
+function getRc2Rango() {
+  var p = document.getElementById('rc2-periodo').value;
+  if (p==='todo') return { ini:new Date(2000,0,1), fin:new Date(2999,0,1) };
+  var hoy=new Date(); hoy.setHours(23,59,59,999);
+  var ini=new Date(); ini.setHours(0,0,0,0);
+  if (p==='semana') { ini.setDate(ini.getDate()-ini.getDay()); }
+  else if (p==='mes') { ini=new Date(hoy.getFullYear(),hoy.getMonth(),1); }
+  else if (p==='personalizado') {
+    var iv=document.getElementById('rc2-fecha-ini').value;
+    var fv=document.getElementById('rc2-fecha-fin').value;
+    if (iv) ini=new Date(iv+'T00:00:00');
+    if (fv) hoy=new Date(fv+'T23:59:59');
+  }
+  return { ini:ini, fin:hoy };
+}
+
+var _rc2Cache = []; // para exportar CSV
+
+function renderRepCuadres() {
+  var fCuad  = (document.getElementById('rc2-cuadrilla')||{value:''}).value;
+  var rango  = getRc2Rango();
+
+  // Recolectar todas las filas de cuadre de todos los retiros
+  var filas = [];
+  retirosList().forEach(function(r){
+    if (fCuad && r.cuadrillaId !== fCuad) return;
+    var cuad = getCuad(r.cuadrillaId);
+    (r.equipos||[]).forEach(function(eq){
+      if (eq.estado !== 'cuadrado' || !eq.fechaCuadre) return;
+      var fc = new Date(eq.fechaCuadre);
+      if (fc < rango.ini || fc > rango.fin) return;
+      filas.push({
+        numCuadre:  eq.numCuadre||'—',
+        fechaCuadre:eq.fechaCuadre||'',
+        cuadrilla:  cuad?cuad.nombre:'—',
+        nombreRef:  eq.nombreRef||'—',
+        cantidad:   eq.cantidad||1,
+        cliente:    r.cliente||'—',
+        numTrabajo: r.numTrabajo||'—',
+        fechaRetiro:r.fecha||''
+      });
+    });
+  });
+
+  filas.sort(function(a,b){ return new Date(b.fechaCuadre)-new Date(a.fechaCuadre); });
+  _rc2Cache = filas;
+
+  // KPIs
+  var numCuadresUnicos = Array.from(new Set(filas.map(function(f){ return f.numCuadre; }))).length;
+  var totalEquipos     = filas.reduce(function(s,f){ return s+f.cantidad; },0);
+  document.getElementById('rc2-kpis').innerHTML =
+    kpi('Cuadres realizados', numCuadresUnicos, 'en el período', 'c-accent') +
+    kpi('Equipos entregados', totalEquipos, 'unidades al almacén', 'c-green');
+  document.getElementById('rc2-kpis').style.display = 'grid';
+
+  var result = document.getElementById('rc2-result');
+  result.style.display = 'block';
+  document.getElementById('rc2-count').textContent = filas.length+' registro'+(filas.length!==1?'s':'');
+
+  var tbody = document.getElementById('rc2-tbody');
+  if (!filas.length) {
+    tbody.innerHTML = '<tr><td colspan="8">'+empty('Sin cuadres en este período')+'</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filas.map(function(f){
+    return '<tr>'
+      +'<td style="font-family:monospace;font-weight:700;color:var(--accent);">'+esc(f.numCuadre)+'</td>'
+      +'<td style="white-space:nowrap;font-size:12px;">'+fmtDate(f.fechaCuadre)+'</td>'
+      +'<td style="font-size:12px;">'+esc(f.cuadrilla)+'</td>'
+      +'<td><strong style="font-size:13px;">'+esc(f.nombreRef)+'</strong></td>'
+      +'<td style="text-align:center;">'+f.cantidad+'</td>'
+      +'<td style="font-size:12px;">'+esc(f.cliente)+'</td>'
+      +'<td style="font-family:monospace;font-size:12px;">'+esc(f.numTrabajo)+'</td>'
+      +'<td style="font-size:12px;white-space:nowrap;">'+fmtDate(f.fechaRetiro)+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function exportarCuadresCSV() {
+  var filas = _rc2Cache.length ? _rc2Cache : [];
+  if (!filas.length) { toast('No hay datos para exportar','info'); return; }
+  var rows = [['# Cuadre','Fecha Cuadre','Cuadrilla','Equipo','Cantidad','Cliente','# Trabajo','Fecha Retiro']];
+  filas.forEach(function(f){
+    rows.push([f.numCuadre, f.fechaCuadre, f.cuadrilla, f.nombreRef, f.cantidad, f.cliente, f.numTrabajo, f.fechaRetiro]);
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c||'').replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download = 'Cuadres_Retiros_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('CSV descargado','success');
 }
 
 // ══════════════════════════════════════════════════════
@@ -4632,6 +4928,11 @@ function initFirebaseListeners() {
       if (currentUser.tipo === 'admin' && currentSection === 'admin-herramientas') renderAdminHerramientas();
     }
   });
+  // Retiros / Recuperaciones de equipos
+  db.ref('retiros').on('value', function(snap) {
+    cache.retiros = snap.val() || {};
+    if (currentUser && currentUser.tipo === 'cuadrilla' && currentSection === 'retiros') renderRetiros();
+  });
   // Sectores dinamicos
   db.ref('sectores').on('value', function(snap) {
     cache.sectores = snap.val() || {};
@@ -4643,7 +4944,16 @@ function initFirebaseListeners() {
   // 1. Escuchar visitas fallidas
   db.ref('visitas_fallidas').on('value', function(snap) {
     cache.visitas_fallidas = snap.val() || {};
-    if (currentSection === 'visitas-fallidas') renderVisitasFallidas();
+    if (!currentUser) return;
+    // FIX: el listener original solo re-renderizaba si currentSection === 'visitas-fallidas'
+    // (una sección muerta con display:none!important que nunca se activa).
+    // Ahora cubre los tres puntos reales donde se muestran visitas fallidas:
+    // 1. Vista cuadrilla — sección 'visitas-fallidas-cuad'
+    // 2. Vista admin sección dedicada — 'admin-visitas-fallidas'
+    // 3. Pestaña 'visitas' dentro de admin-reportes
+    if (currentSection === 'visitas-fallidas-cuad') renderVisitasFallidasCuad();
+    if (currentSection === 'admin-visitas-fallidas') renderAdminVF();
+    if (currentSection === 'admin-reportes') renderVisitasFallidas();
   });
   // Logs se cargan bajo demanda en renderAdminLogs
 }
@@ -4659,6 +4969,7 @@ function renderCurrentSection() {
     'admin-logs': renderAdminLogs,
     'admin-config': function(){ renderSesionesActivasConfig(); renderBloqueosLogin(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); },
     'herramientas': renderHerramientas,
+    'retiros': renderRetiros,
     'admin-herramientas': renderAdminHerramientas,
     'admin-catalogo-herramientas': renderCatalogoHerramientasAdmin,
     'admin-tipos-ri': renderTiposRI,
@@ -5640,6 +5951,291 @@ function renderHerrKPIs(items) {
       + '<div class="herr-kpi-lbl">'+k[2]+'</div>'
       + '</div>';
   }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// RETIROS / RECUPERACIONES — Equipos retirados de clientes
+// ══════════════════════════════════════════════════════════════════════════
+
+function retirosList() {
+  return Object.entries(cache.retiros||{}).map(function(e){ return Object.assign({id:e[0]},e[1]); });
+}
+function retirosPropios() {
+  var cid = currentUser ? currentUser.cuadrillaId : null;
+  return retirosList().filter(function(r){ return r.cuadrillaId === cid; });
+}
+
+var retiroEquipoRows = [];
+var retiroSeleccion  = {};
+var retTabActual     = 'pendientes';
+
+function switchRetTab(tab, btn) {
+  retTabActual = tab;
+  document.querySelectorAll('#sec-retiros .tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  document.getElementById('ret-tab-pendientes').style.display = tab==='pendientes' ? '' : 'none';
+  document.getElementById('ret-tab-cuadres').style.display    = tab==='cuadres'    ? '' : 'none';
+  renderRetiros();
+}
+
+function renderRetiros() {
+  var propios = retirosPropios();
+  var pendientes = 0, cuadrados = 0;
+  propios.forEach(function(r){
+    (r.equipos||[]).forEach(function(eq){
+      if (eq.estado==='cuadrado') cuadrados++;
+      else pendientes++;
+    });
+  });
+  document.getElementById('ret-kpis').innerHTML =
+    kpi('Retiros registrados', propios.length, 'en tu bodega de recuperados', 'c-accent') +
+    kpi('Equipos pendientes', pendientes, 'sin cuadrar aún', pendientes>0?'c-amber':'c-green') +
+    kpi('Cuadrados', cuadrados, 'entregados al almacén', 'c-green');
+  if (retTabActual==='pendientes') renderRetPendientes();
+  else renderRetCuadres();
+}
+
+function renderRetPendientes() {
+  var propios = retirosPropios();
+  var equiposPendientes = [];
+  propios.forEach(function(r){
+    (r.equipos||[]).forEach(function(eq){
+      if (eq.estado !== 'cuadrado') {
+        equiposPendientes.push({
+          retiroId:r.id, cliente:r.cliente||'—', numTrabajo:r.numTrabajo||'—',
+          fechaRetiro:r.fecha||'', equipoId:eq.equipoId,
+          nombreRef:eq.nombreRef||'—', cantidad:eq.cantidad||1
+        });
+      }
+    });
+  });
+
+  var lista = document.getElementById('ret-pendientes-lista');
+  if (!equiposPendientes.length) {
+    lista.innerHTML = '<div style="text-align:center;padding:2.5rem 1rem;">'
+      +'<div style="font-size:40px;margin-bottom:.75rem;">📭</div>'
+      +'<p style="color:var(--ink2);font-size:14px;font-weight:600;margin-bottom:.4rem;">Sin equipos pendientes</p>'
+      +'<p style="color:var(--ink3);font-size:12px;">Registrá un retiro con el botón "Registrar retiro".</p></div>';
+    document.getElementById('ret-cuadre-bar').style.display='none';
+    document.getElementById('ret-sel-count').textContent='0 seleccionados';
+    return;
+  }
+
+  lista.innerHTML = '<div class="table-wrap"><table><thead><tr>'
+    +'<th style="width:36px;"></th><th>Equipo</th><th>Cant.</th>'
+    +'<th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th><th></th>'
+    +'</tr></thead><tbody>'
+    + equiposPendientes.map(function(ep){
+        var key = ep.retiroId+'__'+ep.equipoId;
+        var sel = !!retiroSeleccion[key];
+        return '<tr style="background:'+(sel?'rgba(59,130,246,.06)':'')+';">'
+          +'<td><input type="checkbox" '+(sel?'checked':'')+' onchange="toggleRetiroSel(\''+ep.retiroId+'\',\''+ep.equipoId+'\',this.checked)" style="width:16px;height:16px;accent-color:var(--accent);"></td>'
+          +'<td><strong style="font-size:13px;">'+esc(ep.nombreRef)+'</strong></td>'
+          +'<td style="text-align:center;">'+ep.cantidad+'</td>'
+          +'<td style="font-size:12px;">'+esc(ep.cliente)+'</td>'
+          +'<td style="font-family:monospace;font-size:12px;">'+esc(ep.numTrabajo)+'</td>'
+          +'<td style="font-size:12px;white-space:nowrap;">'+fmtDate(ep.fechaRetiro)+'</td>'
+          +'<td><button class="btn btn-sm btn-ghost" onclick="eliminarEquipoPendiente(\''+ep.retiroId+'\',\''+ep.equipoId+'\')">✕</button></td>'
+          +'</tr>';
+      }).join('')
+    +'</tbody></table></div>';
+  actualizarBarraCuadre();
+}
+
+function toggleRetiroSel(retiroId, equipoId, checked) {
+  var key = retiroId+'__'+equipoId;
+  if (checked) retiroSeleccion[key] = true;
+  else delete retiroSeleccion[key];
+  actualizarBarraCuadre();
+}
+function actualizarBarraCuadre() {
+  var n = Object.keys(retiroSeleccion).length;
+  document.getElementById('ret-sel-count').textContent = n+' seleccionado'+(n!==1?'s':'');
+  document.getElementById('ret-cuadre-bar').style.display = n>0 ? 'flex' : 'none';
+}
+function limpiarSeleccionRetiro() {
+  retiroSeleccion = {};
+  renderRetPendientes();
+}
+
+function eliminarEquipoPendiente(retiroId, equipoId) {
+  showConfirm('¿Eliminar este equipo de la lista? Esta acción no se puede deshacer.', function(){
+    var retiro = cache.retiros[retiroId];
+    if (!retiro) return;
+    var equipos = (retiro.equipos||[]).filter(function(eq){ return eq.equipoId !== equipoId; });
+    var updates = {};
+    if (!equipos.length) updates['retiros/'+retiroId] = null;
+    else updates['retiros/'+retiroId+'/equipos'] = equipos;
+    db.ref().update(updates).then(function(){
+      delete retiroSeleccion[retiroId+'__'+equipoId];
+      toast('Equipo eliminado','success');
+    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  });
+}
+
+function renderRetCuadres() {
+  var propios = retirosPropios();
+  var grupos = {};
+  propios.forEach(function(r){
+    (r.equipos||[]).forEach(function(eq){
+      if (eq.estado==='cuadrado' && eq.numCuadre) {
+        var k = eq.numCuadre;
+        if (!grupos[k]) grupos[k]={ numCuadre:k, fechaCuadre:eq.fechaCuadre||'', items:[] };
+        grupos[k].items.push({ nombreRef:eq.nombreRef||'—', cantidad:eq.cantidad||1,
+          cliente:r.cliente||'—', numTrabajo:r.numTrabajo||'—', fechaRetiro:r.fecha||'' });
+      }
+    });
+  });
+  var lista = document.getElementById('ret-cuadres-lista');
+  var claves = Object.keys(grupos).sort(function(a,b){
+    return new Date(grupos[b].fechaCuadre)-new Date(grupos[a].fechaCuadre);
+  });
+  if (!claves.length) {
+    lista.innerHTML='<p style="color:var(--ink3);font-size:13px;text-align:center;padding:2rem;">Sin cuadres registrados aún.</p>';
+    return;
+  }
+  lista.innerHTML = claves.map(function(k){
+    var g = grupos[k];
+    return '<div style="border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">'
+        +'<div><span style="font-family:monospace;font-weight:700;font-size:14px;color:var(--accent);">'+esc(g.numCuadre)+'</span>'
+        +'<span class="badge badge-green" style="margin-left:8px;">✓ Cuadrado</span></div>'
+        +'<span style="font-size:12px;color:var(--ink3);">'+fmtDate(g.fechaCuadre)+'</span>'
+      +'</div>'
+      +'<table style="width:100%;font-size:12px;"><thead>'
+        +'<tr><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Equipo</th>'
+        +'<th style="text-align:center;padding:4px 6px;border-bottom:1px solid var(--border);">Cant.</th>'
+        +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Cliente</th>'
+        +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);"># Trabajo</th>'
+        +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Fecha retiro</th></tr>'
+      +'</thead><tbody>'
+      + g.items.map(function(it){
+          return '<tr><td style="padding:5px 6px;"><strong>'+esc(it.nombreRef)+'</strong></td>'
+            +'<td style="text-align:center;padding:5px 6px;">'+it.cantidad+'</td>'
+            +'<td style="padding:5px 6px;">'+esc(it.cliente)+'</td>'
+            +'<td style="padding:5px 6px;font-family:monospace;">'+esc(it.numTrabajo)+'</td>'
+            +'<td style="padding:5px 6px;white-space:nowrap;">'+fmtDate(it.fechaRetiro)+'</td></tr>';
+        }).join('')
+      +'</tbody></table></div>';
+  }).join('');
+}
+
+function abrirModalRetiro() {
+  retiroEquipoRows = [{uid:uid(), matId:'', nombreRef:'', cantidad:1}];
+  document.getElementById('ret-cliente').value = '';
+  document.getElementById('ret-num-trabajo').value = '';
+  var h=new Date(), pad=function(n){return String(n).padStart(2,'0');};
+  document.getElementById('ret-fecha').value = h.getFullYear()+'-'+pad(h.getMonth()+1)+'-'+pad(h.getDate());
+  document.getElementById('ret-edit-id').value = '';
+  renderRetiroEquipoRows();
+  openModal('modal-retiro');
+}
+function addRetiroEquipoRow() {
+  if (retiroEquipoRows.length>=20){ toast('Máximo 20 equipos por retiro','info'); return; }
+  retiroEquipoRows.push({uid:uid(), matId:'', nombreRef:'', cantidad:1});
+  renderRetiroEquipoRows();
+}
+function removeRetiroEquipoRow(u) {
+  if (retiroEquipoRows.length<=1) return;
+  retiroEquipoRows = retiroEquipoRows.filter(function(r){ return r.uid!==u; });
+  renderRetiroEquipoRows();
+}
+function setRetRQ(u,v) {
+  var r = retiroEquipoRows.find(function(x){ return x.uid===u; });
+  if (r) r.cantidad = parseInt(v)||1;
+}
+function renderRetiroEquipoRows() {
+  document.getElementById('ret-equipos-rows').innerHTML = retiroEquipoRows.map(function(row){
+    var label = row.nombreRef || '— Seleccionar equipo —';
+    return '<div style="margin-bottom:6px;">'
+      +'<div style="display:grid;grid-template-columns:1fr 72px auto;gap:6px;align-items:center;">'
+        +'<div style="position:relative;">'
+          +'<div onclick="abrirBuscadorFila(\'ret\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+            +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
+            +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
+          +'</div>'
+          +'<div id="drop-ret-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+            +'<input type="text" placeholder="Buscar equipo..." oninput="buscarEnFila(\'ret\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
+            +'<div id="drop-ret-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
+          +'</div>'
+        +'</div>'
+        +'<input type="number" min="1" value="'+row.cantidad+'" onchange="setRetRQ(\''+row.uid+'\',this.value)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">'
+        +'<button onclick="removeRetiroEquipoRow(\''+row.uid+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--ink3);font-size:14px;">✕</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function guardarRetiro() {
+  var cliente  = (document.getElementById('ret-cliente').value||'').trim();
+  var fecha    = document.getElementById('ret-fecha').value;
+  if (!cliente) { toast('El nombre del cliente es obligatorio','error'); return; }
+  if (!fecha)   { toast('La fecha del trabajo es obligatoria','error'); return; }
+  var equiposValidos = retiroEquipoRows.filter(function(r){ return r.matId && r.cantidad>0; });
+  if (!equiposValidos.length) { toast('Agregá al menos un equipo','error'); return; }
+
+  var cid = currentUser.cuadrillaId;
+  var rid = document.getElementById('ret-edit-id').value || uid();
+  var equiposData = equiposValidos.map(function(r){
+    return { equipoId:uid(), matId:r.matId, nombreRef:r.nombreRef, cantidad:r.cantidad, estado:'pendiente' };
+  });
+  var data = { cliente:cliente, numTrabajo:(document.getElementById('ret-num-trabajo').value||'').trim(),
+    fecha:fecha, cuadrillaId:cid, tsRegistro:Date.now(), equipos:equiposData };
+
+  db.ref('retiros/'+rid).set(data)
+    .then(function(){ toast('Retiro registrado correctamente','success'); closeModal('modal-retiro'); })
+    .catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
+}
+
+function abrirModalCuadre() {
+  var n = Object.keys(retiroSeleccion).length;
+  if (!n) { toast('Seleccioná al menos un equipo para cuadrar','info'); return; }
+  var items = [];
+  Object.keys(retiroSeleccion).forEach(function(key){
+    var parts=key.split('__'), rid=parts[0], eid=parts[1];
+    var retiro=cache.retiros[rid]; if (!retiro) return;
+    var eq=(retiro.equipos||[]).find(function(e){ return e.equipoId===eid; }); if (!eq) return;
+    items.push({ retiroId:rid, equipoId:eid, nombreRef:eq.nombreRef||'—', cantidad:eq.cantidad||1, cliente:retiro.cliente||'—' });
+  });
+  document.getElementById('cuadre-resumen-count').textContent = items.length+' equipo'+(items.length!==1?'s':'');
+  document.getElementById('cuadre-resumen-lista').innerHTML = items.map(function(it){
+    return '<div style="padding:3px 0;">• '+esc(it.nombreRef)+' ×'+it.cantidad+' — '+esc(it.cliente)+'</div>';
+  }).join('');
+  document.getElementById('cuadre-numero').value='';
+  var h=new Date(), pad=function(n){return String(n).padStart(2,'0');};
+  document.getElementById('cuadre-fecha').value = h.getFullYear()+'-'+pad(h.getMonth()+1)+'-'+pad(h.getDate());
+  openModal('modal-cuadre');
+}
+
+function confirmarCuadre() {
+  var numCuadre   = (document.getElementById('cuadre-numero').value||'').trim();
+  var fechaCuadre = document.getElementById('cuadre-fecha').value;
+  if (!numCuadre)   { toast('El número de cuadre es obligatorio','error'); return; }
+  if (!fechaCuadre) { toast('La fecha de entrega es obligatoria','error'); return; }
+
+  var porRetiro = {};
+  Object.keys(retiroSeleccion).forEach(function(key){
+    var parts=key.split('__'), rid=parts[0], eid=parts[1];
+    if (!porRetiro[rid]) porRetiro[rid]=[];
+    porRetiro[rid].push(eid);
+  });
+  var updates = {};
+  Object.keys(porRetiro).forEach(function(rid){
+    var retiro=cache.retiros[rid]; if (!retiro) return;
+    var equipos=(retiro.equipos||[]).map(function(eq){
+      if (porRetiro[rid].indexOf(eq.equipoId)>-1)
+        return Object.assign({},eq,{estado:'cuadrado',numCuadre:numCuadre,fechaCuadre:fechaCuadre});
+      return eq;
+    });
+    updates['retiros/'+rid+'/equipos']=equipos;
+  });
+
+  db.ref().update(updates)
+    .then(function(){
+      retiroSeleccion={};
+      toast('Cuadre N.º '+numCuadre+' registrado correctamente','success');
+      closeModal('modal-cuadre');
+    })
+    .catch(function(e){ toast('Error al cuadrar: '+e.message,'error'); });
 }
 
 // ── VISTA CUADRILLA ──────────────────────────────────
@@ -6744,7 +7340,7 @@ function showSection(id) {
   var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
                    'admin-logs','admin-config','admin-visitas-fallidas','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-motivos-vf','admin-red-interna'];
   var superOnly = ['admin-logs'];
-  var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas'];
+  var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas','retiros'];
 
   // Cuadrilla intentando acceder a sección admin → bloquear
   if (currentUser.tipo !== 'admin' && adminOnly.indexOf(id) > -1) {
@@ -7047,7 +7643,7 @@ function buscarEnFila(ctx, rowUid, q) {
 
   var mats = materialesList();
 
-  // Solo filtrar en Asignacion (ar). En Kardex (km) mostrar TODOS siempre.
+  // Solo filtrar en Asignacion (ar). En Kardex (km) y Retiros (ret) mostrar TODOS siempre.
   if (ctx === 'ar' && cid) {
     mats = mats.filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
   }
@@ -7072,6 +7668,7 @@ function buscarEnFila(ctx, rowUid, q) {
     var stk = cid ? getStock(cid, m.id) : 0;
     var color = stk===0 ? 'var(--red)' : stk<m.min ? 'var(--amber)' : 'var(--green)';
     var stockTxt = stk===0 ? '(sin existencia)' : stk+' '+m.unidad;
+    var mostrarStock = (ctx !== 'ret'); // en Retiros el stock no aplica, es solo referencia de nombre
 
     var item = document.createElement('div');
     item.style.cssText = 'padding:9px 14px;cursor:pointer;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;-webkit-tap-highlight-color:rgba(232,68,10,0.15);';
@@ -7080,7 +7677,7 @@ function buscarEnFila(ctx, rowUid, q) {
       + '<div style="font-size:13px;font-weight:500;color:var(--ink);">'+m.nombre+'</div>'
       + '<div style="font-size:11px;color:var(--ink3);">'+m.cat+(m.codigo?' &middot; '+m.codigo:'')+'</div>'
       + '</div>'
-      + '<span style="font-family:monospace;font-size:12px;color:'+color+';font-weight:600;white-space:nowrap;margin-left:8px;pointer-events:none;">'+stockTxt+'</span>';
+      + (mostrarStock ? '<span style="font-family:monospace;font-size:12px;color:'+color+';font-weight:600;white-space:nowrap;margin-left:8px;pointer-events:none;">'+stockTxt+'</span>' : '');
 
     // Closure para capturar ctx, rowUid, matId correctamente
     (function(_ctx, _rowUid, _matId) {
@@ -7133,6 +7730,12 @@ function elegirMatFila(ctx, rowUid, matId) {
   if (ctx === 'km') {
     var r = kardexRows.find(function(x){ return x.uid === rowUid; });
     if (r) { r.matId = matId; renderKardexRows(); }
+  } else if (ctx === 'ret') {
+    var r = retiroEquipoRows.find(function(x){ return x.uid === rowUid; });
+    if (r) { r.matId = matId; r.nombreRef = mat ? mat.nombre : ''; renderRetiroEquipoRows(); }
+  } else if (ctx === 'em') {
+    var r = editMatRows.find(function(x){ return x.uid === rowUid; });
+    if (r) { r.matId = matId; renderEmRows(); }
   } else {
     var r = asigRows.find(function(x){ return x.uid === rowUid; });
     if (r) { r.matId = matId; renderAsigRows(); }
@@ -7221,6 +7824,7 @@ function registrarKardex(){
     +'¿Confirmas el registro de este movimiento?',
     function(){
       var updates={};
+      var movId = uid(); // ID único compartido por todos los materiales de este movimiento
       validos.forEach(function(r){
         var mid=r.matId, mat=getMat(mid);
         var curStock=getStock(cid,mid);
@@ -7230,6 +7834,7 @@ function registrarKardex(){
         var entradaKardex = {
           fecha: fecha+'T'+new Date().toTimeString().slice(0,8),
           tsRegistro: Date.now(),
+          movId: movId, // agrupa todos los materiales del mismo movimiento
           tipo: kardexTipo,
           matId: mid, qty: r.qty, ref: ref||'', resp: resp||'', obs: obs||'',
           cuadrillaId: cid, saldo: nuevoStock
@@ -7264,25 +7869,76 @@ function renderKardex(){
   var adminTools = document.getElementById('kardex-admin-tools');
   if (qbar) qbar.style.display = esAdmin ? 'none' : 'block';
   if (adminTools) adminTools.style.display = esAdmin ? 'block' : 'none';
-  var rows = kardexListFiltrada().filter(function(k){
+
+  // Entradas filtradas por bodega y tipo
+  var entradas = kardexListFiltrada().filter(function(k){
     return (cid===null||k.cuadrillaId===cid) && (kardexFilter==='todos'||k.tipo===kardexFilter);
-  }).sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
-  var tbody=document.getElementById('kardex-tbody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="8">'+empty(cid?'Sin movimientos en esta bodega':'Sin movimientos')+'</td></tr>';return;}
-  var hayMAC = rows.some(function(k){ return k.mac; });
-  tbody.innerHTML=rows.map(function(k){
-    var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
-    return '<tr><td style="font-size:11px;white-space:nowrap">'+fmtDTK(k)+'</td>'
-      +'<td><span class="badge '+(k.tipo==='ingreso'?'badge-green':'badge-accent')+'">'+k.tipo+'</span></td>'
-      +'<td>'+esc(mat?mat.nombre:'')+'</td>'
-      +(k.mac
-        ? '<td style="font-family:monospace;font-size:11px;background:var(--bg3);border-radius:4px;padding:2px 6px;white-space:nowrap;">'+esc(k.mac)+'</td>'
-        : '<td style="color:var(--ink3);font-size:11px;">—</td>')
-      +'<td style="font-weight:600;color:'+(k.tipo==='ingreso'?'var(--green)':'var(--accent)')+'">'+
-        (k.tipo==='ingreso'?'+':'-')+k.qty+' '+(mat?mat.unidad:'')+'</td>'
-      +'<td style="font-size:12px">'+esc(k.ref||'')+(cuad&&currentUser.tipo==='admin'?' <span class="badge badge-gray">'+esc(cuad.nombre)+'</span>':'')+'</td>'
-      +'<td style="font-size:12px">'+esc(k.resp||'')+'</td>'
-      +'<td style="font-weight:600">'+(k.saldo||0)+'</td></tr>';
+  });
+
+  // ── Agrupar por movId (registros nuevos) o tsRegistro (históricos sin movId) ──
+  // Los registros históricos sin movId comparten tsRegistro exacto al haberse
+  // guardado en un mismo db.ref().update(). Los usamos como clave de agrupación.
+  var grupos = {}; // { grupoKey: { key, tipo, fecha, tsRegistro, ref, resp, obs, cuadrillaId, items:[] } }
+  entradas.forEach(function(k){
+    var grupoKey = k.movId || ('ts_'+k.tsRegistro) || k.id;
+    if (!grupos[grupoKey]) {
+      grupos[grupoKey] = {
+        key: grupoKey, tipo: k.tipo, fecha: k.fecha,
+        tsRegistro: k.tsRegistro || 0,
+        ref: k.ref||'', resp: k.resp||'', obs: k.obs||'',
+        cuadrillaId: k.cuadrillaId, items: []
+      };
+    }
+    grupos[grupoKey].items.push({ matId:k.matId, qty:k.qty, mac:k.mac||'', saldo:k.saldo, id:k.id });
+  });
+
+  // Ordenar grupos por fecha descendente
+  var gruposOrdenados = Object.values(grupos).sort(function(a,b){
+    return new Date(b.fecha) - new Date(a.fecha);
+  });
+
+  var tbody = document.getElementById('kardex-tbody');
+  if (!gruposOrdenados.length) {
+    tbody.innerHTML = '<tr><td colspan="6">'+empty(cid?'Sin movimientos en esta bodega':'Sin movimientos')+'</td></tr>';
+    return;
+  }
+
+  // Actualizar encabezados de tabla para el nuevo formato agrupado
+  var thead = document.querySelector('#sec-kardex table thead tr');
+  if (thead) thead.innerHTML = '<th>Fecha / Hora</th><th>Tipo</th><th>Materiales</th><th>Referencia</th><th>Responsable</th><th></th>';
+
+  tbody.innerHTML = gruposOrdenados.map(function(g){
+    var cuad = getCuad(g.cuadrillaId);
+    var esIng = g.tipo === 'ingreso';
+
+    // Lista de materiales del movimiento
+    var matsHTML = g.items.map(function(it){
+      var mat = getMat(it.matId);
+      return '<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0;">'
+        +'<span style="font-family:monospace;font-size:11px;font-weight:700;min-width:28px;text-align:right;color:'+(esIng?'var(--green)':'var(--accent)')+';">'
+          +(esIng?'+':'-')+it.qty+'</span>'
+        +'<span style="font-size:13px;color:var(--ink);">'+(mat?esc(mat.nombre):'—')+'</span>'
+        +(mat&&mat.unidad?'<span style="font-size:10px;color:var(--ink3);"> '+mat.unidad+'</span>':'')
+        +(it.mac?'<span style="font-family:monospace;font-size:10px;color:var(--ink3);margin-left:4px;background:var(--bg3);border-radius:3px;padding:1px 5px;">'+esc(it.mac)+'</span>':'')
+        +'</div>';
+    }).join('');
+
+    // Botón eliminar solo si es un único material (para no dejar movimientos inconsistentes)
+    var accionHTML = '';
+    if (g.items.length === 1) {
+      accionHTML = '<button class="btn btn-sm btn-red" onclick="eliminarKardex(\''+g.items[0].id+'\')">Eliminar</button>';
+    }
+
+    return '<tr>'
+      +'<td style="font-size:11px;white-space:nowrap;vertical-align:top;">'+fmtDTK({fecha:g.fecha,tsRegistro:g.tsRegistro})+'</td>'
+      +'<td style="vertical-align:top;"><span class="badge '+(esIng?'badge-green':'badge-accent')+'">'+g.tipo+'</span>'
+        +(esAdmin&&cuad?'<div style="font-size:10px;color:var(--ink3);margin-top:3px;">'+esc(cuad.nombre)+'</div>':'')
+      +'</td>'
+      +'<td style="vertical-align:top;">'+matsHTML+'</td>'
+      +'<td style="font-size:12px;vertical-align:top;">'+esc(g.ref||'—')+'</td>'
+      +'<td style="font-size:12px;vertical-align:top;">'+esc(g.resp||'—')+'</td>'
+      +'<td style="vertical-align:top;white-space:nowrap;">'+accionHTML+'</td>'
+      +'</tr>';
   }).join('');
 }
 
@@ -8070,6 +8726,170 @@ function registrarAsignacion(){
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// EDITAR MATERIALES DE ASIGNACIÓN — solo cuadrilla, dentro de 12 horas
+// Permite corregir materiales olvidados sin tener que anular y rehacer el
+// registro completo. Al guardar, ajusta el stock según la diferencia neta
+// entre lo que tenía antes y lo que queda después de la edición.
+// ══════════════════════════════════════════════════════════════════════════
+var EDICION_PLAZO_MS = 12 * 60 * 60 * 1000; // 12 horas
+
+function puedeEditarMateriales(asig) {
+  if (!asig || asig.anulada) return false;
+  if (currentUser.tipo !== 'cuadrilla') return false;
+  if (asig.cuadrillaId !== currentUser.cuadrillaId) return false;
+  var ts = asig.tsRegistro || new Date(asig.fecha).getTime();
+  if (!ts) return false;
+  return (Date.now() - ts) < EDICION_PLAZO_MS;
+}
+
+var editMatRows = [];
+
+function abrirModalEditarMateriales(asigId) {
+  var asig = cache.asignaciones[asigId];
+  if (!asig) { toast('Asignación no encontrada','error'); return; }
+  if (!puedeEditarMateriales(asig)) {
+    toast('El plazo de 12 horas para editar esta asignación ya venció','error');
+    return;
+  }
+  document.getElementById('em-asig-id').value = asigId;
+  document.getElementById('em-cliente-info').textContent =
+    asig.cliente + (asig.ot ? ' · OT: '+asig.ot : '') + ' · ' + fmtDT(asig.fecha);
+
+  editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
+    return { uid: uid(), matId: m.matId, qty: m.qty };
+  });
+  if (!editMatRows.length) editMatRows = [{ uid: uid(), matId: '', qty: 1 }];
+  renderEmRows();
+  openModal('modal-editar-materiales');
+}
+
+function addEmRow() {
+  if (editMatRows.length >= 15) { toast('Máximo 15 materiales','info'); return; }
+  editMatRows.push({ uid: uid(), matId: '', qty: 1 });
+  renderEmRows();
+}
+function removeEmRow(u) {
+  if (editMatRows.length <= 1) { editMatRows = [{uid:uid(),matId:'',qty:1}]; renderEmRows(); return; }
+  editMatRows = editMatRows.filter(function(r){ return r.uid !== u; });
+  renderEmRows();
+}
+function setEmQty(u, v) {
+  var r = editMatRows.find(function(x){ return x.uid === u; });
+  if (r) r.qty = parseInt(v) || 1;
+}
+
+function renderEmRows() {
+  document.getElementById('em-rows').innerHTML = editMatRows.map(function(row){
+    var mat = row.matId ? getMat(row.matId) : null;
+    var label = mat ? mat.nombre : '— Seleccionar material —';
+    return '<div style="margin-bottom:6px;">'
+      +'<div style="display:grid;grid-template-columns:1fr 72px auto;gap:6px;align-items:center;">'
+        +'<div style="position:relative;">'
+          +'<div onclick="abrirBuscadorFila(\'em\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+            +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
+            +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
+          +'</div>'
+          +'<div id="drop-em-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+            +'<input type="text" placeholder="Buscar material..." oninput="buscarEnFila(\'em\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
+            +'<div id="drop-em-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
+          +'</div>'
+        +'</div>'
+        +'<input type="number" min="1" value="'+row.qty+'" onchange="setEmQty(\''+row.uid+'\',this.value)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">'
+        +'<button onclick="removeEmRow(\''+row.uid+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--ink3);font-size:14px;">✕</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function guardarEdicionMateriales() {
+  var asigId = document.getElementById('em-asig-id').value;
+  var asig = cache.asignaciones[asigId];
+  if (!asig) { toast('Asignación no encontrada','error'); return; }
+  if (!puedeEditarMateriales(asig)) {
+    toast('El plazo de 12 horas para editar esta asignación ya venció','error');
+    closeModal('modal-editar-materiales');
+    return;
+  }
+
+  var nuevos = editMatRows.filter(function(r){ return r.matId && r.qty > 0; });
+  var cid = asig.cuadrillaId;
+
+  // Mapas de cantidades: lo que tenía ANTES vs lo que queda DESPUÉS
+  var antes = {};
+  (asig.materiales||[]).forEach(function(m){ antes[m.matId] = (antes[m.matId]||0) + m.qty; });
+  var despues = {};
+  nuevos.forEach(function(r){ despues[r.matId] = (despues[r.matId]||0) + r.qty; });
+
+  // Calcular diferencia neta por material (positivo = se necesita más stock, negativo = se devuelve)
+  var todosIds = Array.from(new Set(Object.keys(antes).concat(Object.keys(despues))));
+  var diffs = {}; // matId -> delta (despues - antes)
+  todosIds.forEach(function(mid){
+    var d = (despues[mid]||0) - (antes[mid]||0);
+    if (d !== 0) diffs[mid] = d;
+  });
+
+  // Validar que haya stock suficiente para los incrementos
+  var errs = [];
+  Object.keys(diffs).forEach(function(mid){
+    var delta = diffs[mid];
+    if (delta > 0) {
+      var stkActual = getStock(cid, mid);
+      if (stkActual < delta) {
+        var m = getMat(mid);
+        errs.push((m?m.nombre:'?')+' (disp: '+stkActual+', necesita: '+delta+' más)');
+      }
+    }
+  });
+  if (errs.length) { toast('Stock insuficiente para el cambio: '+errs.join(', '),'error'); return; }
+
+  if (!Object.keys(diffs).length) {
+    toast('No hay cambios para guardar','info');
+    closeModal('modal-editar-materiales');
+    return;
+  }
+
+  var resumenCambios = Object.keys(diffs).map(function(mid){
+    var m = getMat(mid); var d = diffs[mid];
+    return (m?m.nombre:'?') + ' ' + (d>0?'+':'') + d;
+  }).join(', ');
+
+  showConfirm(
+    'Confirmar edición de materiales',
+    '<strong>Cliente:</strong> '+esc(asig.cliente||'—')+'<br>'
+    +'<strong>Cambios:</strong> '+esc(resumenCambios)+'<br><br>'
+    +'El stock de tu bodega se ajustará automáticamente. ¿Confirmas?',
+    function(){
+      var updates = {};
+      Object.keys(diffs).forEach(function(mid){
+        var delta = diffs[mid];
+        var stkActual = getStock(cid, mid);
+        var nuevoStock = Math.max(0, stkActual - delta); // si delta>0 se descuenta más, si delta<0 se devuelve
+        updates['stocks/'+cid+'/'+mid] = nuevoStock;
+        // Registrar el ajuste en Kardex para trazabilidad
+        var kid = uid();
+        updates['kardex/'+kid] = {
+          fecha: nowISO(), tipo: delta>0?'egreso':'ingreso', matId: mid, qty: Math.abs(delta),
+          ref: 'EDICIÓN ASIG:'+(asig.cliente||''), resp: currentUser.nombre||currentUser.username||'',
+          obs: 'Ajuste por edición de materiales (asig #'+asigId+')',
+          cuadrillaId: cid, saldo: nuevoStock
+        };
+      });
+      // Actualizar el array de materiales de la asignación
+      updates['asignaciones/'+asigId+'/materiales'] = nuevos.map(function(r){ return { matId:r.matId, qty:r.qty }; });
+      // Auditoría: visible solo para admin (no se muestra en la vista de cuadrilla)
+      updates['asignaciones/'+asigId+'/editadoPor'] = currentUser.nombre || currentUser.username || '';
+      updates['asignaciones/'+asigId+'/fechaEdicion'] = nowISOLocal();
+      updates['_lastUpdate'] = Date.now();
+
+      db.ref().update(updates).then(function(){
+        toast('Materiales actualizados correctamente','success');
+        closeModal('modal-editar-materiales');
+        renderHistorial();
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
+}
+
 function limpiarAsignacion(){
   ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
   var alertaBox = document.getElementById('cli-alerta-reincidencia');
@@ -8732,6 +9552,10 @@ function renderHistorial(){
     if (!fechaInput.value) fechaInput.value = new Date().toISOString().slice(0,10);
     var fechaSel = fechaInput.value; // 'YYYY-MM-DD'
 
+    // Actualizar encabezados de tabla para incluir columna de Acciones
+    var theadCuad = document.querySelector('#sec-historial table thead tr');
+    if (theadCuad) theadCuad.innerHTML = '<th>Hora</th><th>Cliente</th><th>OT</th><th>Materiales utilizados</th><th>Técnico</th><th>Acciones</th>';
+
     var asigs = asigList().filter(function(a){
       if (a.anulada) return false;
       if (a.cuadrillaId !== cid) return false;
@@ -8741,7 +9565,7 @@ function renderHistorial(){
 
     var tbody = document.getElementById('hist-tbody');
     if (!asigs.length) {
-      tbody.innerHTML = '<tr><td colspan="5">'+empty('Sin asignaciones el '+fmtDate(fechaSel+'T12:00:00'))+'</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6">'+empty('Sin asignaciones el '+fmtDate(fechaSel+'T12:00:00'))+'</td></tr>';
       return;
     }
     tbody.innerHTML = asigs.map(function(a){
@@ -8754,6 +9578,11 @@ function renderHistorial(){
           ? '<span style="display:inline-block;background:var(--blue-light);color:var(--blue);font-size:11px;padding:2px 7px;border-radius:20px;margin:2px 2px 0 0;">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>'
           : '';
       }).join('');
+      // Editar materiales: solo dentro de las 12 horas desde el registro
+      var dentroDePlazo = puedeEditarMateriales(a);
+      var accionHTML = dentroDePlazo
+        ? '<button class="btn btn-sm" onclick="abrirModalEditarMateriales(\''+a.id+'\')">✏️ Editar materiales</button>'
+        : '<span style="font-size:11px;color:var(--ink3);">Plazo vencido</span>';
       return '<tr>'
         +'<td style="font-size:12px;white-space:nowrap;font-weight:500;">'+hora+'</td>'
         +'<td><strong style="font-size:13px;">'+( a.cliente||'—')+'</strong>'
@@ -8761,15 +9590,16 @@ function renderHistorial(){
         +'<td style="font-size:12px;white-space:nowrap;">'+(a.ot||'—')+'</td>'
         +'<td>'+( matsHTML||'<span style="color:var(--ink3);font-size:12px;">Sin materiales</span>')+'</td>'
         +'<td style="font-size:12px;">'+(a.tecnico||'—')+'</td>'
+        +'<td style="white-space:nowrap;">'+accionHTML+'</td>'
         +'</tr>';
     }).join('');
 
   } else {
-    // ── Vista ADMIN: historial completo con acciones ──
+    // ── Vista ADMIN: historial de asignaciones a clientes ──
     filtroEl.style.display = 'none';
     expBtn.style.display   = '';
-    titEl.textContent      = 'Historial completo';
-    subEl.textContent      = 'Movimientos, asignaciones y anulaciones';
+    titEl.textContent      = 'Historial de asignaciones';
+    subEl.textContent      = 'Materiales entregados a clientes por cuadrilla';
 
     // Mostrar barra de filtros admin y poblar selector de cuadrillas
     var filtroAdminEl = document.getElementById('hist-filtro-admin');
@@ -8784,66 +9614,63 @@ function renderHistorial(){
         selCuadHist.appendChild(o);
       });
     }
-    var fCuad = (document.getElementById('hist-admin-cuadrilla')||{value:''}).value;
+    var fCuad  = (document.getElementById('hist-admin-cuadrilla')||{value:''}).value;
     var fSearch = ((document.getElementById('hist-admin-search')||{value:''}).value||'').trim().toLowerCase();
-    var fSearchMac = fSearch.replace(/[^0-9a-fA-F]/g,'').toUpperCase(); // versión solo-hex para comparar contra MAC
 
-    var rows = [];
-    kardexListFiltrada().forEach(function(k){
-      var mat = getMat(k.matId);
-      if (fCuad && k.cuadrillaId !== fCuad) return;
-      rows.push({
-        fecha:k.fecha, tipo:k.tipo==='ingreso'?'Ingreso bodega':'Egreso bodega',
-        mat:mat?mat.nombre:'—', qty:k.qty+(mat?' '+mat.unidad:''),
-        ref:k.ref||'—', resp:k.resp||'—', mac:k.mac||'', asigId:null, kardexId:k.id
-      });
-    });
-    asigListFiltrada().filter(function(a){ return !a.anulada; }).forEach(function(a){
-      if (fCuad && a.cuadrillaId !== fCuad) return;
-      rows.push({
-        fecha:a.fecha, tipo:'Asignación cliente',
-        mat:(a.materiales||[]).map(function(m){
-          var mt=getMat(m.matId); return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';
-        }).join(', '),
-        qty:'', ref:a.cliente+(a.ot?' / OT:'+a.ot:''), resp:a.tecnico||'—',
-        mac:'', asigId:a.id, kardexId:null
-      });
-    });
+    // Solo asignaciones — los movimientos internos de Kardex no son relevantes aquí
+    var asigs = asigListFiltrada().filter(function(a){
+      if (a.anulada) return false;
+      if (fCuad && a.cuadrillaId !== fCuad) return false;
+      if (fSearch) {
+        var hayTexto = (
+          (a.cliente||'') + ' ' + (a.ot||'') + ' ' + (a.tecnico||'') + ' ' +
+          (a.idCliente||'') + ' ' +
+          (a.materiales||[]).map(function(m){ var mt=getMat(m.matId); return mt?mt.nombre:''; }).join(' ')
+        ).toLowerCase().indexOf(fSearch) > -1;
+        if (!hayTexto) return false;
+      }
+      return true;
+    }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
 
-    // Filtro de búsqueda libre: cliente/ref, material, técnico o MAC
-    if (fSearch) {
-      rows = rows.filter(function(r){
-        var hayTexto = (r.ref+' '+r.mat+' '+r.resp).toLowerCase().indexOf(fSearch) > -1;
-        var hayMac = fSearchMac.length>=4 && r.mac && r.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(fSearchMac) > -1;
-        return hayTexto || hayMac;
-      });
-    }
-
-    rows.sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
-
-    // Reemplazar encabezados de tabla para admin
+    // Encabezados de tabla para asignaciones
     var thead = document.querySelector('#sec-historial table thead tr');
-    if (thead) thead.innerHTML = '<th>Fecha</th><th>Tipo</th><th>Material/Desc.</th><th>Cant.</th><th>Cliente/Ref.</th><th>Técnico</th><th>Acciones</th>';
+    if (thead) thead.innerHTML = '<th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>OT</th><th>Técnico</th><th>Materiales entregados</th><th>Acciones</th>';
 
     var tbody = document.getElementById('hist-tbody');
-    if (!rows.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin movimientos con esos filtros')+'</td></tr>'; return; }
-    tbody.innerHTML = rows.map(function(r){
-      var bc = r.tipo==='Ingreso bodega'?'badge-green':r.tipo==='Egreso bodega'?'badge-accent':'badge-blue';
-      var acciones = '—';
-      if (r.asigId) {
-        acciones = '<button class="btn btn-sm" onclick="rePDF(\''+r.asigId+'\')">PDF</button>'
-          +'<button class="btn btn-sm btn-red" style="margin-left:4px;" onclick="anularAsignacion(\''+r.asigId+'\')">Anular</button>';
-      } else if (r.kardexId) {
-        acciones = '<button class="btn btn-sm btn-red" onclick="eliminarKardex(\''+r.kardexId+'\')">Eliminar</button>';
-      }
+    if (!asigs.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin asignaciones con esos filtros')+'</td></tr>'; return; }
+
+    tbody.innerHTML = asigs.map(function(a){
+      var cuad = getCuad(a.cuadrillaId);
+      // Lista de materiales: una línea por material con cantidad y nombre
+      var matsHTML = (a.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
+        var mt = getMat(m.matId);
+        return '<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0;">'
+          +'<span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">×'+m.qty+'</span>'
+          +'<span style="font-size:12px;color:var(--ink);">'+(mt?esc(mt.nombre):'—')+'</span>'
+          +(mt&&mt.unidad?'<span style="font-size:10px;color:var(--ink3);">'+mt.unidad+'</span>':'')
+          +'</div>';
+      }).join('');
+      if (!matsHTML) matsHTML = '<span style="font-size:12px;color:var(--ink3);">Sin materiales</span>';
+      // Indicador de auditoría: solo visible para admin, solo si la asignación fue editada
+      var auditHTML = a.editadoPor
+        ? '<div style="margin-top:5px;font-size:10px;color:var(--amber);background:var(--amber-light);border-radius:4px;padding:2px 6px;display:inline-block;">✏️ Editado por '+esc(a.editadoPor)+' · '+fmtDT(a.fechaEdicion)+'</div>'
+        : '';
+
       return '<tr>'
-        +'<td style="font-size:11px;white-space:nowrap">'+fmtDT(r.fecha)+'</td>'
-        +'<td><span class="badge '+bc+'">'+r.tipo+'</span></td>'
-        +'<td style="font-size:13px">'+r.mat+(r.mac?'<br><span style="font-family:monospace;font-size:10px;color:var(--ink3);">MAC: '+esc(r.mac)+'</span>':'')+'</td>'
-        +'<td style="font-size:12px">'+r.qty+'</td>'
-        +'<td style="font-size:12px">'+r.ref+'</td>'
-        +'<td style="font-size:12px">'+r.resp+'</td>'
-        +'<td style="white-space:nowrap">'+acciones+'</td>'
+        +'<td style="font-size:11px;white-space:nowrap;vertical-align:top;">'+fmtDT(a.fecha)+'</td>'
+        +'<td style="font-size:12px;vertical-align:top;">'+(cuad?esc(cuad.nombre):'—')+'</td>'
+        +'<td style="vertical-align:top;">'
+          +'<strong style="font-size:13px;">'+esc(a.cliente||'—')+'</strong>'
+          +(a.idCliente?'<div style="font-size:10px;color:var(--ink3);">ID: '+esc(a.idCliente)+'</div>':'')
+          +(a.ip?'<div style="font-size:10px;color:var(--ink3);font-family:monospace;">IP: '+esc(a.ip)+'</div>':'')
+        +'</td>'
+        +'<td style="font-family:monospace;font-size:12px;vertical-align:top;">'+(a.ot||'—')+'</td>'
+        +'<td style="font-size:12px;vertical-align:top;">'+(a.tecnico||'—')+'</td>'
+        +'<td style="vertical-align:top;">'+matsHTML+auditHTML+'</td>'
+        +'<td style="white-space:nowrap;vertical-align:top;">'
+          +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button>'
+          +'<button class="btn btn-sm btn-red" style="margin-left:4px;" onclick="anularAsignacion(\''+a.id+'\')">Anular</button>'
+        +'</td>'
         +'</tr>';
     }).join('');
   }
@@ -8885,7 +9712,7 @@ function eliminarKardex(kid){
     +'⚠ Esto solo elimina el registro histórico. El stock <strong>no se ajusta automáticamente</strong>.',
     function(){
       db.ref('kardex/'+kid).remove().then(function(){
-        toast('Registro eliminado','success'); renderHistorial();
+        toast('Registro eliminado','success'); renderKardex();
       });
     }
   );
