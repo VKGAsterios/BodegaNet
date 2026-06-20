@@ -6153,21 +6153,20 @@ function setRetRQ(u,v) {
 function renderRetiroEquipoRows() {
   document.getElementById('ret-equipos-rows').innerHTML = retiroEquipoRows.map(function(row){
     var label = row.nombreRef || '— Seleccionar equipo —';
-    return '<div style="margin-bottom:6px;">'
-      +'<div style="display:grid;grid-template-columns:1fr 72px auto;gap:6px;align-items:center;">'
-        +'<div style="position:relative;">'
-          +'<div onclick="abrirBuscadorFila(\'ret\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
-            +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
-            +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
-          +'</div>'
-          +'<div id="drop-ret-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
-            +'<input type="text" placeholder="Buscar equipo..." oninput="buscarEnFila(\'ret\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
-            +'<div id="drop-ret-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
-          +'</div>'
+    return '<div class="mat-row" style="margin-bottom:6px;grid-template-columns:1fr 72px auto;">'
+      +'<div style="position:relative;">'
+        +'<div onclick="abrirBuscadorFila(\'ret\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+          +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
+          +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
         +'</div>'
-        +'<input type="number" min="1" value="'+row.cantidad+'" onchange="setRetRQ(\''+row.uid+'\',this.value)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">'
-        +'<button onclick="removeRetiroEquipoRow(\''+row.uid+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--ink3);font-size:14px;">✕</button>'
-      +'</div></div>';
+        +'<div id="drop-ret-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<input type="text" placeholder="Buscar equipo..." oninput="buscarEnFila(\'ret\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
+          +'<div id="drop-ret-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
+        +'</div>'
+      +'</div>'
+      +'<input type="number" min="1" value="'+row.cantidad+'" onchange="setRetRQ(\''+row.uid+'\',this.value)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">'
+      +'<button onclick="removeRetiroEquipoRow(\''+row.uid+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--ink3);font-size:14px;">✕</button>'
+      +'</div>';
   }).join('');
 }
 
@@ -7773,8 +7772,13 @@ function elegirMatFila(ctx, rowUid, matId) {
 
 // Cerrar dropdowns al tocar fuera
 document.addEventListener('click', function(e){
-  // No cerrar si haces click en: dropdown, mat-row, o buscar-item
-  if (!e.target.closest('[id^="drop-"]') && !e.target.closest('.mat-row') && !e.target.closest('.buscar-item')) {
+  // No cerrar si haces click en: dropdown, mat-row, buscar-item, o el propio
+  // selector que abre el dropdown (detectado por su onclick="abrirBuscadorFila(...)").
+  // Esta última condición es a prueba de nuevos contextos de fila que olviden
+  // agregar la clase mat-row — sin ella, el dropdown se abre y se cierra en el
+  // mismo clic porque este listener global lo interpreta como "clic afuera".
+  var enSelectorSinClase = e.target.closest('[onclick*="abrirBuscadorFila"]');
+  if (!e.target.closest('[id^="drop-"]') && !e.target.closest('.mat-row') && !e.target.closest('.buscar-item') && !enSelectorSinClase) {
     document.querySelectorAll('[id^="drop-"]').forEach(function(d){
       if (!d.id.endsWith('-list')) d.style.display='none';
     });
@@ -8841,21 +8845,20 @@ function renderEmRows() {
   document.getElementById('em-rows').innerHTML = editMatRows.map(function(row){
     var mat = row.matId ? getMat(row.matId) : null;
     var label = mat ? mat.nombre : '— Seleccionar material —';
-    return '<div style="margin-bottom:6px;">'
-      +'<div style="display:grid;grid-template-columns:1fr 72px auto;gap:6px;align-items:center;">'
-        +'<div style="position:relative;">'
-          +'<div onclick="abrirBuscadorFila(\'em\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
-            +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
-            +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
-          +'</div>'
-          +'<div id="drop-em-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
-            +'<input type="text" placeholder="Buscar material..." oninput="buscarEnFila(\'em\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
-            +'<div id="drop-em-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
-          +'</div>'
+    return '<div class="mat-row" style="margin-bottom:6px;grid-template-columns:1fr 72px auto;">'
+      +'<div style="position:relative;">'
+        +'<div onclick="abrirBuscadorFila(\'em\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+          +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
+          +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
         +'</div>'
-        +'<input type="number" min="1" value="'+row.qty+'" onchange="setEmQty(\''+row.uid+'\',this.value)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">'
-        +'<button onclick="removeEmRow(\''+row.uid+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--ink3);font-size:14px;">✕</button>'
-      +'</div></div>';
+        +'<div id="drop-em-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<input type="text" placeholder="Buscar material..." oninput="buscarEnFila(\'em\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
+          +'<div id="drop-em-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
+        +'</div>'
+      +'</div>'
+      +'<input type="number" min="1" value="'+row.qty+'" onchange="setEmQty(\''+row.uid+'\',this.value)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">'
+      +'<button onclick="removeEmRow(\''+row.uid+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--ink3);font-size:14px;">✕</button>'
+      +'</div>';
   }).join('');
 }
 
