@@ -746,7 +746,7 @@ select option{background:var(--bg3);color:var(--ink);}
 <option>Retiros Traslado</option>
 <option>Retiro de equipo cliente</option></select>
             </div>
-            <div class="field"><label>Técnico responsable</label><input type="text" id="cli-tecnico"></div>
+            <div class="field"><label>Técnico responsable <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automático para cuadrilla)</span></label><input type="text" id="cli-tecnico"></div>
           </div>
           <div class="form-grid">
             <div class="field"><label>Hora de inicio de tarea</label><input type="time" id="cli-hora-inicio" placeholder="Opcional"></div>
@@ -2161,8 +2161,8 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="field"><label>Nodo / Headend *</label>
               <input type="text" id="ri-nodo" placeholder="Ej: Nodo Norte / HE Central" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
             </div>
-            <div class="field"><label>Técnico responsable *</label>
-              <input type="text" id="ri-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            <div class="field"><label>Técnico responsable * <span style="font-size:11px;color:var(--ink3);">(automático)</span></label>
+              <input type="text" id="ri-tecnico" readonly style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink2);outline:none;cursor:not-allowed;">
             </div>
             <div class="field"><label>Hora de inicio *</label>
               <input type="time" id="ri-hora-ini" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
@@ -2449,8 +2449,8 @@ select option{background:var(--bg3);color:var(--ink);}
       <div class="field"><label>OT</label>
         <input type="text" id="vf-ot" placeholder="Número de OT" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
       </div>
-      <div class="field"><label>Técnico</label>
-        <input type="text" id="vf-tecnico" placeholder="Nombre del técnico" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+      <div class="field"><label>Técnico <span style="font-size:11px;color:var(--ink3);">(automático)</span></label>
+        <input type="text" id="vf-tecnico" readonly style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg3);color:var(--ink2);cursor:not-allowed;">
       </div>
     </div>
     <!-- Hora inicio / fin -->
@@ -3070,7 +3070,13 @@ function abrirModalVF() {
   document.getElementById('vf-minutos-display').textContent = '—';
   document.getElementById('vf-cliente').value = '';
   document.getElementById('vf-ot').value = '';
-  document.getElementById('vf-tecnico').value = '';
+  document.getElementById('vf-tecnico').value = getTecnicoAutoNombre();
+  var vfTecnicoEl = document.getElementById('vf-tecnico');
+  var esCuadVF = currentUser && currentUser.tipo === 'cuadrilla';
+  vfTecnicoEl.readOnly = esCuadVF;
+  vfTecnicoEl.style.background = esCuadVF ? 'var(--bg3)' : 'var(--bg)';
+  vfTecnicoEl.style.color      = esCuadVF ? 'var(--ink2)' : 'var(--ink)';
+  vfTecnicoEl.style.cursor     = esCuadVF ? 'not-allowed' : 'text';
   document.getElementById('vf-obs').value = '';
   document.getElementById('vf-edit-id').value = '';
   // Prellenar cuadrilla si es usuario cuadrilla
@@ -5576,7 +5582,7 @@ function openModalRedInterna() {
   document.getElementById('ri-orden').value = '';
   document.getElementById('ri-tipo').value = '';
   document.getElementById('ri-nodo').value = '';
-  document.getElementById('ri-tecnico').value = '';
+  document.getElementById('ri-tecnico').value = getTecnicoAutoNombre();
   document.getElementById('ri-obs').value = '';
   document.getElementById('ri-edit-id').value = '';
   document.getElementById('ri-modal-title').textContent = '🖧 Nuevo trabajo en red';
@@ -6154,7 +6160,7 @@ function renderRetiroEquipoRows() {
             +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
             +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
           +'</div>'
-          +'<div id="drop-ret-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<div id="drop-ret-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
             +'<input type="text" placeholder="Buscar equipo..." oninput="buscarEnFila(\'ret\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
             +'<div id="drop-ret-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
           +'</div>'
@@ -7576,7 +7582,7 @@ function renderKardexRows(){
             +'<span style="overflow:hidden;text-overflow:ellipsis;">'+label+(needsMAC?' <span style="font-size:10px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px;">MAC</span>':'')+'</span>'
             +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
           +'</div>'
-          +'<div id="drop-km-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<div id="drop-km-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
             +'<input type="text" placeholder="Escribir para buscar..." oninput="buscarEnFila(\'km\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" '
               +'style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
             +'<div id="drop-km-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
@@ -8546,6 +8552,15 @@ document.addEventListener('click', function(e) {
 });
 
 
+// Helper centralizado: obtiene el nombre del técnico responsable a precargar
+// en formularios, según la cuadrilla logueada. Usado para evitar errores de
+// escritura/selección manual en los campos de "Técnico" de toda la app.
+function getTecnicoAutoNombre() {
+  if (!currentUser || currentUser.tipo !== 'cuadrilla') return '';
+  var cuad = getCuad(currentUser.cuadrillaId);
+  return cuad && cuad.responsable ? cuad.responsable : (cuad ? cuad.nombre : '');
+}
+
 function initAsignar(){
   if(!asigRows.length)asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
@@ -8559,6 +8574,17 @@ function initAsignar(){
   var mm=String(ahora.getMinutes()).padStart(2,'0');
   var horaFinEl=document.getElementById('cli-hora-fin');
   if(horaFinEl) horaFinEl.value=hh+':'+mm;
+  // Técnico: autocompletado y bloqueado solo para cuadrilla (tiene responsable propio).
+  // Admin puede registrar asignaciones para cualquier cuadrilla, así que mantiene el campo editable.
+  var tecnicoEl=document.getElementById('cli-tecnico');
+  if(tecnicoEl){
+    var esCuadAsig = currentUser.tipo === 'cuadrilla';
+    tecnicoEl.value = esCuadAsig ? getTecnicoAutoNombre() : tecnicoEl.value;
+    tecnicoEl.readOnly = esCuadAsig;
+    tecnicoEl.style.background = esCuadAsig ? 'var(--bg3)' : 'var(--bg)';
+    tecnicoEl.style.color      = esCuadAsig ? 'var(--ink2)' : 'var(--ink)';
+    tecnicoEl.style.cursor     = esCuadAsig ? 'not-allowed' : 'text';
+  }
   // Revisar de inmediato si el ID de cliente ya cargado (ej. al editar) es reincidente
   checkReincidenciaCliente();
 }
@@ -8584,7 +8610,7 @@ function renderAsigRows(){
           +'<span style="overflow:hidden;text-overflow:ellipsis;">'+label+'</span>'
           +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
         +'</div>'
-        +'<div id="drop-ar-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+        +'<div id="drop-ar-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
           +'<input type="text" placeholder="Escribir para buscar..." oninput="buscarEnFila(\'ar\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" '
             +'style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
           +'<div id="drop-ar-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
@@ -8822,7 +8848,7 @@ function renderEmRows() {
             +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
             +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
           +'</div>'
-          +'<div id="drop-em-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:400;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<div id="drop-em-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
             +'<input type="text" placeholder="Buscar material..." oninput="buscarEnFila(\'em\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
             +'<div id="drop-em-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
           +'</div>'
@@ -8923,7 +8949,7 @@ function guardarEdicionMateriales() {
 }
 
 function limpiarAsignacion(){
-  ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-tecnico','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
+  ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
   var alertaBox = document.getElementById('cli-alerta-reincidencia');
   if (alertaBox) { alertaBox.style.display = 'none'; alertaBox.innerHTML = ''; }
   asigRows=[{uid:uid(),matId:'',qty:1}];
@@ -8934,6 +8960,9 @@ function limpiarAsignacion(){
     var now=new Date();
     horaFinEl.value=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   }
+  // Re-auto-llenar técnico tras limpiar (solo si es cuadrilla; admin mantiene editable)
+  var tecnicoEl2=document.getElementById('cli-tecnico');
+  if(tecnicoEl2 && currentUser.tipo==='cuadrilla') tecnicoEl2.value=getTecnicoAutoNombre();
 }
 
 // ══════════════════════════════════════════════════════
