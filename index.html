@@ -2281,6 +2281,10 @@ select option{background:var(--bg3);color:var(--ink);}
         <svg viewBox="0 0 20 20" fill="none"><path d="M2 5l8-3 8 3v7c0 3-8 6-8 6S2 15 2 12V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
         Inventario
       </button>
+      <button class="bn-drawer-item" onclick="bnNav('retiros','drawer-cuad')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 2v9m0 0l-3-3m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 13v3a2 2 0 002 2h10a2 2 0 002-2v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Retiros
+      </button>
     </div>
   </div>
 
@@ -7772,27 +7776,13 @@ function elegirMatFila(ctx, rowUid, matId) {
 
 // Cerrar dropdowns al tocar fuera
 document.addEventListener('click', function(e){
-  // No cerrar si haces click en: dropdown, mat-row, buscar-item, o el propio
-  // selector que abre el dropdown (detectado por su onclick="abrirBuscadorFila(...)").
-  // Esta última condición es a prueba de nuevos contextos de fila que olviden
-  // agregar la clase mat-row — sin ella, el dropdown se abre y se cierra en el
-  // mismo clic porque este listener global lo interpreta como "clic afuera".
-  var enSelectorSinClase = e.target.closest('[onclick*="abrirBuscadorFila"]');
-  if (!e.target.closest('[id^="drop-"]') && !e.target.closest('.mat-row') && !e.target.closest('.buscar-item') && !enSelectorSinClase) {
+  // No cerrar si haces click en: dropdown, mat-row, o buscar-item
+  if (!e.target.closest('[id^="drop-"]') && !e.target.closest('.mat-row') && !e.target.closest('.buscar-item')) {
     document.querySelectorAll('[id^="drop-"]').forEach(function(d){
       if (!d.id.endsWith('-list')) d.style.display='none';
     });
   }
 });
-// Cerrar dropdowns también si se hace scroll dentro de un modal, ya que con
-// position:fixed el dropdown no sigue automáticamente al campo al scrollear.
-document.addEventListener('scroll', function(e){
-  if (e.target && e.target.classList && e.target.classList.contains('modal')) {
-    document.querySelectorAll('[id^="drop-"]').forEach(function(d){
-      if (!d.id.endsWith('-list')) d.style.display='none';
-    });
-  }
-}, true); // captura, ya que el scroll no hace bubble
 
 function openKardexModalTipo(tipo){
   openKardexModal();
