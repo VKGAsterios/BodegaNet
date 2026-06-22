@@ -6163,7 +6163,7 @@ function renderRetiroEquipoRows() {
           +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
           +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
         +'</div>'
-        +'<div id="drop-ret-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+        +'<div id="drop-ret-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:300;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
           +'<input type="text" placeholder="Buscar equipo..." oninput="buscarEnFila(\'ret\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
           +'<div id="drop-ret-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
         +'</div>'
@@ -7585,7 +7585,7 @@ function renderKardexRows(){
             +'<span style="overflow:hidden;text-overflow:ellipsis;">'+label+(needsMAC?' <span style="font-size:10px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px;">MAC</span>':'')+'</span>'
             +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
           +'</div>'
-          +'<div id="drop-km-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<div id="drop-km-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:300;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
             +'<input type="text" placeholder="Escribir para buscar..." oninput="buscarEnFila(\'km\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" '
               +'style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
             +'<div id="drop-km-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
@@ -7631,41 +7631,49 @@ function setARQ(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r)r.
 
 // ── Buscador de fila personalizado (reemplaza <select> nativo) ──
 function abrirBuscadorFila(ctx, rowUid) {
-  // Cerrar todos los dropdowns abiertos primero
-  document.querySelectorAll('[id^="drop-"]').forEach(function(d){
-    if(!d.id.endsWith('-list')) d.style.display='none';
-  });
+  // Cerrar todos los dropdowns abiertos primero y restaurar overflow del modal
+  _cerrarTodosDropdowns();
+
   var drop = document.getElementById('drop-'+ctx+'-'+rowUid);
   if (!drop) return;
 
-  // FIX: el dropdown usaba position:absolute relativo a su contenedor, lo cual
-  // lo recortaba cuando el campo estaba ubicado más abajo dentro de un modal
-  // con overflow-y:auto (ej. Retiros, donde el selector de equipo no es el
-  // primer campo). Ahora se posiciona con position:fixed calculado en base a
-  // la posición real del campo en pantalla, así nunca queda recortado sin
-  // importar el scroll del modal padre.
-  var anchor = drop.parentElement; // el div position:relative que envuelve el campo + dropdown
-  var rect = anchor.getBoundingClientRect();
-  drop.style.position = 'fixed';
-  drop.style.top   = rect.bottom + 'px';
-  drop.style.left  = rect.left + 'px';
-  drop.style.width = rect.width + 'px';
-  drop.style.right = 'auto';
-  // Si no entra hacia abajo (cerca del borde inferior de la pantalla), abrir hacia arriba
-  var espacioAbajo = window.innerHeight - rect.bottom;
-  if (espacioAbajo < 220 && rect.top > 220) {
-    drop.style.top = 'auto';
-    drop.style.bottom = (window.innerHeight - rect.top) + 'px';
-  } else {
-    drop.style.bottom = 'auto';
+  // Revertimos a position:absolute (sin cálculos de viewport que varían entre
+  // navegadores). En cambio, ponemos overflow:visible en el modal padre para
+  // que no recorte el dropdown hijo, y lo restauramos al cerrar.
+  drop.style.position = 'absolute';
+  drop.style.top      = '100%';
+  drop.style.left     = '0';
+  drop.style.right    = '0';
+  drop.style.bottom   = 'auto';
+  drop.style.width    = '';
+
+  // Subir por el DOM hasta encontrar el .modal y ponerlo en overflow:visible
+  var modalEl = drop.closest('.modal');
+  if (modalEl) {
+    modalEl._overflowOrig = modalEl.style.overflowY || '';
+    modalEl.style.overflowY = 'visible';
+    modalEl.style.overflow  = 'visible';
   }
 
   drop.style.display = 'block';
-  // Poblar con todos los materiales al abrir
   buscarEnFila(ctx, rowUid, '');
-  // Foco en el input de búsqueda
   var inp = drop.querySelector('input');
   if (inp) setTimeout(function(){ inp.focus(); }, 50);
+}
+
+function _cerrarTodosDropdowns() {
+  document.querySelectorAll('[id^="drop-"]').forEach(function(d){
+    if (!d.id.endsWith('-list')) {
+      d.style.display = 'none';
+      // Restaurar overflow del modal padre si lo habíamos cambiado
+      var modalEl = d.closest('.modal');
+      if (modalEl && modalEl._overflowOrig !== undefined) {
+        modalEl.style.overflowY = modalEl._overflowOrig;
+        modalEl.style.overflow  = '';
+        delete modalEl._overflowOrig;
+      }
+    }
+  });
 }
 
 function buscarEnFila(ctx, rowUid, q) {
@@ -7716,8 +7724,7 @@ function buscarEnFila(ctx, rowUid, q) {
       function seleccionar(e) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        var drop = document.getElementById('drop-'+_ctx+'-'+_rowUid);
-        if (drop) drop.style.display = 'none';
+        _cerrarTodosDropdowns();
         elegirMatFila(_ctx, _rowUid, _matId);
       }
       // FIX SCROLL SENSIBLE: distinguir un TAP de un ARRASTRE (scroll).
@@ -7778,9 +7785,7 @@ function elegirMatFila(ctx, rowUid, matId) {
 document.addEventListener('click', function(e){
   // No cerrar si haces click en: dropdown, mat-row, o buscar-item
   if (!e.target.closest('[id^="drop-"]') && !e.target.closest('.mat-row') && !e.target.closest('.buscar-item')) {
-    document.querySelectorAll('[id^="drop-"]').forEach(function(d){
-      if (!d.id.endsWith('-list')) d.style.display='none';
-    });
+    _cerrarTodosDropdowns();
   }
 });
 
@@ -8604,7 +8609,7 @@ function renderAsigRows(){
           +'<span style="overflow:hidden;text-overflow:ellipsis;">'+label+'</span>'
           +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
         +'</div>'
-        +'<div id="drop-ar-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+        +'<div id="drop-ar-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:300;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
           +'<input type="text" placeholder="Escribir para buscar..." oninput="buscarEnFila(\'ar\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" '
             +'style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
           +'<div id="drop-ar-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
@@ -8841,7 +8846,7 @@ function renderEmRows() {
           +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
           +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
         +'</div>'
-        +'<div id="drop-em-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:600;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+        +'<div id="drop-em-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:300;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
           +'<input type="text" placeholder="Buscar material..." oninput="buscarEnFila(\'em\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
           +'<div id="drop-em-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
         +'</div>'
