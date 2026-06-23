@@ -724,6 +724,21 @@ select option{background:var(--bg3);color:var(--ink);}
           <div id="cli-alerta-reincidencia" style="display:none;margin-bottom:1rem;"></div>
           <div class="form-grid">
             <div class="field"><label>Orden de trabajo (OT)</label><input type="text" id="cli-ot" placeholder="OT-0001"></div>
+            <div class="field"><label>CTO <span style="font-size:10px;color:var(--ink3);font-weight:400;">opcional</span></label><input type="text" id="cli-cto" placeholder="Ej: CTO-Norte-04"></div>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Nivel de Luz 1490 <span style="font-size:10px;color:var(--ink3);font-weight:400;">opcional · dBm</span></label>
+              <input type="number" id="cli-luz1490" placeholder="Ej: -20.5" step="0.1" max="-0.1"
+                style="width:100%;"
+                oninput="this.value=this.value.replace(/[^0-9.\-]/g,'')">
+            </div>
+            <div class="field">
+              <label>Nivel de Luz 1550 <span style="font-size:10px;color:var(--ink3);font-weight:400;">opcional · dBm</span></label>
+              <input type="number" id="cli-luz1550" placeholder="Ej: -21.0" step="0.1" max="-0.1"
+                style="width:100%;"
+                oninput="this.value=this.value.replace(/[^0-9.\-]/g,'')">
+            </div>
           </div>
           <div class="form-grid">
             <div class="field"><label>Tipo de trabajo</label>
@@ -3119,7 +3134,12 @@ function guardarVisitaFallida() {
   if (mins <= 0) { toast('La hora fin debe ser posterior a la hora inicio','error'); return; }
 
   var editId = document.getElementById('vf-edit-id').value;
-  var fecha  = new Date().toISOString().slice(0,10);
+  // FIX: antes usaba toISOString().slice(0,10) que devuelve fecha en UTC,
+  // lo que puede dar un día distinto al real en Honduras (UTC-6) y además
+  // no coincidía con el formato que usaba renderVisitasFallidasCuad (fmtDate).
+  // Ahora usamos nowISOLocal() que da la fecha en hora local garantizando
+  // que el formato YYYY-MM-DD coincida exactamente con el filtro del render.
+  var fecha  = nowISOLocal().slice(0,10);
   var tsRegistro = Date.now();
   var data = {
     fecha: fecha, tsRegistro: tsRegistro,
@@ -3164,18 +3184,21 @@ function renderAdminVF() {
       + allMotivosVF().map(function(n){ return '<option value="'+esc(n)+'"'+(curMot===n?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
   }
 
-  // Calcular rango
+  // Calcular rango como strings YYYY-MM-DD locales para evitar desfase UTC
   var periodo = (document.getElementById('avf-periodo')||{value:'mes'}).value;
-  var hoy = new Date(); hoy.setHours(23,59,59,999);
-  var ini = new Date(); ini.setHours(0,0,0,0);
-  if (periodo === 'semana')  { ini.setDate(ini.getDate()-7); }
-  else if (periodo === 'mes') { ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  var hoyD = new Date();
+  var hoyStr = hoyD.getFullYear()+'-'+pad(hoyD.getMonth()+1)+'-'+pad(hoyD.getDate());
+  var iniD = new Date(); iniD.setHours(0,0,0,0);
+  if (periodo === 'semana')  { iniD.setDate(iniD.getDate()-7); }
+  else if (periodo === 'mes') { iniD = new Date(hoyD.getFullYear(), hoyD.getMonth(), 1); }
+  var iniStr = iniD.getFullYear()+'-'+pad(iniD.getMonth()+1)+'-'+pad(iniD.getDate());
   var cid = (document.getElementById('avf-cuadrilla')||{value:''}).value;
   var motFiltro = (document.getElementById('avf-motivo')||{value:''}).value;
 
   var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
-    var f = new Date(v.fecha);
-    return f >= ini && f <= hoy
+    var f = (v.fecha||'').slice(0,10);
+    return f >= iniStr && f <= hoyStr
       && (!cid || v.cuadrillaId === cid)
       && (!motFiltro || v.motivo === motFiltro);
   }).sort(function(a,b){ return (b.tsRegistro||0) - (a.tsRegistro||0); });
@@ -3362,7 +3385,10 @@ function renderVisitasFallidas() {
 
 function renderVisitasFallidasCuad() {
   var cid = currentUser.cuadrillaId;
-  var hoy = fmtDate(new Date());
+  // FIX: usar mismo formato YYYY-MM-DD local que nowISOLocal() usa al guardar
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  var d   = new Date();
+  var hoy = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
     return v.cuadrillaId===cid && v.fecha===hoy;
   }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
@@ -8704,6 +8730,9 @@ function registrarAsignacion(){
         idCliente:document.getElementById('cli-idcliente').value,
         ip:document.getElementById('cli-ip').value,
         ot:document.getElementById('cli-ot').value,
+        cto:document.getElementById('cli-cto').value,
+        luz1490:document.getElementById('cli-luz1490').value,
+        luz1550:document.getElementById('cli-luz1550').value,
         tipo:document.getElementById('cli-tipo').value,
         tecnico:document.getElementById('cli-tecnico').value,
         horaInicio:horaInicio||'',
@@ -8947,7 +8976,7 @@ function guardarEdicionMateriales() {
 }
 
 function limpiarAsignacion(){
-  ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
+  ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-cto','cli-luz1490','cli-luz1550','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
   var alertaBox = document.getElementById('cli-alerta-reincidencia');
   if (alertaBox) { alertaBox.style.display = 'none'; alertaBox.innerHTML = ''; }
   asigRows=[{uid:uid(),matId:'',qty:1}];
@@ -8981,11 +9010,12 @@ function generarPDF(asig){
   sec('INFORMACIÓN GENERAL');
   r2('Cuadrilla:',cuad?cuad.nombre:'—','Fecha:',fmtDate(asig.fecha));
   r2('Técnico:',asig.tecnico||'—','OT:',asig.ot||'—');
-  r2('Tipo:',asig.tipo||'—','','');
+  r2('Tipo:',asig.tipo||'—','CTO:',asig.cto||'—');
   if(asig.horaInicio||asig.horaFin) r2('Hora inicio:',(asig.horaInicio||'—'),'Hora fin:',(asig.horaFin||'—'));
   y+=4;
   sec('DATOS DEL CLIENTE');
   [['Cliente:',asig.cliente],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—'],['ID Cliente:',asig.idCliente||'—'],['IP:',asig.ip||'—']].forEach(function(r){r2(r[0],r[1]);});
+  if(asig.luz1490||asig.luz1550) r2('Nivel Luz 1490:',(asig.luz1490?asig.luz1490+' dBm':'—'),'Nivel Luz 1550:',(asig.luz1550?asig.luz1550+' dBm':'—'));
   y+=4;sec('MATERIALES UTILIZADOS');
   doc.setFillColor(26,26,25);doc.rect(L,y,170,7,'F');
   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
@@ -9422,6 +9452,9 @@ function mostrarResumenTexto(){
   var idCliente=document.getElementById('cli-idcliente').value.trim();
   var ip=document.getElementById('cli-ip').value.trim();
   var ot=document.getElementById('cli-ot').value.trim();
+  var cto=document.getElementById('cli-cto').value.trim();
+  var luz1490=document.getElementById('cli-luz1490').value.trim();
+  var luz1550=document.getElementById('cli-luz1550').value.trim();
   var tipo=document.getElementById('cli-tipo').value;
   var tecnico=document.getElementById('cli-tecnico').value.trim();
   var obs=document.getElementById('cli-obs').value.trim();
@@ -9438,7 +9471,8 @@ function mostrarResumenTexto(){
   if(cuad) lineas.push('🔧 Cuadrilla: '+cuad.nombre);
   lineas.push('👤 Técnico:   '+(tecnico||'—'));
   lineas.push('📅 Fecha:     '+fmtDate(nowISO()));
-  if(ot)    lineas.push('🗒  OT:       '+ot);
+  if(ot)  lineas.push('🗒  OT:       '+ot);
+  if(cto) lineas.push('📡 CTO:      '+cto);
   lineas.push('⚙️  Trabajo:   '+tipo);
   lineas.push('');
   lineas.push('── CLIENTE ──────────────');
@@ -9448,6 +9482,12 @@ function mostrarResumenTexto(){
   if(idCliente) lineas.push('ID Cliente:'+idCliente);
   if(ip)        lineas.push('IP:        '+ip);
   lineas.push('');
+  if(luz1490||luz1550){
+    lineas.push('── NIVELES DE LUZ ───────');
+    if(luz1490) lineas.push('1490 nm:   '+luz1490+' dBm');
+    if(luz1550) lineas.push('1550 nm:   '+luz1550+' dBm');
+    lineas.push('');
+  }
   lineas.push('── MATERIALES ───────────');
   if(!validos.length){
     lineas.push('(Sin materiales seleccionados)');
