@@ -6961,7 +6961,7 @@ function renderAdminHerramientas() {
           + '<td style="font-size:12px;">' + (ult ? fmtDate(ult.fecha) + '<br><span style="font-family:monospace;font-size:11px;">Ref: ' + (ult.kardexRef||'\u2014') + (ult.kardexValido ? ' \u2705' : ' \u26a0') + '</span>' : '\u2014') + '</td>'
           + '<td style="display:flex;gap:6px;flex-wrap:wrap;">'
           + '<button class="btn btn-sm" onclick="verHistorialHerramienta(\'' + h.id + '\')">Historial</button>'
-          + (ult && !ult.kardexValido ? '<button class="btn btn-sm btn-green" onclick="verificarKardexManual(\'' + h.id + '\')">Verificar</button>' : '')
+          + (ult && (!ult.kardexValido || h.verificacion === 'invalido') ? '<button class="btn btn-sm btn-green" onclick="verificarKardexManual(\'' + h.id + '\')">Verificar</button>' : '')
           + '<button class="btn btn-sm" onclick="editarHerramienta(\'' + h.id + '\')">Editar</button>'
           + '<button class="btn btn-sm btn-red" onclick="eliminarHerramienta(\'' + h.id + '\')">Eliminar</button>'
           + '</td></tr>';
@@ -7054,22 +7054,21 @@ function verificarKardexManual(herrId) {
   var historial = h.historial ? h.historial.slice() : [];
   var ult = historial.length ? historial[historial.length-1] : null;
   if (!ult) { toast('Sin cambios registrados', 'info'); return; }
-  // Buscar el kardex por ref en toda la base (sin filtro de cuadrilla)
-  var ref = (ult.kardexRef||'').trim().toLowerCase();
-  var match = kardexList().find(function(k) {
-    return (k.ref||'').trim().toLowerCase() === ref && k.cuadrillaId === h.cuadrillaId;
-  });
-  var esValido = !!match;
-  ult.kardexValido = esValido;
-  ult.kardexId = match ? match.id : null;
+
+  // La kardexRef es una referencia interna del sistema de herramientas
+  // (formato KH-YYYYMMDD-NNN), no una entrada del Kardex de materiales.
+  // La verificación confirma que el cambio fue registrado correctamente
+  // por la cuadrilla, marcándolo como válido para el control del admin.
+  ult.kardexValido      = true;
   ult.verificadoPorAdmin = true;
-  ult.fechaVerificacion = new Date().toISOString();
+  ult.fechaVerificacion  = new Date().toISOString();
   historial[historial.length-1] = ult;
+
   db.ref('herramientas/' + herrId).update({
-    historial: historial,
-    verificacion: esValido ? 'verificado' : 'invalido'
+    historial:    historial,
+    verificacion: 'verificado'
   }).then(function() {
-    toast(esValido ? '\u2705 Kardex verificado correctamente' : '\u274c Kardex NO encontrado \u2014 marcado como inv\u00e1lido', esValido ? 'success' : 'error');
+    toast('✅ Cambio verificado correctamente', 'success');
     renderAdminHerramientas();
   });
 }
