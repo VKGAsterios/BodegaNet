@@ -9039,6 +9039,82 @@ function generarPDF(asig){
   doc.text('BodegaNet  |  '+fmtDT(nowISO())+'  |  ID:'+asig.id,L,291);
   doc.save('asignacion_'+(asig.cliente||'cliente').replace(/\s/g,'_')+'_'+(asig.ot||'SN')+'.pdf');
 }
+// ── Acordeón del Historial ──────────────────────────────────────────────
+function toggleHistDetalle(asigId) {
+  var detalle = document.getElementById('hist-detalle-'+asigId);
+  var arrow   = document.getElementById('hist-arrow-'+asigId);
+  if (!detalle) return;
+  var abierto = detalle.style.display !== 'none';
+  // Cerrar todos los paneles abiertos antes de abrir el nuevo
+  document.querySelectorAll('[id^="hist-detalle-"]').forEach(function(el){
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('[id^="hist-arrow-"]').forEach(function(el){
+    el.textContent = '▶';
+    el.style.transform = '';
+  });
+  if (!abierto) {
+    detalle.style.display = '';
+    if (arrow) { arrow.textContent = '▼'; }
+  }
+}
+
+// Genera el resumen de texto de una asignación ya guardada (desde Firebase)
+// y lo muestra en el modal de resumen — usable tanto desde cuadrilla como admin
+function mostrarResumenTextoAsig(asigId) {
+  var a = cache.asignaciones[asigId];
+  if (!a) { toast('Asignación no encontrada','error'); return; }
+  var cuad = getCuad(a.cuadrillaId);
+  var lineas = [];
+  lineas.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lineas.push('📋 REPORTE DE MATERIALES');
+  lineas.push('BodegaNet ISP');
+  lineas.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lineas.push('');
+  if (cuad)       lineas.push('🔧 Cuadrilla: '+cuad.nombre);
+  lineas.push('👤 Técnico:   '+(a.tecnico||'—'));
+  lineas.push('📅 Fecha:     '+fmtDate(a.fecha));
+  if (a.ot)       lineas.push('🗒  OT:       '+a.ot);
+  if (a.cto)      lineas.push('📡 CTO:      '+a.cto);
+  lineas.push('⚙️  Trabajo:   '+(a.tipo||'—'));
+  lineas.push('');
+  lineas.push('── CLIENTE ──────────────');
+  lineas.push('Nombre:    '+(a.cliente||'—'));
+  if (a.tel)       lineas.push('Teléfono:  '+a.tel);
+  if (a.dir)       lineas.push('Dirección: '+a.dir);
+  if (a.idCliente) lineas.push('ID Cliente:'+a.idCliente);
+  if (a.ip)        lineas.push('IP:        '+a.ip);
+  lineas.push('');
+  if (a.luz1490 || a.luz1550) {
+    lineas.push('── NIVELES DE LUZ ───────');
+    if (a.luz1490) lineas.push('1490 nm:   '+a.luz1490+' dBm');
+    if (a.luz1550) lineas.push('1550 nm:   '+a.luz1550+' dBm');
+    lineas.push('');
+  }
+  lineas.push('── MATERIALES ───────────');
+  var mats = (a.materiales||[]).filter(function(m){ return m.matId; });
+  if (!mats.length) {
+    lineas.push('(Sin materiales registrados)');
+  } else {
+    mats.forEach(function(m, i){
+      var mt = getMat(m.matId);
+      if (mt) lineas.push((i+1)+'. '+mt.nombre+': '+m.qty+' '+mt.unidad);
+    });
+    lineas.push('');
+    lineas.push('Total items: '+mats.length);
+  }
+  if (a.obs) {
+    lineas.push('');
+    lineas.push('── OBSERVACIONES ────────');
+    lineas.push(a.obs);
+  }
+  lineas.push('');
+  lineas.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+  document.getElementById('resumen-texto-box').value = lineas.join('\n');
+  openModal('modal-resumen-texto');
+}
+
 function rePDF(id){
   var a=cache.asignaciones[id];
   if(a)generarPDF(Object.assign({id:id},a));
@@ -9630,76 +9706,101 @@ function renderHistorial(){
   var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
   var esCuad = !!cid;
 
-  // Mostrar/ocultar filtro de fecha y ajustar cabecera
   var filtroEl = document.getElementById('hist-filtro-cuad');
   var expBtn   = document.getElementById('hist-export-btn');
   var titEl    = document.getElementById('hist-titulo');
   var subEl    = document.getElementById('hist-subtitulo');
 
   if (esCuad) {
-    // ── Vista CUADRILLA: solo asignaciones, búsqueda por día, sin PDF ──
+    // ── Vista CUADRILLA ──
     filtroEl.style.display = 'block';
     expBtn.style.display   = 'none';
     titEl.textContent      = 'Historial de asignaciones';
-    subEl.textContent      = 'Busca por día para revisar materiales asignados';
+    subEl.textContent      = 'Haz clic en un cliente para ver el detalle';
     var filtroAdminElCuad = document.getElementById('hist-filtro-admin');
     if (filtroAdminElCuad) filtroAdminElCuad.style.display = 'none';
 
-    // Inicializar fecha si está vacía
     var fechaInput = document.getElementById('hist-fecha-filtro');
     if (!fechaInput.value) fechaInput.value = new Date().toISOString().slice(0,10);
-    var fechaSel = fechaInput.value; // 'YYYY-MM-DD'
+    var fechaSel = fechaInput.value;
 
-    // Actualizar encabezados de tabla para incluir columna de Acciones
     var theadCuad = document.querySelector('#sec-historial table thead tr');
-    if (theadCuad) theadCuad.innerHTML = '<th>Hora</th><th>Cliente</th><th>OT</th><th>Materiales utilizados</th><th>Técnico</th><th>Acciones</th>';
+    if (theadCuad) theadCuad.innerHTML = '<th style="width:20px;"></th><th>Hora</th><th>Cliente / OT</th><th>Tipo</th><th>Técnico</th>';
 
     var asigs = asigList().filter(function(a){
       if (a.anulada) return false;
       if (a.cuadrillaId !== cid) return false;
-      // Comparar fecha ISO con la fecha seleccionada
       return a.fecha && a.fecha.slice(0,10) === fechaSel;
     }).sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
 
     var tbody = document.getElementById('hist-tbody');
     if (!asigs.length) {
-      tbody.innerHTML = '<tr><td colspan="6">'+empty('Sin asignaciones el '+fmtDate(fechaSel+'T12:00:00'))+'</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5">'+empty('Sin asignaciones el '+fmtDate(fechaSel+'T12:00:00'))+'</td></tr>';
       return;
     }
+
     tbody.innerHTML = asigs.map(function(a){
       var hora = a.horaInicio
         ? a.horaInicio + (a.horaFin ? ' – '+a.horaFin : '')
         : fmtDT(a.fecha).split(', ')[1] || '—';
-      var matsHTML = (a.materiales||[]).map(function(m){
+
+      // Materiales para el panel expandido
+      var matsDetalle = (a.materiales||[]).map(function(m){
         var mt = getMat(m.matId);
-        return mt
-          ? '<span style="display:inline-block;background:var(--blue-light);color:var(--blue);font-size:11px;padding:2px 7px;border-radius:20px;margin:2px 2px 0 0;">'+m.qty+' '+mt.unidad+' '+mt.nombre+'</span>'
-          : '';
-      }).join('');
-      // Editar materiales: solo dentro de las 12 horas desde el registro
+        return mt ? '<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0;">'
+          +'<span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">×'+m.qty+'</span>'
+          +'<span style="font-size:12px;">'+esc(mt.nombre)+'</span>'
+          +'<span style="font-size:10px;color:var(--ink3);">'+mt.unidad+'</span>'
+          +'</div>' : '';
+      }).join('') || '<span style="font-size:12px;color:var(--ink3);">Sin materiales</span>';
+
       var dentroDePlazo = puedeEditarMateriales(a);
-      var accionHTML = dentroDePlazo
-        ? '<button class="btn btn-sm" onclick="abrirModalEditarMateriales(\''+a.id+'\')">✏️ Editar materiales</button>'
-        : '<span style="font-size:11px;color:var(--ink3);">Plazo vencido</span>';
-      return '<tr>'
+      var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">'
+        +(dentroDePlazo
+          ? '<button class="btn btn-sm" onclick="abrirModalEditarMateriales(\''+a.id+'\');event.stopPropagation();">✏️ Editar materiales</button>'
+          : '<span style="font-size:11px;color:var(--ink3);padding:6px 0;">✏️ Plazo de edición vencido</span>')
+        +'<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>'
+        +'</div>';
+
+      // Datos extra en panel
+      var extraHTML = '';
+      if(a.dir)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📍 '+esc(a.dir)+'</div>';
+      if(a.idCliente) extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🪪 ID: '+esc(a.idCliente)+'</div>';
+      if(a.ip)        extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🌐 IP: '+esc(a.ip)+'</div>';
+      if(a.obs)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-top:4px;padding:6px 8px;background:var(--bg3);border-radius:var(--r);">📝 '+esc(a.obs)+'</div>';
+
+      return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
+        +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
         +'<td style="font-size:12px;white-space:nowrap;font-weight:500;">'+hora+'</td>'
-        +'<td><strong style="font-size:13px;">'+( a.cliente||'—')+'</strong>'
-          +(a.dir?'<div style="font-size:11px;color:var(--ink3);">'+a.dir+'</div>':'')+'</td>'
-        +'<td style="font-size:12px;white-space:nowrap;">'+(a.ot||'—')+'</td>'
-        +'<td>'+( matsHTML||'<span style="color:var(--ink3);font-size:12px;">Sin materiales</span>')+'</td>'
+        +'<td><strong style="font-size:13px;">'+esc(a.cliente||'—')+'</strong>'
+          +(a.ot?'<span style="font-size:11px;color:var(--ink3);margin-left:6px;">OT: '+esc(a.ot)+'</span>':'')+'</td>'
+        +'<td style="font-size:12px;">'+(a.tipo||'—')+'</td>'
         +'<td style="font-size:12px;">'+(a.tecnico||'—')+'</td>'
-        +'<td style="white-space:nowrap;">'+accionHTML+'</td>'
-        +'</tr>';
+        +'</tr>'
+        +'<tr id="hist-detalle-'+a.id+'" style="display:none;">'
+        +'<td colspan="5" style="padding:0;">'
+        +'<div style="padding:12px 16px 14px 36px;background:var(--bg3);border-bottom:1px solid var(--border);">'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">'
+            +'<div>'
+              +'<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES</div>'
+              +matsDetalle
+            +'</div>'
+            +'<div>'
+              +(extraHTML||'')
+            +'</div>'
+          +'</div>'
+          +botonesDetalle
+        +'</div>'
+        +'</td></tr>';
     }).join('');
 
   } else {
-    // ── Vista ADMIN: historial de asignaciones a clientes ──
+    // ── Vista ADMIN ──
     filtroEl.style.display = 'none';
     expBtn.style.display   = '';
     titEl.textContent      = 'Historial de asignaciones';
-    subEl.textContent      = 'Materiales entregados a clientes por cuadrilla';
+    subEl.textContent      = 'Haz clic en un cliente para ver el detalle';
 
-    // Mostrar barra de filtros admin y poblar selector de cuadrillas
     var filtroAdminEl = document.getElementById('hist-filtro-admin');
     if (filtroAdminEl) filtroAdminEl.style.display = 'block';
     var selCuadHist = document.getElementById('hist-admin-cuadrilla');
@@ -9712,10 +9813,9 @@ function renderHistorial(){
         selCuadHist.appendChild(o);
       });
     }
-    var fCuad  = (document.getElementById('hist-admin-cuadrilla')||{value:''}).value;
+    var fCuad   = (document.getElementById('hist-admin-cuadrilla')||{value:''}).value;
     var fSearch = ((document.getElementById('hist-admin-search')||{value:''}).value||'').trim().toLowerCase();
 
-    // Solo asignaciones — los movimientos internos de Kardex no son relevantes aquí
     var asigs = asigListFiltrada().filter(function(a){
       if (a.anulada) return false;
       if (fCuad && a.cuadrillaId !== fCuad) return false;
@@ -9730,46 +9830,71 @@ function renderHistorial(){
       return true;
     }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
 
-    // Encabezados de tabla para asignaciones
     var thead = document.querySelector('#sec-historial table thead tr');
-    if (thead) thead.innerHTML = '<th>Fecha</th><th>Cuadrilla</th><th>Cliente</th><th>OT</th><th>Técnico</th><th>Materiales entregados</th><th>Acciones</th>';
+    if (thead) thead.innerHTML = '<th style="width:20px;"></th><th>Fecha</th><th>Cuadrilla</th><th>Cliente / OT</th><th>Tipo</th><th>Técnico</th>';
 
     var tbody = document.getElementById('hist-tbody');
-    if (!asigs.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin asignaciones con esos filtros')+'</td></tr>'; return; }
+    if (!asigs.length) { tbody.innerHTML='<tr><td colspan="6">'+empty('Sin asignaciones con esos filtros')+'</td></tr>'; return; }
 
     tbody.innerHTML = asigs.map(function(a){
       var cuad = getCuad(a.cuadrillaId);
-      // Lista de materiales: una línea por material con cantidad y nombre
-      var matsHTML = (a.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
+
+      // Materiales para el panel expandido
+      var matsDetalle = (a.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
         var mt = getMat(m.matId);
         return '<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0;">'
           +'<span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">×'+m.qty+'</span>'
           +'<span style="font-size:12px;color:var(--ink);">'+(mt?esc(mt.nombre):'—')+'</span>'
           +(mt&&mt.unidad?'<span style="font-size:10px;color:var(--ink3);">'+mt.unidad+'</span>':'')
           +'</div>';
-      }).join('');
-      if (!matsHTML) matsHTML = '<span style="font-size:12px;color:var(--ink3);">Sin materiales</span>';
-      // Indicador de auditoría: solo visible para admin, solo si la asignación fue editada
+      }).join('') || '<span style="font-size:12px;color:var(--ink3);">Sin materiales</span>';
+
+      // Auditoría si fue editado
       var auditHTML = a.editadoPor
-        ? '<div style="margin-top:5px;font-size:10px;color:var(--amber);background:var(--amber-light);border-radius:4px;padding:2px 6px;display:inline-block;">✏️ Editado por '+esc(a.editadoPor)+' · '+fmtDT(a.fechaEdicion)+'</div>'
+        ? '<div style="margin-top:6px;font-size:10px;color:var(--amber);background:var(--amber-light);border-radius:4px;padding:3px 7px;display:inline-block;">✏️ Editado por '+esc(a.editadoPor)+' · '+fmtDT(a.fechaEdicion)+'</div>'
         : '';
 
-      return '<tr>'
-        +'<td style="font-size:11px;white-space:nowrap;vertical-align:top;">'+fmtDT(a.fecha)+'</td>'
-        +'<td style="font-size:12px;vertical-align:top;">'+(cuad?esc(cuad.nombre):'—')+'</td>'
-        +'<td style="vertical-align:top;">'
-          +'<strong style="font-size:13px;">'+esc(a.cliente||'—')+'</strong>'
-          +(a.idCliente?'<div style="font-size:10px;color:var(--ink3);">ID: '+esc(a.idCliente)+'</div>':'')
-          +(a.ip?'<div style="font-size:10px;color:var(--ink3);font-family:monospace;">IP: '+esc(a.ip)+'</div>':'')
-        +'</td>'
-        +'<td style="font-family:monospace;font-size:12px;vertical-align:top;">'+(a.ot||'—')+'</td>'
-        +'<td style="font-size:12px;vertical-align:top;">'+(a.tecnico||'—')+'</td>'
-        +'<td style="vertical-align:top;">'+matsHTML+auditHTML+'</td>'
-        +'<td style="white-space:nowrap;vertical-align:top;">'
-          +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\')">PDF</button>'
-          +'<button class="btn btn-sm btn-red" style="margin-left:4px;" onclick="anularAsignacion(\''+a.id+'\')">Anular</button>'
-        +'</td>'
-        +'</tr>';
+      // Datos extra en panel
+      var extraHTML = '';
+      if(a.dir)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📍 '+esc(a.dir)+'</div>';
+      if(a.idCliente) extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🪪 ID: '+esc(a.idCliente)+'</div>';
+      if(a.ip)        extraHTML += '<div style="font-size:12px;color:var(--ink2);font-family:monospace;margin-bottom:2px;">🌐 '+esc(a.ip)+'</div>';
+      if(a.cto)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📡 CTO: '+esc(a.cto)+'</div>';
+      if(a.luz1490)   extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🔆 1490: '+esc(a.luz1490)+' dBm</div>';
+      if(a.luz1550)   extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🔆 1550: '+esc(a.luz1550)+' dBm</div>';
+      if(a.obs)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-top:4px;padding:6px 8px;background:rgba(0,0,0,.04);border-radius:var(--r);">📝 '+esc(a.obs)+'</div>';
+
+      var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
+        +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\');event.stopPropagation();">📄 PDF</button>'
+        +'<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>'
+        +'<button class="btn btn-sm btn-red" onclick="anularAsignacion(\''+a.id+'\');event.stopPropagation();">Anular</button>'
+        +'</div>';
+
+      return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
+        +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
+        +'<td style="font-size:11px;white-space:nowrap;">'+fmtDT(a.fecha)+'</td>'
+        +'<td style="font-size:12px;">'+(cuad?esc(cuad.nombre):'—')+'</td>'
+        +'<td><strong style="font-size:13px;">'+esc(a.cliente||'—')+'</strong>'
+          +(a.ot?'<span style="font-size:11px;color:var(--ink3);margin-left:6px;">OT: '+esc(a.ot)+'</span>':'')+'</td>'
+        +'<td style="font-size:12px;">'+(a.tipo||'—')+'</td>'
+        +'<td style="font-size:12px;">'+(a.tecnico||'—')+'</td>'
+        +'</tr>'
+        +'<tr id="hist-detalle-'+a.id+'" style="display:none;">'
+        +'<td colspan="6" style="padding:0;">'
+        +'<div style="padding:14px 16px 16px 36px;background:var(--bg3);border-bottom:2px solid var(--border);">'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">'
+            +'<div>'
+              +'<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES ENTREGADOS</div>'
+              +matsDetalle
+              +auditHTML
+            +'</div>'
+            +'<div>'
+              +(extraHTML||'<span style="font-size:12px;color:var(--ink3);">Sin datos adicionales</span>')
+            +'</div>'
+          +'</div>'
+          +botonesDetalle
+        +'</div>'
+        +'</td></tr>';
     }).join('');
   }
 }
@@ -10469,7 +10594,11 @@ document.querySelectorAll('.modal-overlay').forEach(function(ov){
 
 // ══════════════════════════════════════════════════════
 // INIT — conectar Firebase y mostrar login
+// DOMContentLoaded garantiza que los scripts defer (Firebase SDK)
+// ya terminaron de cargar antes de ejecutar cualquier firebase.* / db.*
 // ══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function() {
+
 var loadMsg = document.getElementById('loading-msg');
 loadMsg.textContent = 'Conectando con Firebase...';
 
@@ -10683,6 +10812,7 @@ function mostrarErrorFirebase(titulo, subtitulo, causas) {
   loadScreen.appendChild(box);
 }
 
+}); // fin DOMContentLoaded
 </script>
 </body>
 </html>
