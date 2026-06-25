@@ -8849,6 +8849,29 @@ function abrirModalEditarMateriales(asigId) {
   openModal('modal-editar-materiales');
 }
 
+// Variante para admin/superadmin: mismo modal y lógica de guardado,
+// pero sin validación de plazo de 12 horas.
+function abrirModalEditarMaterialesAdmin(asigId) {
+  if (currentUser.tipo === 'cuadrilla') {
+    // Seguridad: si por alguna razón una cuadrilla llega aquí, se redirige al flujo normal
+    abrirModalEditarMateriales(asigId);
+    return;
+  }
+  var asig = cache.asignaciones[asigId];
+  if (!asig) { toast('Asignación no encontrada','error'); return; }
+  document.getElementById('em-asig-id').value = asigId;
+  document.getElementById('em-cliente-info').textContent =
+    asig.cliente + (asig.ot ? ' · OT: '+asig.ot : '') + ' · ' + fmtDT(asig.fecha)
+    + ' — Admin: sin límite de tiempo';
+
+  editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
+    return { uid: uid(), matId: m.matId, qty: m.qty };
+  });
+  if (!editMatRows.length) editMatRows = [{ uid: uid(), matId: '', qty: 1 }];
+  renderEmRows();
+  openModal('modal-editar-materiales');
+}
+
 function addEmRow() {
   if (editMatRows.length >= 15) { toast('Máximo 15 materiales','info'); return; }
   editMatRows.push({ uid: uid(), matId: '', qty: 1 });
@@ -8889,7 +8912,9 @@ function guardarEdicionMateriales() {
   var asigId = document.getElementById('em-asig-id').value;
   var asig = cache.asignaciones[asigId];
   if (!asig) { toast('Asignación no encontrada','error'); return; }
-  if (!puedeEditarMateriales(asig)) {
+  // Admin y superadmin pueden editar sin límite de tiempo
+  var esAdmin = currentUser.tipo === 'admin' || currentUser.tipo === 'superadmin';
+  if (!esAdmin && !puedeEditarMateriales(asig)) {
     toast('El plazo de 12 horas para editar esta asignación ya venció','error');
     closeModal('modal-editar-materiales');
     return;
@@ -9867,6 +9892,7 @@ function renderHistorial(){
       var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
         +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\');event.stopPropagation();">📄 PDF</button>'
         +'<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>'
+        +'<button class="btn btn-sm" onclick="abrirModalEditarMaterialesAdmin(\''+a.id+'\');event.stopPropagation();">✏️ Editar materiales</button>'
         +'<button class="btn btn-sm btn-red" onclick="anularAsignacion(\''+a.id+'\');event.stopPropagation();">Anular</button>'
         +'</div>';
 
