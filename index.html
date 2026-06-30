@@ -4394,7 +4394,7 @@ function renderEfectividad() {
   // Retiros/Recuperaciones: cada retiro registrado cuenta como 1 trabajo
   // realizado, sin importar cuántos equipos contenga. Viven en su propio
   // nodo (retiros/) separado de asignaciones/, por lo que se filtran aparte.
-  var allRetiros = retirosList().filter(function(r){
+  var allRetiros = retirosListFiltrada().filter(function(r){
     return r.fecha >= rango.ini && r.fecha <= rango.fin;
   });
 
@@ -4509,7 +4509,7 @@ function abrirEfecDetalle(cuadId) {
   // Retiros del período: cada uno cuenta como 1 trabajo realizado, igual
   // que en renderEfectividad, para que el desglose sea consistente con el
   // número mostrado en la tarjeta principal.
-  var retiros = retirosList().filter(function(r){
+  var retiros = retirosListFiltrada().filter(function(r){
     return r.cuadrillaId===cuadId && r.fecha>=rango.ini && r.fecha<=rango.fin;
   }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
 
@@ -6080,6 +6080,17 @@ function retirosList() {
 function retirosPropios() {
   var cid = currentUser ? currentUser.cuadrillaId : null;
   return retirosList().filter(function(r){ return r.cuadrillaId === cid; });
+}
+// retirosList filtrada por rol y sector — mismo patrón que asigListFiltrada,
+// para que ningún reporte de admin pueda mostrar retiros de otro sector.
+function retirosListFiltrada() {
+  var all = retirosList();
+  if (!currentUser) return [];
+  if (currentUser.tipo === 'cuadrilla') {
+    return all.filter(function(r){ return r.cuadrillaId === currentUser.cuadrillaId; });
+  }
+  var cuadsDelSector = getCuadrillasFiltradas().map(function(c){ return c.id; });
+  return all.filter(function(r){ return cuadsDelSector.indexOf(r.cuadrillaId) > -1; });
 }
 
 var retiroEquipoRows = [];
