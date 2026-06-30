@@ -1461,6 +1461,15 @@ select option{background:var(--bg3);color:var(--ink);}
     "motivos_vf":       { ".read": true, ".write": true },
     "bloqueos_login":   { ".read": true, ".write": true },
 
+    /* ── Retiros / Recuperaciones de equipos ── */
+    "retiros": {
+      ".read": true,
+      ".write": true,
+      "$rid": {
+        ".validate": "newData.hasChildren(['cliente','fecha','cuadrillaId','equipos'])"
+      }
+    },
+
     /* ── Config: solo lectura pública, escritura restringida ── */
     "config": {
       ".read": true,
@@ -4382,19 +4391,27 @@ function renderEfectividad() {
   var allVFs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
     return v.fecha >= rango.ini && v.fecha <= rango.fin;
   });
+  // Retiros/Recuperaciones: cada retiro registrado cuenta como 1 trabajo
+  // realizado, sin importar cuántos equipos contenga. Viven en su propio
+  // nodo (retiros/) separado de asignaciones/, por lo que se filtran aparte.
+  var allRetiros = retirosList().filter(function(r){
+    return r.fecha >= rango.ini && r.fecha <= rango.fin;
+  });
 
   var datos = cuads.map(function(cu) {
-    var asigsCuad = allAsigs.filter(function(a){ return a.cuadrillaId===cu.id; });
-    var vfsCuad   = allVFs.filter(function(v){ return v.cuadrillaId===cu.id; });
-    var metaDiaria = cu.meta || 0;
-    var realizados = asigsCuad.length;
-    var fallidas   = vfsCuad.length;
-    var total      = realizados + fallidas;
+    var asigsCuad   = allAsigs.filter(function(a){ return a.cuadrillaId===cu.id; });
+    var vfsCuad     = allVFs.filter(function(v){ return v.cuadrillaId===cu.id; });
+    var retirosCuad = allRetiros.filter(function(r){ return r.cuadrillaId===cu.id; });
+    var metaDiaria  = cu.meta || 0;
+    var realizados  = asigsCuad.length + retirosCuad.length;
+    var fallidas    = vfsCuad.length;
+    var total       = realizados + fallidas;
 
-    // Días activos = días únicos con al menos 1 registro (asig o VF)
+    // Días activos = días únicos con al menos 1 registro (asig, VF o retiro)
     var diasSet = {};
     asigsCuad.forEach(function(a){ diasSet[(a.fecha||'').slice(0,10)] = 1; });
     vfsCuad.forEach(function(v){ diasSet[(v.fecha||'').slice(0,10)] = 1; });
+    retirosCuad.forEach(function(r){ diasSet[(r.fecha||'').slice(0,10)] = 1; });
     var diasActivos = Object.keys(diasSet).filter(function(d){ return d.length===10; }).length;
 
     // Meta del período = meta diaria × días activos
@@ -4406,7 +4423,7 @@ function renderEfectividad() {
     return {
       cu:cu, realizados:realizados, fallidas:fallidas, total:total,
       meta:metaPeriodo, metaDiaria:metaDiaria, diasActivos:diasActivos,
-      pct:pct, pctReal:pctReal, asigs:asigsCuad, vfs:vfsCuad
+      pct:pct, pctReal:pctReal, asigs:asigsCuad, vfs:vfsCuad, retiros:retirosCuad
     };
   }).sort(function(a,b){ return b.total - a.total; });
 
@@ -4489,31 +4506,40 @@ function abrirEfecDetalle(cuadId) {
     return v.cuadrillaId===cuadId && v.fecha>=rango.ini && v.fecha<=rango.fin;
   }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
 
+  // Retiros del período: cada uno cuenta como 1 trabajo realizado, igual
+  // que en renderEfectividad, para que el desglose sea consistente con el
+  // número mostrado en la tarjeta principal.
+  var retiros = retirosList().filter(function(r){
+    return r.cuadrillaId===cuadId && r.fecha>=rango.ini && r.fecha<=rango.fin;
+  }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
+
   var metaDiaria = cu.meta || 0;
 
   // Días activos del período para esta cuadrilla
   var diasSet = {};
   asigs.forEach(function(a){ diasSet[(a.fecha||'').slice(0,10)]=1; });
   vfs.forEach(function(v){ diasSet[(v.fecha||'').slice(0,10)]=1; });
+  retiros.forEach(function(r){ diasSet[(r.fecha||'').slice(0,10)]=1; });
   var diasActivos = Object.keys(diasSet).filter(function(d){ return d.length===10; }).length;
   var metaPeriodo = metaDiaria > 0 ? metaDiaria * Math.max(diasActivos, 1) : 0;
 
-  var total = asigs.length + vfs.length;
-  var pct   = metaPeriodo > 0 ? Math.round(Math.min(asigs.length/metaPeriodo*100,100)) : null;
+  var realizadosCount = asigs.length + retiros.length;
+  var total = realizadosCount + vfs.length;
+  var pct   = metaPeriodo > 0 ? Math.round(Math.min(realizadosCount/metaPeriodo*100,100)) : null;
   var pctTot= metaPeriodo > 0 ? Math.round(Math.min(total/metaPeriodo*100,100)) : null;
   var color = pct !== null ? efecGaugeColor(pct) : '#3b82f6';
-  var gaugeValue = pctTot !== null ? pctTot : Math.min(asigs.length*5,100);
+  var gaugeValue = pctTot !== null ? pctTot : Math.min(realizadosCount*5,100);
 
   // Gauge grande
   document.getElementById('efec-det-gauge').innerHTML =
     '<div style="position:relative;display:inline-block;">'
     + efecGaugeSVG(gaugeValue, color, 88)
     + '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:17px;color:'+color+';">'
-    + asigs.length + '</div></div>';
+    + realizadosCount + '</div></div>';
 
   document.getElementById('efec-det-nombre').textContent = cu.nombre;
   document.getElementById('efec-det-sub').textContent = periodoLabel + ' — '
-    + asigs.length + ' realizados'
+    + realizadosCount + ' realizados'
     + (vfs.length ? ' + ' + vfs.length + ' fallidas' : '')
     + (metaPeriodo ? ' / meta: '+metaPeriodo+(diasActivos>1?' ('+diasActivos+' días × '+metaDiaria+')':'') : '');
 
@@ -4528,8 +4554,11 @@ function abrirEfecDetalle(cuadId) {
 
   document.getElementById('efec-det-kpis').innerHTML =
     '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
-    +'<div style="font-size:22px;font-weight:700;color:'+color+';">'+asigs.length+'</div>'
+    +'<div style="font-size:22px;font-weight:700;color:'+color+';">'+realizadosCount+'</div>'
     +'<div style="font-size:11px;color:var(--ink3);">Realizadas</div></div>'
+    +(retiros.length ? '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
+        +'<div style="font-size:22px;font-weight:700;color:var(--ink);">'+retiros.length+'</div>'
+        +'<div style="font-size:11px;color:var(--ink3);">Retiros</div></div>' : '')
     +(metaPeriodo ? '<div style="background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem;">'
         +'<div style="font-size:22px;font-weight:700;color:'+color+';">'+(pctTot||0)+'%</div>'
         +'<div style="font-size:11px;color:var(--ink3);">vs meta '+(efecPeriodo!=='dia'?'('+diasActivos+'d × '+metaDiaria+')':metaPeriodo)+'</div></div>' : '')
@@ -4571,6 +4600,21 @@ function abrirEfecDetalle(cuadId) {
           +'</tr>';
       }).join('')+'</tbody></table></div></div>';
 
+  var retirosHTML = !retiros.length ? ''
+    : '<div style="margin-bottom:.75rem;">'
+      +'<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.4rem;">📦 Retiros / Recuperaciones</div>'
+      +'<div class="table-wrap"><table>'
+      +'<thead><tr><th>Fecha</th><th>Cliente</th><th># Trabajo</th><th>Equipos</th></tr></thead><tbody>'
+      +retiros.map(function(r){
+        var ec = (r.equipos||[]).length;
+        return '<tr>'
+          +'<td style="font-size:11px;white-space:nowrap;">'+esc(r.fecha)+'</td>'
+          +'<td style="font-size:12px;font-weight:500;">'+esc(r.cliente||'—')+'</td>'
+          +'<td style="font-size:11px;font-family:monospace;">'+esc(r.numTrabajo||'—')+'</td>'
+          +'<td style="text-align:center;">'+(ec>0?'<span class="badge badge-gray">'+ec+'</span>':'—')+'</td>'
+          +'</tr>';
+      }).join('')+'</tbody></table></div></div>';
+
   var fallidasHTML = !vfs.length ? ''
     : '<div>'
       +'<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#c2410c;margin-bottom:.4rem;">⚠ Visitas fallidas</div>'
@@ -4588,7 +4632,7 @@ function abrirEfecDetalle(cuadId) {
           +'</tr>';
       }).join('')+'</tbody></table></div></div>';
 
-  lista.innerHTML = realizadosHTML + fallidasHTML
+  lista.innerHTML = realizadosHTML + retirosHTML + fallidasHTML
     || '<p style="color:var(--ink3);font-size:13px;padding:.5rem 0;">Sin registros en este período.</p>';
 
   var modal = document.getElementById('modal-efec-detalle');
