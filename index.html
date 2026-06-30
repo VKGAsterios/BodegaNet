@@ -5707,50 +5707,87 @@ function guardarRedInterna() {
   var ini    = document.getElementById('ri-hora-ini').value;
   var obs    = document.getElementById('ri-obs').value.trim();
   var editId = document.getElementById('ri-edit-id').value;
-  if (!orden)  { toast('Ingresa el # de orden', 'error'); return; }
-  if (!tipo)   { toast('Selecciona el tipo de trabajo', 'error'); return; }
-  if (!nodo)   { toast('Ingresa el nombre del nodo/headend', 'error'); return; }
-  if (!tec)    { toast('Ingresa el nombre del técnico', 'error'); return; }
-  if (!ini)    { toast('La hora de inicio es obligatoria', 'error'); return; }
-  // FIX HORA ESTRICTA: la hora de fin SIEMPRE se fija al momento real de
-  // guardado, sin importar lo que tenga el campo (que además es readonly).
-  // Esto garantiza que el registro refleje el tiempo real, en tiempo y forma.
+  if (!orden) { toast('Ingresa el # de orden', 'error'); return; }
+  if (!tipo)  { toast('Selecciona el tipo de trabajo', 'error'); return; }
+  if (!nodo)  { toast('Ingresa el nombre del nodo/headend', 'error'); return; }
+  if (!tec)   { toast('Ingresa el nombre del técnico', 'error'); return; }
+  if (!ini)   { toast('La hora de inicio es obligatoria', 'error'); return; }
+
+  // Hora fin fija al momento real de guardado (campo readonly)
   var ahora = new Date();
   var fin = String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
-  // Materiales
-  var mats = {};
-  riMaterialRows.forEach(function(r) {
-    if (r.matId && r.qty > 0) mats[r.matId] = r.qty;
-  });
+
+  // Materiales como array estándar (igual que asignaciones a clientes)
+  var matsArray = riMaterialRows
+    .filter(function(r){ return r.matId && r.qty > 0; })
+    .map(function(r){ return { matId: r.matId, qty: r.qty }; });
+
+  var cid        = currentUser.cuadrillaId;
+  var fechaLocal = nowISOLocal();
+  var updates    = {};
+
+  // 1. Registro original en redInterna/
+  var riRef = editId ? db.ref('redInterna/'+editId) : db.ref('redInterna').push();
+  var newId = editId || riRef.key;
   var registro = {
     orden: orden, tipo: tipo, nodo: nodo, tecnico: tec,
     horaIni: ini, horaFin: fin, obs: obs,
-    materiales: mats,
-    cuadrillaId: currentUser.cuadrillaId,
-    fecha: new Date().toISOString().slice(0,10),
+    materiales: matsArray,
+    cuadrillaId: cid,
+    fecha: fechaLocal.slice(0,10),
     tsRegistro: Date.now(),
-    creadoEn: new Date().toISOString()
+    creadoEn: fechaLocal
   };
-  var ref = editId ? db.ref('redInterna/'+editId) : db.ref('redInterna').push();
-  var newId = editId || ref.key;
-  ref.set(registro).then(function() {
+  updates['redInterna/'+newId] = registro;
+
+  // 2. Descuento de stock de bodega por cada material
+  matsArray.forEach(function(m){
+    var curStock = getStock(cid, m.matId);
+    updates['stocks/'+cid+'/'+m.matId] = Math.max(0, curStock - m.qty);
+  });
+
+  // 3. Entrada en asignaciones/ para que aparezca en Historial con badge RI
+  //    Solo para registros nuevos (no ediciones del RI original)
+  if (!editId) {
+    var aid = uid();
+    updates['asignaciones/'+aid] = {
+      id: aid,
+      fecha: fechaLocal,
+      tsRegistro: Date.now(),
+      tipoRegistro: 'redInterna',
+      cliente: nodo,
+      ot: orden,
+      tipo: tipo,
+      tecnico: tec,
+      horaInicio: ini,
+      horaFin: fin,
+      obs: obs,
+      materiales: matsArray,
+      cuadrillaId: cid,
+      redInternaId: newId
+    };
+  }
+
+  db.ref().update(updates).then(function() {
     riUltimoId = newId;
-    // Guardar registro en cache local para poder copiar inmediatamente
     cache.redInterna[newId] = Object.assign({id: newId}, registro);
-    // Mostrar panel de éxito con preview del texto
     var panel   = document.getElementById('ri-success-panel');
     var preview = document.getElementById('ri-success-preview');
-    var cuad    = getCuad(currentUser.cuadrillaId);
-    var dur     = riDuracion(registro.horaIni, registro.horaFin);
+    var cuad    = getCuad(cid);
+    var dur     = riDuracion(ini, fin);
+    var matsTexto = matsArray.length
+      ? matsArray.map(function(m){ var mt=getMat(m.matId); return mt?m.qty+' '+mt.nombre:''; }).filter(Boolean).join(', ')
+      : '';
     var textoPreview = [
       '🖧 Trabajo en Red Interna',
-      '# Orden : ' + registro.orden,
-      'Tipo    : ' + registro.tipo,
-      'Nodo/HE : ' + registro.nodo,
-      'Técnico : ' + registro.tecnico,
+      '# Orden : ' + orden,
+      'Tipo    : ' + tipo,
+      'Nodo/HE : ' + nodo,
+      'Técnico : ' + tec,
       'Cuadrilla: ' + (cuad?cuad.nombre:'—'),
-      'Inicio  : ' + registro.horaIni + (registro.horaFin?' — Fin: '+registro.horaFin:'') + (dur?' ('+dur+')':''),
-      registro.obs ? 'Obs: '+registro.obs : ''
+      'Inicio  : ' + ini + (fin?' — Fin: '+fin:'') + (dur?' ('+dur+')':''),
+      matsTexto ? 'Materiales: '+matsTexto : '',
+      obs ? 'Obs: '+obs : ''
     ].filter(Boolean).join('\n');
     if (preview) preview.textContent = textoPreview;
     if (panel)   panel.style.display = '';
@@ -9750,8 +9787,9 @@ function renderHistorial(){
     var fechaSel = fechaInput.value;
 
     var theadCuad = document.querySelector('#sec-historial table thead tr');
-    if (theadCuad) theadCuad.innerHTML = '<th style="width:20px;"></th><th>Hora</th><th>Cliente / OT</th><th>Tipo</th><th>Técnico</th>';
+    if (theadCuad) theadCuad.innerHTML = '<th style="width:20px;"></th><th>Hora</th><th>Tipo</th><th>Cliente / Nodo · OT</th><th>Trabajo</th><th>Técnico</th>';
 
+    // Incluye asignaciones normales Y registros de Red Interna del mismo día
     var asigs = asigList().filter(function(a){
       if (a.anulada) return false;
       if (a.cuadrillaId !== cid) return false;
@@ -9760,16 +9798,22 @@ function renderHistorial(){
 
     var tbody = document.getElementById('hist-tbody');
     if (!asigs.length) {
-      tbody.innerHTML = '<tr><td colspan="5">'+empty('Sin asignaciones el '+fmtDate(fechaSel+'T12:00:00'))+'</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6">'+empty('Sin registros el '+fmtDate(fechaSel+'T12:00:00'))+'</td></tr>';
       return;
     }
 
     tbody.innerHTML = asigs.map(function(a){
+      var esRI = a.tipoRegistro === 'redInterna';
       var hora = a.horaInicio
         ? a.horaInicio + (a.horaFin ? ' – '+a.horaFin : '')
         : fmtDT(a.fecha).split(', ')[1] || '—';
 
-      // Materiales para el panel expandido
+      // Badge diferenciador por tipo de registro
+      var badgeHTML = esRI
+        ? '<span class="badge badge-green" style="font-size:10px;">🖧 Red Interna</span>'
+        : '<span class="badge badge-blue"  style="font-size:10px;">👤 Cliente</span>';
+
+      // Materiales en panel expandido
       var matsDetalle = (a.materiales||[]).map(function(m){
         var mt = getMat(m.matId);
         return mt ? '<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0;">'
@@ -9779,40 +9823,42 @@ function renderHistorial(){
           +'</div>' : '';
       }).join('') || '<span style="font-size:12px;color:var(--ink3);">Sin materiales</span>';
 
-      var dentroDePlazo = puedeEditarMateriales(a);
-      var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">'
-        +(dentroDePlazo
+      // Botones según tipo
+      var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
+      if (!esRI) {
+        var dentroDePlazo = puedeEditarMateriales(a);
+        botonesDetalle += dentroDePlazo
           ? '<button class="btn btn-sm" onclick="abrirModalEditarMateriales(\''+a.id+'\');event.stopPropagation();">✏️ Editar materiales</button>'
-          : '<span style="font-size:11px;color:var(--ink3);padding:6px 0;">✏️ Plazo de edición vencido</span>')
-        +'<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>'
-        +'</div>';
+          : '<span style="font-size:11px;color:var(--ink3);padding:6px 0;">✏️ Plazo de edición vencido</span>';
+      }
+      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button></div>';
 
-      // Datos extra en panel
+      // Datos extra distintos según tipo
       var extraHTML = '';
-      if(a.dir)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📍 '+esc(a.dir)+'</div>';
-      if(a.idCliente) extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🪪 ID: '+esc(a.idCliente)+'</div>';
-      if(a.ip)        extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🌐 IP: '+esc(a.ip)+'</div>';
-      if(a.obs)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-top:4px;padding:6px 8px;background:var(--bg3);border-radius:var(--r);">📝 '+esc(a.obs)+'</div>';
+      if (esRI) {
+        if (a.obs) extraHTML += '<div style="font-size:12px;color:var(--ink2);padding:6px 8px;background:var(--bg3);border-radius:var(--r);">📝 '+esc(a.obs)+'</div>';
+      } else {
+        if (a.dir)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📍 '+esc(a.dir)+'</div>';
+        if (a.idCliente) extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🪪 ID: '+esc(a.idCliente)+'</div>';
+        if (a.ip)        extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🌐 IP: '+esc(a.ip)+'</div>';
+        if (a.obs)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-top:4px;padding:6px 8px;background:var(--bg3);border-radius:var(--r);">📝 '+esc(a.obs)+'</div>';
+      }
 
       return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
         +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
         +'<td style="font-size:12px;white-space:nowrap;font-weight:500;">'+hora+'</td>'
+        +'<td>'+badgeHTML+'</td>'
         +'<td><strong style="font-size:13px;">'+esc(a.cliente||'—')+'</strong>'
           +(a.ot?'<span style="font-size:11px;color:var(--ink3);margin-left:6px;">OT: '+esc(a.ot)+'</span>':'')+'</td>'
         +'<td style="font-size:12px;">'+(a.tipo||'—')+'</td>'
         +'<td style="font-size:12px;">'+(a.tecnico||'—')+'</td>'
         +'</tr>'
         +'<tr id="hist-detalle-'+a.id+'" style="display:none;">'
-        +'<td colspan="5" style="padding:0;">'
+        +'<td colspan="6" style="padding:0;">'
         +'<div style="padding:12px 16px 14px 36px;background:var(--bg3);border-bottom:1px solid var(--border);">'
           +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">'
-            +'<div>'
-              +'<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES</div>'
-              +matsDetalle
-            +'</div>'
-            +'<div>'
-              +(extraHTML||'')
-            +'</div>'
+            +'<div><div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES</div>'+matsDetalle+'</div>'
+            +'<div>'+extraHTML+'</div>'
           +'</div>'
           +botonesDetalle
         +'</div>'
@@ -9856,13 +9902,19 @@ function renderHistorial(){
     }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
 
     var thead = document.querySelector('#sec-historial table thead tr');
-    if (thead) thead.innerHTML = '<th style="width:20px;"></th><th>Fecha</th><th>Cuadrilla</th><th>Cliente / OT</th><th>Tipo</th><th>Técnico</th>';
+    if (thead) thead.innerHTML = '<th style="width:20px;"></th><th>Fecha</th><th>Tipo</th><th>Cuadrilla</th><th>Cliente / Nodo · OT</th><th>Trabajo</th><th>Técnico</th>';
 
     var tbody = document.getElementById('hist-tbody');
-    if (!asigs.length) { tbody.innerHTML='<tr><td colspan="6">'+empty('Sin asignaciones con esos filtros')+'</td></tr>'; return; }
+    if (!asigs.length) { tbody.innerHTML='<tr><td colspan="7">'+empty('Sin registros con esos filtros')+'</td></tr>'; return; }
 
     tbody.innerHTML = asigs.map(function(a){
       var cuad = getCuad(a.cuadrillaId);
+      var esRI = a.tipoRegistro === 'redInterna';
+
+      // Badge diferenciador
+      var badgeHTML = esRI
+        ? '<span class="badge badge-green" style="font-size:10px;">🖧 Red Interna</span>'
+        : '<span class="badge badge-blue"  style="font-size:10px;">👤 Cliente</span>';
 
       // Materiales para el panel expandido
       var matsDetalle = (a.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
@@ -9879,26 +9931,32 @@ function renderHistorial(){
         ? '<div style="margin-top:6px;font-size:10px;color:var(--amber);background:var(--amber-light);border-radius:4px;padding:3px 7px;display:inline-block;">✏️ Editado por '+esc(a.editadoPor)+' · '+fmtDT(a.fechaEdicion)+'</div>'
         : '';
 
-      // Datos extra en panel
+      // Datos extra distintos según tipo
       var extraHTML = '';
-      if(a.dir)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📍 '+esc(a.dir)+'</div>';
-      if(a.idCliente) extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🪪 ID: '+esc(a.idCliente)+'</div>';
-      if(a.ip)        extraHTML += '<div style="font-size:12px;color:var(--ink2);font-family:monospace;margin-bottom:2px;">🌐 '+esc(a.ip)+'</div>';
-      if(a.cto)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📡 CTO: '+esc(a.cto)+'</div>';
-      if(a.luz1490)   extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🔆 1490: '+esc(a.luz1490)+' dBm</div>';
-      if(a.luz1550)   extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🔆 1550: '+esc(a.luz1550)+' dBm</div>';
-      if(a.obs)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-top:4px;padding:6px 8px;background:rgba(0,0,0,.04);border-radius:var(--r);">📝 '+esc(a.obs)+'</div>';
+      if (esRI) {
+        if(a.obs) extraHTML += '<div style="font-size:12px;color:var(--ink2);padding:6px 8px;background:rgba(0,0,0,.04);border-radius:var(--r);">📝 '+esc(a.obs)+'</div>';
+      } else {
+        if(a.dir)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📍 '+esc(a.dir)+'</div>';
+        if(a.idCliente) extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🪪 ID: '+esc(a.idCliente)+'</div>';
+        if(a.ip)        extraHTML += '<div style="font-size:12px;color:var(--ink2);font-family:monospace;margin-bottom:2px;">🌐 '+esc(a.ip)+'</div>';
+        if(a.cto)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">📡 CTO: '+esc(a.cto)+'</div>';
+        if(a.luz1490)   extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🔆 1490: '+esc(a.luz1490)+' dBm</div>';
+        if(a.luz1550)   extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px;">🔆 1550: '+esc(a.luz1550)+' dBm</div>';
+        if(a.obs)       extraHTML += '<div style="font-size:12px;color:var(--ink2);margin-top:4px;padding:6px 8px;background:rgba(0,0,0,.04);border-radius:var(--r);">📝 '+esc(a.obs)+'</div>';
+      }
 
-      var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
-        +'<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\');event.stopPropagation();">📄 PDF</button>'
-        +'<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>'
-        +'<button class="btn btn-sm" onclick="abrirModalEditarMaterialesAdmin(\''+a.id+'\');event.stopPropagation();">✏️ Editar materiales</button>'
-        +'<button class="btn btn-sm btn-red" onclick="anularAsignacion(\''+a.id+'\');event.stopPropagation();">Anular</button>'
-        +'</div>';
+      var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">';
+      if (!esRI) {
+        botonesDetalle += '<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\');event.stopPropagation();">📄 PDF</button>';
+        botonesDetalle += '<button class="btn btn-sm" onclick="abrirModalEditarMaterialesAdmin(\''+a.id+'\');event.stopPropagation();">✏️ Editar materiales</button>';
+        botonesDetalle += '<button class="btn btn-sm btn-red" onclick="anularAsignacion(\''+a.id+'\');event.stopPropagation();">Anular</button>';
+      }
+      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button></div>';
 
       return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
         +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
         +'<td style="font-size:11px;white-space:nowrap;">'+fmtDT(a.fecha)+'</td>'
+        +'<td>'+badgeHTML+'</td>'
         +'<td style="font-size:12px;">'+(cuad?esc(cuad.nombre):'—')+'</td>'
         +'<td><strong style="font-size:13px;">'+esc(a.cliente||'—')+'</strong>'
           +(a.ot?'<span style="font-size:11px;color:var(--ink3);margin-left:6px;">OT: '+esc(a.ot)+'</span>':'')+'</td>'
@@ -9906,17 +9964,14 @@ function renderHistorial(){
         +'<td style="font-size:12px;">'+(a.tecnico||'—')+'</td>'
         +'</tr>'
         +'<tr id="hist-detalle-'+a.id+'" style="display:none;">'
-        +'<td colspan="6" style="padding:0;">'
+        +'<td colspan="7" style="padding:0;">'
         +'<div style="padding:14px 16px 16px 36px;background:var(--bg3);border-bottom:2px solid var(--border);">'
           +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">'
             +'<div>'
               +'<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES ENTREGADOS</div>'
-              +matsDetalle
-              +auditHTML
+              +matsDetalle+auditHTML
             +'</div>'
-            +'<div>'
-              +(extraHTML||'<span style="font-size:12px;color:var(--ink3);">Sin datos adicionales</span>')
-            +'</div>'
+            +'<div>'+(extraHTML||'<span style="font-size:12px;color:var(--ink3);">Sin datos adicionales</span>')+'</div>'
           +'</div>'
           +botonesDetalle
         +'</div>'
