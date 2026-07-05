@@ -774,6 +774,30 @@ select option{background:var(--bg3);color:var(--ink);}
           <div id="asig-rows-container"></div>
           <button class="add-row-btn" id="asig-add-btn" onclick="addAsigRow()">+ Agregar material</button>
         </div>
+
+        <!-- Toggle: Equipos reemplazados -->
+        <div class="card" id="card-reemplazados">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--ink);">🔄 Hubo cambio de equipo</div>
+              <div style="font-size:12px;color:var(--ink3);margin-top:2px;">Activar si se retiró un equipo del cliente para reemplazarlo</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <div style="position:relative;width:44px;height:24px;">
+                <input type="checkbox" id="toggle-reemplazados" onchange="toggleFormReemplazados()" style="opacity:0;width:0;height:0;position:absolute;">
+                <span id="toggle-reemplazados-track" onclick="document.getElementById('toggle-reemplazados').click()" style="position:absolute;inset:0;background:var(--border);border-radius:24px;cursor:pointer;transition:.2s;"></span>
+                <span id="toggle-reemplazados-thumb" style="position:absolute;left:2px;top:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+              </div>
+              <span id="toggle-reemplazados-label" style="font-size:13px;color:var(--ink3);">Inactivo</span>
+            </label>
+          </div>
+          <!-- Formulario de equipos reemplazados (oculto por defecto) -->
+          <div id="form-reemplazados" style="display:none;margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem;">
+            <div id="reemplazados-rows-container"></div>
+            <button class="add-row-btn" id="reemplazados-add-btn" onclick="addReemplazadoRow()" style="margin-top:6px;">+ Agregar equipo reemplazado</button>
+          </div>
+        </div>
+
         <!-- Espacio extra para que el nav inferior no tape los materiales -->
         <div style="height:20px;"></div>
       </section>
@@ -2418,11 +2442,18 @@ select option{background:var(--bg3);color:var(--ink);}
       <span style="font-size:11px;color:var(--ink3);margin-top:3px;">Las cantidades se cargan desde Kardex → Ingreso</span>
     </div></div>
     <input type="hidden" id="mat-edit-id">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;padding:.75rem;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.6rem;padding:.75rem;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border);">
       <input type="checkbox" id="mat-require-mac" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
       <div>
         <label for="mat-require-mac" style="font-size:13px;font-weight:600;cursor:pointer;">Este material requiere MAC</label>
         <p style="font-size:11px;color:var(--ink3);margin:0;">Activar para equipos con dirección MAC única (routers, ONTs, switches, etc.)</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;padding:.75rem;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border);">
+      <input type="checkbox" id="mat-require-serie" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
+      <div>
+        <label for="mat-require-serie" style="font-size:13px;font-weight:600;cursor:pointer;">Este material requiere N.º de Serie</label>
+        <p style="font-size:11px;color:var(--ink3);margin:0;">Activar para equipos con número de serie (ONTs, fuentes, amplificadores, etc.)</p>
       </div>
     </div>
     <div class="btn-row">
@@ -5814,12 +5845,12 @@ function removeRiMaterialRow(uid) {
 
 function setRiMat(uid, matId) {
   var r = riMaterialRows.find(function(x){ return x.uid===uid; });
-  if (r) r.matId = matId;
+  if (r) { r.matId = matId; r.unidades = []; renderRiMaterialRows(); }
 }
 
 function setRiQty(uid, qty) {
   var r = riMaterialRows.find(function(x){ return x.uid===uid; });
-  if (r) r.qty = Math.max(1, parseInt(qty)||1);
+  if (r) { r.qty = Math.max(1, parseInt(qty)||1); r.unidades = []; renderRiMaterialRows(); }
 }
 
 function renderRiMaterialRows() {
@@ -5831,18 +5862,57 @@ function renderRiMaterialRows() {
   }
   cont.innerHTML = riMaterialRows.map(function(row) {
     var mat = row.matId ? getMat(row.matId) : null;
-    var label = mat ? mat.nombre : 'Seleccionar material...';
     var mats = materialesList();
     var opts = mats.map(function(m){
       return '<option value="'+m.id+'"'+(row.matId===m.id?' selected':'')+'>'+esc(m.nombre)+'</option>';
     }).join('');
+    var needsMAC   = mat && (mat.requireMAC || mat.requireMac);
+    var needsSerie = mat && mat.requireSerie;
+    var needsUnits = needsMAC || needsSerie;
+    if(needsUnits){
+      if(!row.unidades) row.unidades=[];
+      while(row.unidades.length<row.qty) row.unidades.push({mac:'',serie:''});
+      if(row.unidades.length>row.qty) row.unidades=row.unidades.slice(0,row.qty);
+    }
+    var unidadesHTML='';
+    if(needsUnits && mat){
+      unidadesHTML='<div style="margin-top:6px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">IDENTIFICADORES — '+esc(mat.nombre).toUpperCase()+'</div>';
+      for(var i=0;i<row.qty;i++){
+        var u=row.unidades[i]||{mac:'',serie:''};
+        unidadesHTML+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:'+(i<row.qty-1?'6px':'0')+';flex-wrap:wrap;">'
+          +'<span style="font-size:11px;font-weight:700;color:var(--ink3);min-width:20px;">'+(i+1)+'.</span>';
+        if(needsMAC){
+          var mv=u.mac||''; var mok=mv.replace(/[^0-9a-fA-F]/g,'').length===12;
+          unidadesHTML+='<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:160px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">MAC</span>'
+            +'<input type="text" value="'+mv+'" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" '
+              +'oninput="setAsigUnit(\'ri\',\''+row.uid+'\','+i+',\'mac\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(mv&&mok?'var(--green)':'var(--border)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;">'
+            +(mv&&mok?'<span style="color:var(--green);font-size:10px;">✓</span>':'')
+          +'</div>';
+        }
+        if(needsSerie){
+          var sv=u.serie||'';
+          unidadesHTML+='<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:140px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Serie</span>'
+            +'<input type="text" value="'+sv+'" placeholder="N.º de serie" '
+              +'oninput="setAsigUnit(\'ri\',\''+row.uid+'\','+i+',\'serie\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(sv?'var(--green)':'var(--border)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;">'
+            +(sv?'<span style="color:var(--green);font-size:10px;">✓</span>':'')
+          +'</div>';
+        }
+        unidadesHTML+='</div>';
+      }
+      unidadesHTML+='</div>';
+    }
     return '<div class="mat-row" style="grid-template-columns:1fr 70px auto;margin-bottom:6px;">'
-      + '<select onchange="setRiMat(\''+row.uid+'\',this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);">'
-      + '<option value="">-- Seleccionar material --</option>'+opts
-      + '</select>'
-      + '<input type="number" min="1" value="'+row.qty+'" onchange="setRiQty(\''+row.uid+'\',this.value)" style="width:64px;">'
-      + '<button class="remove-row-btn" onclick="removeRiMaterialRow(\''+row.uid+'\')">✕</button>'
-      + '</div>';
+      +'<select onchange="setRiMat(\''+row.uid+'\',this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);">'
+      +'<option value="">-- Seleccionar material --</option>'+opts
+      +'</select>'
+      +'<input type="number" min="1" value="'+row.qty+'" onchange="setRiQty(\''+row.uid+'\',this.value)" style="width:64px;">'
+      +'<button class="remove-row-btn" onclick="removeRiMaterialRow(\''+row.uid+'\')">✕</button>'
+      +'</div>'+unidadesHTML;
   }).join('');
 }
 
@@ -5872,10 +5942,35 @@ function guardarRedInterna() {
   var ahora = new Date();
   var fin = String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
 
-  // Materiales como array estándar (igual que asignaciones a clientes)
+  // Validar MAC/Serie requeridos antes de guardar
+  var riMacErrs = [];
+  riMaterialRows.filter(function(r){ return r.matId && r.qty > 0; }).forEach(function(r){
+    var mat = getMat(r.matId); if(!mat) return;
+    var needsMAC   = mat.requireMAC || mat.requireMac;
+    var needsSerie = mat.requireSerie;
+    if(!needsMAC && !needsSerie) return;
+    var unidades = r.unidades || [];
+    for(var i=0;i<r.qty;i++){
+      var u = unidades[i] || {};
+      if(needsMAC && (u.mac||'').replace(/[^0-9a-fA-F]/g,'').length!==12)
+        riMacErrs.push((mat.nombre||'?')+' — Unidad '+(i+1)+': MAC inválida');
+      if(needsSerie && !(u.serie||'').trim())
+        riMacErrs.push((mat.nombre||'?')+' — Unidad '+(i+1)+': Serie vacía');
+    }
+  });
+  if(riMacErrs.length){ toast('Completá los campos requeridos:<br>'+riMacErrs.slice(0,3).join('<br>'), 'error'); return; }
+
+  // Materiales como array estándar incluyendo unidades con MAC/Serie
   var matsArray = riMaterialRows
     .filter(function(r){ return r.matId && r.qty > 0; })
-    .map(function(r){ return { matId: r.matId, qty: r.qty }; });
+    .map(function(r){
+      var mat = getMat(r.matId);
+      var entry = { matId: r.matId, qty: r.qty };
+      if(mat && (mat.requireMAC || mat.requireMac || mat.requireSerie) && r.unidades && r.unidades.length){
+        entry.unidades = r.unidades.slice(0,r.qty).map(function(u){ return {mac:u.mac||'',serie:u.serie||''}; });
+      }
+      return entry;
+    });
 
   var cid        = currentUser.cuadrillaId;
   var fechaLocal = nowISOLocal();
@@ -8827,10 +8922,55 @@ function renderAsigRows(){
     var stk=row.matId?(cid?getStock(cid,row.matId):0):'—';
     var sc=(typeof stk==='number'&&stk===0)?'var(--red)':(typeof stk==='number'&&stk<10)?'var(--amber)':'var(--green)';
     var label=mat?mat.nombre:'— Buscar material —';
-    var needsMACAsig = mat && mat.requireMac;
-    var macAsigVal = row.mac || '';
-    var macAsigRaw = macAsigVal.replace(/[^0-9a-fA-F]/g,'');
-    var macAsigValid = macAsigRaw.length===12;
+    var needsMAC   = mat && (mat.requireMAC  || mat.requireMac);
+    var needsSerie = mat && mat.requireSerie;
+    var needsUnits = needsMAC || needsSerie;
+
+    // Asegurar que row.unidades tenga la cantidad correcta de slots
+    if(needsUnits){
+      var qty = row.qty || 1;
+      if(!row.unidades) row.unidades = [];
+      while(row.unidades.length < qty) row.unidades.push({mac:'',serie:''});
+      if(row.unidades.length > qty) row.unidades = row.unidades.slice(0,qty);
+    }
+
+    var unidadesHTML = '';
+    if(needsUnits && mat){
+      var qty = row.qty || 1;
+      unidadesHTML = '<div style="margin-top:6px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">IDENTIFICADORES — '+esc(mat.nombre).toUpperCase()+'</div>';
+      for(var i=0;i<qty;i++){
+        var u = row.unidades[i] || {mac:'',serie:''};
+        var macVal   = u.mac   || '';
+        var serieVal = u.serie || '';
+        var macValid = macVal.replace(/[^0-9a-fA-F]/g,'').length===12;
+        unidadesHTML += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:'+(i<qty-1?'6px':'0')+';flex-wrap:wrap;">'
+          +'<span style="font-size:11px;font-weight:700;color:var(--ink3);min-width:20px;">'+(i+1)+'.</span>';
+        if(needsMAC){
+          unidadesHTML += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:160px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">MAC</span>'
+            +'<input type="text" value="'+macVal+'" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" '
+              +'oninput="setAsigUnit(\'ar\',\''+row.uid+'\','+i+',\'mac\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(macVal&&macValid?'var(--green)':'var(--border)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;" '
+              +'autocomplete="off" spellcheck="false">'
+            +(macVal&&macValid?'<span style="color:var(--green);font-size:10px;">✓</span>':'')
+          +'</div>';
+        }
+        if(needsSerie){
+          unidadesHTML += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:140px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Serie</span>'
+            +'<input type="text" value="'+serieVal+'" placeholder="N.º de serie" '
+              +'oninput="setAsigUnit(\'ar\',\''+row.uid+'\','+i+',\'serie\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(serieVal?'var(--green)':'var(--border)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;" '
+              +'autocomplete="off" spellcheck="false">'
+            +(serieVal?'<span style="color:var(--green);font-size:10px;">✓</span>':'')
+          +'</div>';
+        }
+        unidadesHTML += '</div>';
+      }
+      unidadesHTML += '</div>';
+    }
+
     return '<div class="mat-row" style="grid-template-columns:1fr auto auto auto;">'
       +'<div style="position:relative;">'
         +'<div onclick="abrirBuscadorFila(\'ar\',\''+row.uid+'\')" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(mat?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
@@ -8847,24 +8987,31 @@ function renderAsigRows(){
       +'<input type="number" min="1" value="'+row.qty+'" onchange="setARQ(\''+row.uid+'\',this.value)" style="width:64px;">'
       +'<button class="remove-row-btn" onclick="removeAsigRow(\''+row.uid+'\')">✕</button>'
       +'</div>'
-      +(needsMACAsig
-        ? '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding:4px 2px;">'
-            +'<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><rect x="2" y="5" width="16" height="10" rx="2" stroke="var(--accent)" stroke-width="1.5"/><path d="M6 10h.01M10 10h.01M14 10h.01" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>'
-            +'<input type="text" id="mac-ar-'+row.uid+'" value="'+macAsigVal+'" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" '
-              +'oninput="setARMAC(\''+row.uid+'\',this.value)" '
-              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(macAsigValid?'var(--green)':'var(--amber)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;" '
-              +'autocomplete="off" spellcheck="false">'
-            +'<button onclick="abrirScanner(\'ar\',\''+row.uid+'\')" title="Escanear con cámara" '
-              +'style="background:var(--accent);border:none;border-radius:6px;padding:5px 7px;cursor:pointer;display:flex;align-items:center;color:#fff;flex-shrink:0;">'
-              +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M2 7V4a1 1 0 011-1h3M2 17v3a1 1 0 001 1h3M22 7V4a1 1 0 00-1-1h-3M22 17v3a1 1 0 01-1 1h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="7" y="7" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>'
-            +'</button>'
-            +(macAsigVal&&macAsigValid ? '<span style="font-size:10px;color:var(--green);">✓</span>' : '')
-          +'</div>'
-        : '');
+      +unidadesHTML;
   }).join('');
 }
-function setARM(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r){r.matId=v;renderAsigRows();}}
-function setARQ(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r)r.qty=parseInt(v)||1;}
+
+// Actualiza MAC o Serie de una unidad específica de una fila (contexto 'ar' o 'ri')
+function setAsigUnit(ctx, rowUid, idx, campo, valor) {
+  var rows = ctx==='ar' ? asigRows : ctx==='repl' ? reemplazadosRows : riMaterialRows;
+  var row = rows.find(function(r){ return r.uid===rowUid; });
+  if (!row) return;
+  if (!row.unidades) row.unidades = [];
+  while (row.unidades.length <= idx) row.unidades.push({mac:'',serie:''});
+  if (campo === 'mac') {
+    var raw = valor.replace(/[^0-9a-fA-F]/g,'').slice(0,12);
+    var fmt = raw.match(/.{1,2}/g)||[];
+    row.unidades[idx].mac = fmt.join(':').toUpperCase();
+  } else {
+    row.unidades[idx].serie = valor;
+  }
+}
+
+function setARM(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r){r.matId=v;r.unidades=[];renderAsigRows();}}
+function setARQ(u,v){
+  var r=asigRows.find(function(x){return x.uid===u;});
+  if(r){ r.qty=parseInt(v)||1; r.unidades=[]; renderAsigRows(); }
+}
 function setARMAC(u,v){
   var r=asigRows.find(function(x){return x.uid===u;});
   if(!r)return;
@@ -8894,6 +9041,33 @@ function registrarAsignacion(){
   }
   var validos = asigRows.filter(function(r){ return r.matId && r.qty > 0; });
   // Materiales opcionales — se permite guardar sin materiales (trabajo solo de tiempo/servicio)
+
+  // Validar MAC/Serie requeridos por unidad
+  var macSerieErrs = [];
+  validos.forEach(function(r){
+    var mat = getMat(r.matId); if (!mat) return;
+    var needsMAC   = mat.requireMAC  || mat.requireMac;
+    var needsSerie = mat.requireSerie;
+    if (!needsMAC && !needsSerie) return;
+    var unidades = r.unidades || [];
+    for (var i = 0; i < r.qty; i++) {
+      var u = unidades[i] || {};
+      if (needsMAC) {
+        var macRaw = (u.mac||'').replace(/[^0-9a-fA-F]/g,'');
+        if (macRaw.length !== 12) {
+          macSerieErrs.push((mat.nombre||'?')+' — Unidad '+(i+1)+': MAC inválida o vacía');
+        }
+      }
+      if (needsSerie && !(u.serie||'').trim()) {
+        macSerieErrs.push((mat.nombre||'?')+' — Unidad '+(i+1)+': Serie vacía');
+      }
+    }
+  });
+  if (macSerieErrs.length) {
+    toast('Completá los campos requeridos:<br>'+macSerieErrs.slice(0,3).join('<br>')+(macSerieErrs.length>3?'<br>...y '+(macSerieErrs.length-3)+' más':''), 'error');
+    return;
+  }
+
   var errs=[];
   validos.forEach(function(r){var s=getStock(cid,r.matId),m=getMat(r.matId);if(s<r.qty)errs.push((m?m.nombre:'?')+' (disp:'+s+')');});
   if(errs.length){toast('Stock insuficiente: '+errs.join(', '),'error');return;}
@@ -8918,14 +9092,45 @@ function registrarAsignacion(){
         updates['kardex/'+kid]={fecha:nowISO(),tipo:'egreso',matId:mid,qty:r.qty,
           ref:'CLIENTE:'+nombre,resp:document.getElementById('cli-tecnico').value,
           obs:'Asignación',cuadrillaId:cid,saldo:nuevo};
-        return {matId:mid,qty:r.qty};
+        // Incluir unidades con MAC/Serie si el material las requiere
+        var mat=getMat(mid);
+        var entry={matId:mid,qty:r.qty};
+        if(mat&&(mat.requireMAC||mat.requireMac||mat.requireSerie)&&r.unidades&&r.unidades.length){
+          entry.unidades=r.unidades.slice(0,r.qty).map(function(u){return{mac:u.mac||'',serie:u.serie||''};});
+        }
+        return entry;
       });
       var aid=uid();
-      // FIX HORA ESTRICTA: la hora de fin se recalcula AQUÍ, en el instante
-      // real de guardado (tras confirmar el modal), no en el instante en que
-      // se abrió el formulario. Así el registro siempre refleja el tiempo
-      // real transcurrido, sin posibilidad de editarlo manualmente.
       var horaFinReal=(function(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');})();
+
+      // Validar y recolectar equipos reemplazados
+      var chkRepl = document.getElementById('toggle-reemplazados');
+      var replActivo = chkRepl && chkRepl.checked;
+      var replValidos = replActivo ? reemplazadosRows.filter(function(r){ return r.matId && r.qty > 0; }) : [];
+      var replErrs = [];
+      replValidos.forEach(function(r){
+        var mat = getMat(r.matId); if(!mat) return;
+        var needsMAC   = mat.requireMAC || mat.requireMac;
+        var needsSerie = mat.requireSerie;
+        if(!needsMAC && !needsSerie) return;
+        var unidades = r.unidades || [];
+        for(var i=0;i<r.qty;i++){
+          var u=unidades[i]||{};
+          if(needsMAC && (u.mac||'').replace(/[^0-9a-fA-F]/g,'').length!==12)
+            replErrs.push('Reempl. '+(mat.nombre||'?')+' Unidad '+(i+1)+': MAC inválida');
+          if(needsSerie && !(u.serie||'').trim())
+            replErrs.push('Reempl. '+(mat.nombre||'?')+' Unidad '+(i+1)+': Serie vacía');
+        }
+      });
+      if(replErrs.length){ toast('Completá los campos del equipo reemplazado: '+replErrs.slice(0,2).join(', '), 'error'); return; }
+      var equiposReemplazados = replValidos.map(function(r){
+        var mat = getMat(r.matId);
+        var entry = { matId: r.matId, nombreRef: mat?mat.nombre:'', qty: r.qty };
+        if(r.unidades && r.unidades.length)
+          entry.unidades = r.unidades.slice(0,r.qty).map(function(u){ return {mac:u.mac||'',serie:u.serie||''}; });
+        return entry;
+      });
+
       var asig={id:aid, fecha:nowISOLocal(), tsRegistro:Date.now(), cliente:nombre,
         tel:document.getElementById('cli-tel').value,
         dir:document.getElementById('cli-dir').value,
@@ -8940,7 +9145,8 @@ function registrarAsignacion(){
         horaInicio:horaInicio||'',
         horaFin:horaFinReal,
         obs:document.getElementById('cli-obs').value,
-        materiales:matsData,cuadrillaId:cid};
+        materiales:matsData,cuadrillaId:cid,
+        equiposReemplazados:equiposReemplazados.length?equiposReemplazados:null};
       updates['asignaciones/'+aid]=asig;
       updates['_lastUpdate']=Date.now();
 
@@ -9202,12 +9408,118 @@ function guardarEdicionMateriales() {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// EQUIPOS REEMPLAZADOS — Bloque B
+// Registro documental de equipos retirados del cliente al hacer un cambio.
+// No afecta inventario. Aparece en PDF, resumen de texto e Historial.
+// ══════════════════════════════════════════════════════════════════════════
+var reemplazadosRows = []; // [{uid, matId, qty, unidades:[{mac,serie}]}]
+
+function toggleFormReemplazados() {
+  var chk    = document.getElementById('toggle-reemplazados');
+  var form   = document.getElementById('form-reemplazados');
+  var track  = document.getElementById('toggle-reemplazados-track');
+  var thumb  = document.getElementById('toggle-reemplazados-thumb');
+  var label  = document.getElementById('toggle-reemplazados-label');
+  var activo = chk.checked;
+  form.style.display  = activo ? 'block' : 'none';
+  track.style.background = activo ? 'var(--accent)' : 'var(--border)';
+  thumb.style.transform  = activo ? 'translateX(20px)' : 'translateX(0)';
+  label.textContent      = activo ? 'Activo' : 'Inactivo';
+  label.style.color      = activo ? 'var(--accent)' : 'var(--ink3)';
+  if (activo && !reemplazadosRows.length) {
+    reemplazadosRows = [{uid: uid(), matId: '', qty: 1, unidades: []}];
+    renderReemplazadosRows();
+  }
+}
+
+function addReemplazadoRow() {
+  if (reemplazadosRows.length >= 10) { toast('Máximo 10 equipos reemplazados','info'); return; }
+  reemplazadosRows.push({uid: uid(), matId: '', qty: 1, unidades: []});
+  renderReemplazadosRows();
+}
+function removeReemplazadoRow(u) {
+  reemplazadosRows = reemplazadosRows.filter(function(r){ return r.uid !== u; });
+  renderReemplazadosRows();
+}
+function setReplMat(u, matId) {
+  var r = reemplazadosRows.find(function(x){ return x.uid===u; });
+  if (r) { r.matId = matId; r.unidades = []; renderReemplazadosRows(); }
+}
+function setReplQty(u, qty) {
+  var r = reemplazadosRows.find(function(x){ return x.uid===u; });
+  if (r) { r.qty = Math.max(1,parseInt(qty)||1); r.unidades = []; renderReemplazadosRows(); }
+}
+
+function renderReemplazadosRows() {
+  var cont = document.getElementById('reemplazados-rows-container');
+  if (!cont) return;
+  cont.innerHTML = reemplazadosRows.map(function(row){
+    var mat = row.matId ? getMat(row.matId) : null;
+    var mats = materialesList();
+    var opts = mats.map(function(m){
+      return '<option value="'+m.id+'"'+(row.matId===m.id?' selected':'')+'>'+esc(m.nombre)+'</option>';
+    }).join('');
+    var needsMAC   = mat && (mat.requireMAC || mat.requireMac);
+    var needsSerie = mat && mat.requireSerie;
+    var needsUnits = needsMAC || needsSerie;
+    if(needsUnits){
+      if(!row.unidades) row.unidades=[];
+      while(row.unidades.length<row.qty) row.unidades.push({mac:'',serie:''});
+      if(row.unidades.length>row.qty) row.unidades=row.unidades.slice(0,row.qty);
+    }
+    var unidadesHTML='';
+    if(needsUnits && mat){
+      unidadesHTML='<div style="margin-top:6px;padding:8px 10px;background:rgba(249,115,22,.06);border-radius:8px;border:1px solid rgba(249,115,22,.2);">'
+        +'<div style="font-size:10px;font-weight:700;color:#c2410c;letter-spacing:.06em;margin-bottom:6px;">ID EQUIPO REEMPLAZADO — '+esc(mat.nombre).toUpperCase()+'</div>';
+      for(var i=0;i<row.qty;i++){
+        var u=row.unidades[i]||{mac:'',serie:''};
+        unidadesHTML+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:'+(i<row.qty-1?'6px':'0')+';flex-wrap:wrap;">'
+          +'<span style="font-size:11px;font-weight:700;color:#c2410c;min-width:20px;">'+(i+1)+'.</span>';
+        if(needsMAC){
+          var mv=u.mac||''; var mok=mv.replace(/[^0-9a-fA-F]/g,'').length===12;
+          unidadesHTML+='<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:160px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">MAC</span>'
+            +'<input type="text" value="'+mv+'" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" '
+              +'oninput="setAsigUnit(\'repl\',\''+row.uid+'\','+i+',\'mac\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(mv&&mok?'var(--green)':'var(--border)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;">'
+            +(mv&&mok?'<span style="color:var(--green);font-size:10px;">✓</span>':'')
+          +'</div>';
+        }
+        if(needsSerie){
+          var sv=u.serie||'';
+          unidadesHTML+='<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:140px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Serie</span>'
+            +'<input type="text" value="'+sv+'" placeholder="N.º de serie" '
+              +'oninput="setAsigUnit(\'repl\',\''+row.uid+'\','+i+',\'serie\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(sv?'var(--green)':'var(--border)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;">'
+            +(sv?'<span style="color:var(--green);font-size:10px;">✓</span>':'')
+          +'</div>';
+        }
+        unidadesHTML+='</div>';
+      }
+      unidadesHTML+='</div>';
+    }
+    return '<div class="mat-row" style="grid-template-columns:1fr 70px auto;margin-bottom:6px;">'
+      +'<select onchange="setReplMat(\''+row.uid+'\',this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);">'
+      +'<option value="">-- Equipo reemplazado --</option>'+opts
+      +'</select>'
+      +'<input type="number" min="1" value="'+row.qty+'" onchange="setReplQty(\''+row.uid+'\',this.value)" style="width:64px;">'
+      +'<button class="remove-row-btn" onclick="removeReemplazadoRow(\''+row.uid+'\')">✕</button>'
+      +'</div>'+unidadesHTML;
+  }).join('');
+}
+
 function limpiarAsignacion(){
   ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-cto','cli-luz1490','cli-luz1550','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
   var alertaBox = document.getElementById('cli-alerta-reincidencia');
   if (alertaBox) { alertaBox.style.display = 'none'; alertaBox.innerHTML = ''; }
   asigRows=[{uid:uid(),matId:'',qty:1}];
   renderAsigRows();
+  // Resetear equipos reemplazados
+  reemplazadosRows = [];
+  var chk = document.getElementById('toggle-reemplazados');
+  if (chk) { chk.checked = false; toggleFormReemplazados(); }
   // Re-auto-llenar hora de finalización tras limpiar
   var horaFinEl=document.getElementById('cli-hora-fin');
   if(horaFinEl){
@@ -9253,10 +9565,47 @@ function generarPDF(asig){
     if(i%2===0){doc.setFillColor(249,248,245);doc.rect(L,y,170,6.5,'F');}
     doc.text(mat.codigo||'—',L+2,y+4.5);doc.text(mat.nombre,L+25,y+4.5);
     doc.text(mat.unidad,L+115,y+4.5);doc.setFont('helvetica','bold');doc.text(String(m.qty),L+150,y+4.5);y+=6.5;
+    // MAC/Serie por unidad
+    if(m.unidades&&m.unidades.length){
+      m.unidades.forEach(function(u,ui){
+        if(!u.mac&&!u.serie) return;
+        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+        var line='  ['+(ui+1)+']';
+        if(u.mac)   line+='  MAC: '+u.mac;
+        if(u.serie) line+='  Serie: '+u.serie;
+        doc.text(line,L+4,y+3.5);y+=4.5;
+      });
+    }
   });
   y+=4;doc.setFillColor(232,68,10);doc.rect(L,y,170,7,'F');
   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
-  doc.text('Total: '+(asig.materiales||[]).length+' líneas',L+4,y+4.8);y+=14;
+  doc.text('Total: '+(asig.materiales||[]).length+' líneas',L+4,y+4.8);y+=10;
+
+  // Equipos reemplazados (solo si existen)
+  if(asig.equiposReemplazados&&asig.equiposReemplazados.length){
+    y+=4;sec('EQUIPOS REEMPLAZADOS');
+    doc.setFillColor(200,60,10);doc.rect(L,y,170,7,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
+    doc.text('Equipo retirado',L+2,y+4.8);doc.text('Cant.',L+120,y+4.8);y+=7;
+    asig.equiposReemplazados.forEach(function(e,i){
+      doc.setTextColor(30,30,30);doc.setFont('helvetica','normal');doc.setFontSize(9);
+      if(i%2===0){doc.setFillColor(255,240,235);doc.rect(L,y,170,6.5,'F');}
+      doc.text(e.nombreRef||'—',L+2,y+4.5);
+      doc.setFont('helvetica','bold');doc.text(String(e.qty||1),L+122,y+4.5);y+=6.5;
+      if(e.unidades&&e.unidades.length){
+        e.unidades.forEach(function(u,ui){
+          if(!u.mac&&!u.serie) return;
+          doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+          var line='  ['+(ui+1)+']';
+          if(u.mac)   line+='  MAC: '+u.mac;
+          if(u.serie) line+='  Serie: '+u.serie;
+          doc.text(line,L+4,y+3.5);y+=4.5;
+        });
+      }
+    });
+    y+=4;
+  }
+
   if(asig.obs){doc.setTextColor(30,30,30);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observaciones:',L,y);y+=6;doc.setFont('helvetica','normal');doc.splitTextToSize(asig.obs,160).forEach(function(l){doc.text(l,L,y);y+=5;});y+=4;}
   y=Math.max(y,240);
   doc.setDrawColor(200,200,200);doc.setLineWidth(.3);doc.line(L,y,L+60,y);doc.line(130,y,R,y);
@@ -9326,10 +9675,38 @@ function mostrarResumenTextoAsig(asigId) {
   } else {
     mats.forEach(function(m, i){
       var mt = getMat(m.matId);
-      if (mt) lineas.push((i+1)+'. '+mt.nombre+': '+m.qty+' '+mt.unidad);
+      if (!mt) return;
+      lineas.push((i+1)+'. '+mt.nombre+': '+m.qty+' '+mt.unidad);
+      // MAC/Serie por unidad
+      if(m.unidades && m.unidades.length){
+        m.unidades.forEach(function(u, ui){
+          if(!u.mac && !u.serie) return;
+          var line = '   ['+(ui+1)+']';
+          if(u.mac)   line += '  MAC: '+u.mac;
+          if(u.serie) line += '  Serie: '+u.serie;
+          lineas.push(line);
+        });
+      }
     });
     lineas.push('');
     lineas.push('Total items: '+mats.length);
+  }
+  // Equipos reemplazados
+  if(a.equiposReemplazados && a.equiposReemplazados.length){
+    lineas.push('');
+    lineas.push('── EQUIPOS REEMPLAZADOS ─');
+    a.equiposReemplazados.forEach(function(e, i){
+      lineas.push((i+1)+'. '+( e.nombreRef||'—')+' × '+(e.qty||1));
+      if(e.unidades && e.unidades.length){
+        e.unidades.forEach(function(u, ui){
+          if(!u.mac && !u.serie) return;
+          var line = '   ['+(ui+1)+']';
+          if(u.mac)   line += '  MAC: '+u.mac;
+          if(u.serie) line += '  Serie: '+u.serie;
+          lineas.push(line);
+        });
+      }
+    });
   }
   if (a.obs) {
     lineas.push('');
@@ -9930,6 +10307,60 @@ function updateAlertCount(){
 // ══════════════════════════════════════════════════════
 // HISTORIAL
 // ══════════════════════════════════════════════════════
+// Helper: construye el HTML de materiales con MAC/Serie por unidad para el acordeón
+function buildMatsDetalleHTML(materiales) {
+  var items = (materiales||[]).filter(function(m){ return m.matId; });
+  if (!items.length) return '<span style="font-size:12px;color:var(--ink3);">Sin materiales</span>';
+  return items.map(function(m){
+    var mt = getMat(m.matId);
+    var html = '<div style="padding:2px 0;">'
+      +'<div style="display:flex;align-items:baseline;gap:6px;">'
+        +'<span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">×'+m.qty+'</span>'
+        +'<span style="font-size:12px;color:var(--ink);">'+(mt?esc(mt.nombre):'—')+'</span>'
+        +(mt&&mt.unidad?'<span style="font-size:10px;color:var(--ink3);">'+mt.unidad+'</span>':'')
+      +'</div>';
+    if(m.unidades && m.unidades.length){
+      m.unidades.forEach(function(u, ui){
+        if(!u.mac && !u.serie) return;
+        html += '<div style="font-size:10px;font-family:monospace;color:var(--ink3);padding-left:34px;margin-top:1px;">'
+          +'<span style="color:var(--ink2);">'+(ui+1)+'.</span> '
+          +(u.mac?'<span style="color:var(--accent);">MAC: '+esc(u.mac)+'</span> ':'')
+          +(u.serie?'<span style="color:var(--ink2);">Serie: '+esc(u.serie)+'</span>':'')
+          +'</div>';
+      });
+    }
+    html += '</div>';
+    return html;
+  }).join('');
+}
+
+// Helper: construye el HTML de equipos reemplazados para el acordeón
+function buildReemplazadosHTML(equiposReemplazados) {
+  if(!equiposReemplazados || !equiposReemplazados.length) return '';
+  var html = '<div style="margin-top:8px;padding:8px 10px;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:var(--r);">'
+    +'<div style="font-size:10px;font-weight:700;color:#c2410c;letter-spacing:.06em;margin-bottom:5px;">🔄 EQUIPOS REEMPLAZADOS</div>';
+  equiposReemplazados.forEach(function(e, i){
+    html += '<div style="padding:2px 0;">'
+      +'<div style="display:flex;align-items:baseline;gap:6px;">'
+        +'<span style="font-family:monospace;font-size:11px;font-weight:700;color:#c2410c;min-width:28px;text-align:right;">×'+(e.qty||1)+'</span>'
+        +'<span style="font-size:12px;color:var(--ink);">'+esc(e.nombreRef||'—')+'</span>'
+      +'</div>';
+    if(e.unidades && e.unidades.length){
+      e.unidades.forEach(function(u, ui){
+        if(!u.mac && !u.serie) return;
+        html += '<div style="font-size:10px;font-family:monospace;color:var(--ink3);padding-left:34px;margin-top:1px;">'
+          +'<span style="color:var(--ink2);">'+(ui+1)+'.</span> '
+          +(u.mac?'<span style="color:#c2410c;">MAC: '+esc(u.mac)+'</span> ':'')
+          +(u.serie?'<span style="color:var(--ink2);">Serie: '+esc(u.serie)+'</span>':'')
+          +'</div>';
+      });
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
 function renderHistorial(){
   var cid = currentUser.tipo==='admin' ? null : currentUser.cuadrillaId;
   var esCuad = !!cid;
@@ -9980,14 +10411,8 @@ function renderHistorial(){
         : '<span class="badge badge-blue"  style="font-size:10px;">👤 Cliente</span>';
 
       // Materiales en panel expandido
-      var matsDetalle = (a.materiales||[]).map(function(m){
-        var mt = getMat(m.matId);
-        return mt ? '<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0;">'
-          +'<span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">×'+m.qty+'</span>'
-          +'<span style="font-size:12px;">'+esc(mt.nombre)+'</span>'
-          +'<span style="font-size:10px;color:var(--ink3);">'+mt.unidad+'</span>'
-          +'</div>' : '';
-      }).join('') || '<span style="font-size:12px;color:var(--ink3);">Sin materiales</span>';
+      var matsDetalle = buildMatsDetalleHTML(a.materiales);
+      var reemplazadosDetalle = buildReemplazadosHTML(a.equiposReemplazados);
 
       // Botones según tipo
       var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
@@ -10029,7 +10454,7 @@ function renderHistorial(){
         +'<td colspan="6" style="padding:0;">'
         +'<div style="padding:12px 16px 14px 36px;background:var(--bg3);border-bottom:1px solid var(--border);">'
           +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">'
-            +'<div><div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES</div>'+matsDetalle+estimadoHTML+'</div>'
+            +'<div><div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES</div>'+matsDetalle+estimadoHTML+reemplazadosDetalle+'</div>'
             +'<div>'+extraHTML+'</div>'
           +'</div>'
           +botonesDetalle
@@ -10088,15 +10513,9 @@ function renderHistorial(){
         ? '<span class="badge badge-green" style="font-size:10px;">🖧 Red Interna</span>'
         : '<span class="badge badge-blue"  style="font-size:10px;">👤 Cliente</span>';
 
-      // Materiales para el panel expandido
-      var matsDetalle = (a.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
-        var mt = getMat(m.matId);
-        return '<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0;">'
-          +'<span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">×'+m.qty+'</span>'
-          +'<span style="font-size:12px;color:var(--ink);">'+(mt?esc(mt.nombre):'—')+'</span>'
-          +(mt&&mt.unidad?'<span style="font-size:10px;color:var(--ink3);">'+mt.unidad+'</span>':'')
-          +'</div>';
-      }).join('') || '<span style="font-size:12px;color:var(--ink3);">Sin materiales</span>';
+      // Materiales para el panel expandido (con MAC/Serie por unidad)
+      var matsDetalle = buildMatsDetalleHTML(a.materiales);
+      var reemplazadosDetalleAdmin = buildReemplazadosHTML(a.equiposReemplazados);
 
       // Auditoría si fue editado
       var auditHTML = a.editadoPor
@@ -10141,7 +10560,7 @@ function renderHistorial(){
           +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">'
             +'<div>'
               +'<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES ENTREGADOS</div>'
-              +matsDetalle+auditHTML
+              +matsDetalle+auditHTML+reemplazadosDetalleAdmin
               +(function(){ var ef=getTiempoEfectivo(a); return (ef&&ef.estimado) ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(ef.minutos)+'</div>' : ''; })()
             +'</div>'
             +'<div>'+(extraHTML||'<span style="font-size:12px;color:var(--ink3);">Sin datos adicionales</span>')+'</div>'
@@ -10260,6 +10679,7 @@ function openMatModal(editId){
     document.getElementById('mat-codigo').value='MAT-'+String(n).padStart(3,'0');
     document.getElementById('mat-nombre').value='';document.getElementById('mat-min').value='5';
     document.getElementById('mat-require-mac').checked=false;
+    document.getElementById('mat-require-serie').checked=false;
   }
   openModal('modal-material');
 }
@@ -10272,6 +10692,7 @@ function editMat(id){
   document.getElementById('mat-unidad').value=m.unidad;
   document.getElementById('mat-min').value=m.min;
   document.getElementById('mat-require-mac').checked = !!m.requireMAC;
+  document.getElementById('mat-require-serie').checked = !!m.requireSerie;
   openMatModal(id);
 }
 
@@ -10302,11 +10723,12 @@ function guardarMaterial(){
   }
   // ─────────────────────────────────────────────────────
 
-  var requireMAC = document.getElementById('mat-require-mac').checked;
+  var requireMAC   = document.getElementById('mat-require-mac').checked;
+  var requireSerie = document.getElementById('mat-require-serie').checked;
   var mat={codigo:codigo,nombre:nombre,
     cat:document.getElementById('mat-cat').value,unidad:document.getElementById('mat-unidad').value,
     min:parseInt(document.getElementById('mat-min').value)||5,
-    requireMAC:requireMAC};
+    requireMAC:requireMAC, requireSerie:requireSerie};
   showConfirm(
     editId?'Confirmar actualización':'Confirmar nuevo material',
     '<strong>'+(editId?'Actualizar':'Agregar')+':</strong> '+nombre+'<br>'
