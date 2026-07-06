@@ -10174,7 +10174,18 @@ function mostrarResumenTexto(){
   } else {
     validos.forEach(function(r,i){
       var mat=getMat(r.matId);
-      if(mat) lineas.push((i+1)+'. '+mat.nombre+': '+r.qty+' '+mat.unidad);
+      if(!mat) return;
+      lineas.push((i+1)+'. '+mat.nombre+': '+r.qty+' '+mat.unidad);
+      // MAC/Serie por unidad
+      if(r.unidades && r.unidades.length){
+        r.unidades.forEach(function(u, ui){
+          if(!u.mac && !u.serie) return;
+          var line = '   ['+(ui+1)+']';
+          if(u.mac)   line += '  MAC: '+u.mac;
+          if(u.serie) line += '  Serie: '+u.serie;
+          lineas.push(line);
+        });
+      }
     });
     lineas.push('');
     lineas.push('Total items: '+validos.length);
