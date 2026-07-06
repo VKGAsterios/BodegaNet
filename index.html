@@ -8185,10 +8185,14 @@ function registrarKardex(){
     function(){
       var updates={};
       var movId = uid(); // ID único compartido por todos los materiales de este movimiento
+      var stockAcumulado = {}; // Fix: acumula el stock dentro del mismo movimiento para que
+                                // varias filas del mismo material (ej. varios equipos con MAC
+                                // distinta) se sumen entre sí en vez de sobreescribirse.
       validos.forEach(function(r){
         var mid=r.matId, mat=getMat(mid);
-        var curStock=getStock(cid,mid);
+        var curStock = stockAcumulado.hasOwnProperty(mid) ? stockAcumulado[mid] : getStock(cid,mid);
         var nuevoStock=kardexTipo==='ingreso'?curStock+r.qty:Math.max(0,curStock-r.qty);
+        stockAcumulado[mid] = nuevoStock;
         updates['stocks/'+cid+'/'+mid]=nuevoStock!==undefined?nuevoStock:0;
         var kid=uid();
         var entradaKardex = {
