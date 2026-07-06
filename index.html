@@ -445,6 +445,9 @@ select option{background:var(--bg3);color:var(--ink);}
               <button class="nav-item" onclick="showSection('admin-tipos-ri')">
                 <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h8M4 14h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Tipos de trabajo RI
               </button>
+              <button class="nav-item" onclick="showSection('admin-tipos-trabajo')">
+                <svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h8M4 14h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Tipos de trabajo Clientes
+              </button>
               <button class="nav-item" onclick="showSection('admin-motivos-vf')">
                 <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M10 7v4M10 14h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Motivos visita fallida
               </button>
@@ -950,6 +953,9 @@ select option{background:var(--bg3);color:var(--ink);}
               <div class="field"><label>Cuadrilla</label>
                 <select id="rep-cuadrilla" onchange="renderResumenMateriales()"><option value="">Todas las cuadrillas</option></select>
               </div>
+              <div class="field"><label>Tipo de trabajo</label>
+                <select id="rep-tipotrabajo" onchange="renderResumenMateriales()"><option value="">Todos los tipos</option></select>
+              </div>
               <div class="field"><label>Período</label>
                 <select id="rep-periodo" onchange="toggleRepFechas();renderResumenMateriales()">
                   <option value="hoy">Hoy</option>
@@ -976,7 +982,7 @@ select option{background:var(--bg3);color:var(--ink);}
             </div>
           </div>
           <div class="card">
-            <div class="card-title">Materiales utilizados en el período</div>
+            <div class="card-title" id="rep-resumen-mats-title">Materiales utilizados en el período</div>
             <div id="rep-resumen-mats"><p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Selecciona un período para ver el resumen</p></div>
           </div>
           <div class="card" id="rep-preview-card" style="display:none;">
@@ -1484,6 +1490,10 @@ select option{background:var(--bg3);color:var(--ink);}
     /* ── Tipos de trabajo Red Interna ── */
     "tipos_red_interna": { ".read": true, ".write": true },
 
+    /* ── Tipos de trabajo Clientes (personalizados) y predefinidos ocultados ── */
+    "tipos_trabajo": { ".read": true, ".write": true },
+    "tipos_trabajo_ocultos": { ".read": true, ".write": true },
+
     /* ── Visitas fallidas ── */
     "visitas_fallidas": { ".read": true, ".write": true },
     "motivos_vf":       { ".read": true, ".write": true },
@@ -1904,6 +1914,25 @@ select option{background:var(--bg3);color:var(--ink);}
         </div>
       </section>
 
+      <!-- TIPOS DE TRABAJO CLIENTES (admin gestiona) -->
+      <section class="section" id="sec-admin-tipos-trabajo">
+        <div class="page-header">
+          <div><h2>📋 Tipos de trabajo — Clientes</h2><p>Administra los tipos de trabajo disponibles en el reporte de asignaciones</p></div>
+          <button class="btn btn-accent" onclick="openModalTipoTrabajo()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Nuevo tipo
+          </button>
+        </div>
+        <div class="card">
+          <div id="tipos-trabajo-lista"><p style="color:var(--ink3);font-size:13px;">Cargando...</p></div>
+        </div>
+        <!-- Info -->
+        <div style="margin-top:.75rem;padding:.75rem 1rem;background:rgba(59,130,246,.07);border-radius:var(--r);border:1px solid rgba(59,130,246,.18);">
+          <p style="font-size:12px;color:var(--ink2);">💡 Los tipos agregados aparecerán automáticamente en el selector <strong>"Tipo de trabajo"</strong> del formulario de reportes de asignaciones para todas las cuadrillas. Puedes quitar tipos predefinidos que ya no se realicen — los registros existentes con ese tipo no se ven afectados, y puedes restaurarlos en cualquier momento.</p>
+        </div>
+      </section>
+
+
       <!-- CONTROL HERRAMIENTAS (admin) -->
       <section class="section" id="sec-admin-herramientas">
         <div class="page-header">
@@ -1994,6 +2023,24 @@ select option{background:var(--bg3);color:var(--ink);}
           <div class="btn-row">
             <button class="btn btn-ghost" onclick="closeModal('modal-tipo-ri')">Cancelar</button>
             <button class="btn btn-accent" onclick="guardarTipoRI()">Guardar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Tipo de trabajo Clientes -->
+      <div class="modal-overlay" id="modal-tipo-trabajo">
+        <div class="modal" style="max-width:420px;">
+          <button class="modal-close" onclick="closeModal('modal-tipo-trabajo')">&#x2715;</button>
+          <h3 id="tipo-trabajo-modal-title" style="margin-bottom:1rem;">Nuevo tipo de trabajo</h3>
+          <div class="form-grid g1">
+            <div class="field"><label>Nombre del tipo *</label>
+              <input type="text" id="tipo-trabajo-nombre" placeholder="Ej: Reconexión por mora" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+          </div>
+          <input type="hidden" id="tipo-trabajo-edit-id">
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="closeModal('modal-tipo-trabajo')">Cancelar</button>
+            <button class="btn btn-accent" onclick="guardarTipoTrabajo()">Guardar</button>
           </div>
         </div>
       </div>
@@ -2167,49 +2214,23 @@ select option{background:var(--bg3);color:var(--ink);}
       <!-- ADMIN: Control Red Interna -->
       <section class="section" id="sec-admin-red-interna">
         <div class="page-header">
-          <div><h2>🖧 Control Red Interna</h2><p>Registros y permisos de acceso</p></div>
+          <div><h2>🖧 Control Red Interna</h2><p>Permisos de acceso por cuadrilla</p></div>
           <button class="btn btn-green" onclick="exportarRedInternaCSV()">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             Exportar CSV
           </button>
         </div>
-        <!-- Pestañas -->
-        <div class="tabs" style="margin-bottom:1rem;">
-          <button class="tab-btn active" onclick="switchAdmRiTab('registros',this)">Registros</button>
-          <button class="tab-btn" onclick="switchAdmRiTab('permisos',this)">Permisos de acceso</button>
+        <!-- Nota: los registros de Red Interna se ven y eliminan ahora desde Historial,
+             junto con las asignaciones a clientes, para evitar tener el mismo dato
+             mostrado en dos lugares distintos. -->
+        <div style="margin-bottom:1rem;padding:.75rem 1rem;background:rgba(59,130,246,.07);border-radius:var(--r);border:1px solid rgba(59,130,246,.18);">
+          <p style="font-size:12px;color:var(--ink2);">💡 Los registros de trabajos en Red Interna se consultan y eliminan ahora desde <strong>Historial</strong>, junto con el resto de asignaciones. Aquí solo se administran los permisos de acceso a la sección.</p>
         </div>
-        <!-- TAB: Registros -->
-        <div id="adm-ri-tab-registros">
-          <div class="card">
-            <div class="form-grid">
-              <div class="field"><label>Cuadrilla</label>
-                <select id="adm-ri-cuad" onchange="renderAdminRedInterna()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                  <option value="">Todas</option>
-                </select>
-              </div>
-              <div class="field"><label>Tipo de trabajo</label>
-                <select id="adm-ri-tipo" onchange="renderAdminRedInterna()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-                  <option value="">Todos los tipos</option>
-                </select>
-              </div>
-              <div class="field"><label>Desde</label>
-                <input type="date" id="adm-ri-desde" onchange="renderAdminRedInterna()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-              </div>
-              <div class="field"><label>Hasta</label>
-                <input type="date" id="adm-ri-hasta" onchange="renderAdminRedInterna()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
-              </div>
-            </div>
-          </div>
-          <div class="card"><div id="adm-ri-lista"></div></div>
-        </div>
-        <!-- TAB: Permisos -->
-        <div id="adm-ri-tab-permisos" style="display:none;">
-          <div class="card">
-            <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">
-              Marca las cuadrillas que tienen acceso a la sección <strong>Red Interna</strong>.
-            </p>
-            <div id="adm-ri-permisos-lista"></div>
-          </div>
+        <div class="card">
+          <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">
+            Marca las cuadrillas que tienen acceso a la sección <strong>Red Interna</strong>.
+          </p>
+          <div id="adm-ri-permisos-lista"></div>
         </div>
       </section>
 
@@ -2928,6 +2949,8 @@ var cache = {
   catalogo_herramientas: {}, // {id: {nombre, descripcion, categoria, activo}}
   redInterna: {},    // {id: {orden, tipo, nodo, tecnico, horaIni, horaFin, obs, materiales, cuadrillaId, fecha}}
   tipos_red_interna: {}, // {id: {nombre, orden}}
+  tipos_trabajo: {},        // {id: {nombre, orden}} — tipos de trabajo personalizados (asignaciones a clientes)
+  tipos_trabajo_ocultos: {}, // {nombreSanitizado: true} — tipos predefinidos que el admin ocultó/eliminó
   motivos_vf: {},        // {id: {nombre, orden}} — motivos de visita fallida
   retiros: {},           // {id: {cliente, numTrabajo, fecha, cuadrillaId, tsRegistro,
                           //       equipos:[{equipoId, matId, nombreRef, cantidad, estado, numCuadre, fechaCuadre}]}}
@@ -4201,7 +4224,7 @@ function abrirModalTiemposDefault() {
   if (label) label.textContent = 'Sector: ' + sector;
   var config = (cache.tiemposDefault[sector]) || {};
   var rows = document.getElementById('tm-default-rows');
-  rows.innerHTML = TIPOS_TRABAJO.map(function(tipo) {
+  rows.innerHTML = tiposTrabajoActivos().map(function(tipo) {
     var val = config[tipo] || '';
     return '<div style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">'
       +'<label style="font-size:13px;color:var(--ink);">'+esc(tipo)+'</label>'
@@ -4220,7 +4243,7 @@ function guardarTiemposDefault() {
   var sector = getSectorActivo();
   if (!sector) { toast('No hay sector activo','error'); return; }
   var config = {};
-  TIPOS_TRABAJO.forEach(function(tipo) {
+  tiposTrabajoActivos().forEach(function(tipo) {
     var inputId = 'tdm-'+tipo.replace(/[^a-zA-Z0-9]/g,'_');
     var el = document.getElementById(inputId);
     if (el && el.value && parseInt(el.value) > 0) {
@@ -5115,7 +5138,6 @@ function initFirebaseListeners() {
     cache.redInterna = snap.val() || {};
     if (currentUser) {
       if (currentUser.tipo==='cuadrilla' && currentSection==='red-interna') renderRedInterna();
-      if (currentUser.tipo==='admin' && currentSection==='admin-red-interna') renderAdminRedInterna();
     }
   });
   // Motivos de visita fallida (dinámicos)
@@ -5128,7 +5150,17 @@ function initFirebaseListeners() {
   db.ref('tipos_red_interna').on('value', function(snap) {
     cache.tipos_red_interna = snap.val() || {};
     poblarSelectTiposRI();
-    if (currentUser && currentUser.tipo==='admin' && currentSection==='admin-red-interna') renderAdminRedInterna();
+  });
+  // Tipos de trabajo — Asignaciones a clientes (dinámicos, editable por admin)
+  db.ref('tipos_trabajo').on('value', function(snap) {
+    cache.tipos_trabajo = snap.val() || {};
+    poblarSelectsTiposTrabajo();
+    if (currentUser && currentUser.tipo==='admin' && currentSection==='admin-tipos-trabajo') renderTiposTrabajo();
+  });
+  db.ref('tipos_trabajo_ocultos').on('value', function(snap) {
+    cache.tipos_trabajo_ocultos = snap.val() || {};
+    poblarSelectsTiposTrabajo();
+    if (currentUser && currentUser.tipo==='admin' && currentSection==='admin-tipos-trabajo') renderTiposTrabajo();
   });
   // Catálogo de herramientas (admin crea, cuadrilla selecciona)
   db.ref('catalogo_herramientas').on('value', function(snap) {
@@ -5195,9 +5227,10 @@ function renderCurrentSection() {
     'admin-herramientas': renderAdminHerramientas,
     'admin-catalogo-herramientas': renderCatalogoHerramientasAdmin,
     'admin-tipos-ri': renderTiposRI,
+    'admin-tipos-trabajo': renderTiposTrabajo,
     'admin-motivos-vf': renderMotivosVF,
     'red-interna': renderRedInterna,
-    'admin-red-interna': renderAdminRedInterna,
+    'admin-red-interna': renderRiPermisos,
     'visitas-fallidas': renderVisitasFallidas,
     'admin-visitas-fallidas': renderAdminVF,
     'visitas-fallidas-cuad': renderVisitasFallidasCuad
@@ -5350,7 +5383,7 @@ function expandNavGroupForSection(section) {
     'inventario':'navg-inventario','alertas':'navg-inventario','historial':'navg-inventario',
     'herramientas':'navg-inventario','red-interna':'navg-inventario',
     'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion',
-    'admin-visitas-fallidas':'navg-gestion','admin-herramientas':'navg-control','admin-catalogo-herramientas':'navg-control','admin-tipos-ri':'navg-control','admin-motivos-vf':'navg-control','admin-red-interna':'navg-control',
+    'admin-visitas-fallidas':'navg-gestion','admin-herramientas':'navg-control','admin-catalogo-herramientas':'navg-control','admin-tipos-ri':'navg-control','admin-tipos-trabajo':'navg-control','admin-motivos-vf':'navg-control','admin-red-interna':'navg-control',
     'admin-logs':'navg-sistema','admin-config':'navg-sistema'
   };
   var targetGroup = sectionToGroup[section];
@@ -6126,67 +6159,9 @@ function verDetalleRI(id) {
 }
 
 // ── VISTA ADMIN ──────────────────────────────────────
-function switchAdmRiTab(tab, btn) {
-  riAdmTabActual = tab;
-  document.querySelectorAll('#sec-admin-red-interna .tab-btn').forEach(function(b){b.classList.remove('active');});
-  if (btn) btn.classList.add('active');
-  document.getElementById('adm-ri-tab-registros').style.display = tab==='registros' ? 'block' : 'none';
-  document.getElementById('adm-ri-tab-permisos').style.display  = tab==='permisos'   ? 'block' : 'none';
-  if (tab === 'registros') renderAdminRedInterna();
-  if (tab === 'permisos')  renderRiPermisos();
-}
-
-function renderAdminRedInterna() {
-  if (!currentUser || currentUser.tipo !== 'admin') return;
-  // Poblar filtro cuadrilla
-  var selC = document.getElementById('adm-ri-cuad');
-  if (selC) {
-    var valC = selC.value;
-    selC.innerHTML = '<option value="">Todas</option>';
-    getCuadrillasFiltradas().forEach(function(cu){
-      var o=document.createElement('option'); o.value=cu.id; o.textContent=cu.nombre;
-      if(cu.id===valC) o.selected=true; selC.appendChild(o);
-    });
-  }
-  var filtroCuad = (document.getElementById('adm-ri-cuad')||{value:''}).value;
-  var filtroTipo = (document.getElementById('adm-ri-tipo')||{value:''}).value;
-  var filtroDesde= (document.getElementById('adm-ri-desde')||{value:''}).value;
-  var filtroHasta= (document.getElementById('adm-ri-hasta')||{value:''}).value;
-  var items = riListFiltrada().filter(function(r) {
-    if (filtroCuad && r.cuadrillaId !== filtroCuad) return false;
-    if (filtroTipo && r.tipo !== filtroTipo) return false;
-    if (filtroDesde && r.fecha < filtroDesde) return false;
-    if (filtroHasta && r.fecha > filtroHasta) return false;
-    return true;
-  }).sort(function(a,b){ return (b.fecha+b.horaIni).localeCompare(a.fecha+a.horaIni); });
-  var lista = document.getElementById('adm-ri-lista');
-  if (!lista) return;
-  if (!items.length) { lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin registros para los filtros seleccionados.</p>'; return; }
-  lista.innerHTML = '<div class="table-wrap"><table>'
-    + '<thead><tr><th>Registrado</th><th>Cuadrilla</th><th>Tipo</th><th># Orden</th><th>Nodo/HE</th><th>Técnico</th><th>Inicio</th><th>Fin</th><th>Dur.</th><th>Mat.</th><th></th></tr></thead>'
-    + '<tbody>' + items.map(function(r) {
-        var cuad = getCuad(r.cuadrillaId);
-        var mCount = r.materiales ? Object.keys(r.materiales).length : 0;
-        var dur = riDuracion(r.horaIni, r.horaFin);
-        var tsReg = r.tsRegistro ? fmtDT(r.tsRegistro) : esc(r.fecha||'—');
-        return '<tr>'
-          + '<td style="font-size:11px;white-space:nowrap;">'+tsReg+'</td>'
-          + '<td style="font-size:12px;">'+esc(cuad?cuad.nombre:'?')+'</td>'
-          + '<td><span class="badge badge-blue" style="font-size:11px;">'+esc(r.tipo)+'</span></td>'
-          + '<td style="font-family:monospace;font-size:12px;">'+esc(r.orden)+'</td>'
-          + '<td style="font-size:12px;">'+esc(r.nodo)+'</td>'
-          + '<td style="font-size:12px;">'+esc(r.tecnico)+'</td>'
-          + '<td style="font-size:12px;font-family:monospace;">'+esc(r.horaIni||'—')+'</td>'
-          + '<td style="font-size:12px;font-family:monospace;">'+esc(r.horaFin||'—')+'</td>'
-          + '<td style="font-size:11px;color:var(--ink3);">'+esc(dur)+'</td>'
-          + '<td>'+(mCount>0?'<span class="badge badge-gray">'+mCount+'</span>':'—')+'</td>'
-          + '<td style="display:flex;gap:3px;">'
-          +   '<button class="btn btn-sm" onclick="verDetalleRI(\''+r.id+'\')">👁</button>'
-          +   '<button class="btn btn-sm btn-accent" onclick="copiarTextoRI(\''+r.id+'\')" title="Copiar"><svg width="11" height="11" viewBox="0 0 20 20" fill="none"><rect x="8" y="2" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="5" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="var(--bg)"/></svg></button>'
-          + '</td>'
-          + '</tr>';
-      }).join('') + '</tbody></table></div>';
-}
+// (switchAdmRiTab y renderAdminRedInterna se retiraron: los registros de Red
+// Interna ahora se consultan y eliminan desde Historial, para no duplicar
+// la misma información en dos secciones distintas.)
 
 function renderRiPermisos() {
   var cont = document.getElementById('adm-ri-permisos-lista');
@@ -7094,6 +7069,151 @@ function eliminarTipoRI(id, nombre) {
 }
 
 // ══════════════════════════════════════════════════════
+// TIPOS DE TRABAJO — Asignaciones a clientes (admin)
+// A diferencia de "Tipos RI", aquí el admin puede eliminar también los
+// tipos predefinidos (TIPOS_TRABAJO) que ya no se realizan, además de
+// agregar nuevos. Los predefinidos "eliminados" se marcan como ocultos
+// en vez de borrarse del código, así se pueden restaurar si fue un error.
+// ══════════════════════════════════════════════════════
+function tipoTrabajoKey(nombre) {
+  return String(nombre).replace(/[.#$\[\]\/]/g, '_');
+}
+
+// Lista combinada activa (predefinidos no ocultos + personalizados), solo nombres, para selects
+function tiposTrabajoActivos() {
+  var ocultos = cache.tipos_trabajo_ocultos || {};
+  var defaults = TIPOS_TRABAJO.filter(function(n){ return !ocultos[tipoTrabajoKey(n)]; });
+  var custom = Object.entries(cache.tipos_trabajo||{})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
+    .sort(function(a,b){ return (a.orden||0)-(b.orden||0) || a.nombre.localeCompare(b.nombre); })
+    .map(function(t){ return t.nombre; });
+  return defaults.concat(custom);
+}
+
+// Lista completa para la pantalla de administración (incluye predefinidos ocultos, para poder restaurarlos)
+function tiposTrabajoParaAdmin() {
+  var ocultos = cache.tipos_trabajo_ocultos || {};
+  var defaults = TIPOS_TRABAJO.map(function(n){
+    return { id: null, nombre: n, predefinido: true, oculto: !!ocultos[tipoTrabajoKey(n)] };
+  });
+  var custom = Object.entries(cache.tipos_trabajo||{})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
+    .sort(function(a,b){ return (a.orden||0)-(b.orden||0) || a.nombre.localeCompare(b.nombre); })
+    .map(function(t){ return { id:t.id, nombre:t.nombre, predefinido:false, oculto:false }; });
+  return defaults.concat(custom);
+}
+
+// Repuebla todos los selects de "Tipo de trabajo" del sistema, preservando el valor actual
+function poblarSelectsTiposTrabajo() {
+  var lista = tiposTrabajoActivos();
+  var opts = '<option value="">-- Seleccionar --</option>' + lista.map(function(n){ return '<option>'+esc(n)+'</option>'; }).join('');
+  var optsConTodos = '<option value="">Todos los tipos</option>' + lista.map(function(n){ return '<option>'+esc(n)+'</option>'; }).join('');
+
+  var cliTipo = document.getElementById('cli-tipo');
+  if (cliTipo) {
+    var cur1 = cliTipo.value;
+    cliTipo.innerHTML = lista.map(function(n){ return '<option'+(cur1===n?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+    if (cur1 && lista.indexOf(cur1) === -1) { // preservar valor aunque haya sido ocultado, para no perder datos de un registro en edición
+      cliTipo.insertAdjacentHTML('beforeend', '<option selected>'+esc(cur1)+'</option>');
+    }
+  }
+  var tmTipo = document.getElementById('tm-tipo');
+  if (tmTipo) {
+    var cur2 = tmTipo.value;
+    tmTipo.innerHTML = optsConTodos;
+    tmTipo.value = cur2;
+  }
+  var repTipo = document.getElementById('rep-tipotrabajo');
+  if (repTipo) {
+    var cur3 = repTipo.value;
+    repTipo.innerHTML = optsConTodos;
+    repTipo.value = cur3;
+  }
+}
+
+function renderTiposTrabajo() {
+  var el = document.getElementById('tipos-trabajo-lista'); if (!el) return;
+  var items = tiposTrabajoParaAdmin();
+  if (!items.length) {
+    el.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin tipos de trabajo definidos.</p>';
+    return;
+  }
+  el.innerHTML = '<div class="table-wrap"><table>'
+    +'<thead><tr><th>#</th><th>Tipo de trabajo</th><th>Origen</th><th>Estado</th><th>Acciones</th></tr></thead>'
+    +'<tbody>'
+    +items.map(function(t,i){
+      var accion;
+      if (t.oculto) {
+        accion = '<button class="btn btn-sm btn-green" onclick="restaurarTipoTrabajo(\''+esc(t.nombre).replace(/'/g,"\\'")+'\')">↩️ Restaurar</button>';
+      } else if (t.predefinido) {
+        accion = '<button class="btn btn-sm" style="border-color:var(--red);color:var(--red);" onclick="eliminarTipoTrabajo(null,\''+esc(t.nombre).replace(/'/g,"\\'")+'\')">🗑️ Eliminar</button>';
+      } else {
+        accion = '<button class="btn btn-sm" onclick="editarTipoTrabajo(\''+t.id+'\')">✏️</button> '
+          + '<button class="btn btn-sm" style="border-color:var(--red);color:var(--red);" onclick="eliminarTipoTrabajo(\''+t.id+'\',\''+esc(t.nombre).replace(/'/g,"\\'")+'\')">🗑️</button>';
+      }
+      return '<tr'+(t.oculto?' style="opacity:.55;"':'')+'>'
+        +'<td style="font-size:12px;color:var(--ink3);">'+(i+1)+'</td>'
+        +'<td><strong>'+esc(t.nombre)+'</strong></td>'
+        +'<td>'+(t.predefinido
+            ? '<span class="badge badge-gray" style="font-size:10px;">Predefinido</span>'
+            : '<span class="badge badge-blue" style="font-size:10px;">Personalizado</span>')+'</td>'
+        +'<td>'+(t.oculto
+            ? '<span class="badge" style="font-size:10px;background:rgba(239,68,68,.12);color:var(--red);">Oculto</span>'
+            : '<span class="badge badge-green" style="font-size:10px;">Activo</span>')+'</td>'
+        +'<td>'+accion+'</td></tr>';
+    }).join('')
+    +'</tbody></table></div>';
+}
+
+function openModalTipoTrabajo() {
+  document.getElementById('tipo-trabajo-modal-title').textContent = 'Nuevo tipo de trabajo';
+  document.getElementById('tipo-trabajo-nombre').value = '';
+  document.getElementById('tipo-trabajo-edit-id').value = '';
+  openModal('modal-tipo-trabajo');
+  setTimeout(function(){ document.getElementById('tipo-trabajo-nombre').focus(); }, 200);
+}
+
+function editarTipoTrabajo(id) {
+  var t = cache.tipos_trabajo[id]; if (!t) return;
+  document.getElementById('tipo-trabajo-modal-title').textContent = 'Editar tipo de trabajo';
+  document.getElementById('tipo-trabajo-nombre').value = t.nombre||'';
+  document.getElementById('tipo-trabajo-edit-id').value = id;
+  openModal('modal-tipo-trabajo');
+}
+
+function guardarTipoTrabajo() {
+  var nombre = (document.getElementById('tipo-trabajo-nombre').value||'').trim();
+  if (!nombre) { toast('Ingresa el nombre del tipo de trabajo','error'); return; }
+  var editId = document.getElementById('tipo-trabajo-edit-id').value;
+  var yaExiste = tiposTrabajoActivos().some(function(n){ return n.toLowerCase()===nombre.toLowerCase() && (!editId || (cache.tipos_trabajo[editId]||{}).nombre!==n); });
+  if (yaExiste) { toast('Ya existe un tipo de trabajo con ese nombre','error'); return; }
+  var orden = editId ? (cache.tipos_trabajo[editId]||{}).orden||0 : Object.keys(cache.tipos_trabajo).length;
+  var ref = editId ? db.ref('tipos_trabajo/'+editId) : db.ref('tipos_trabajo').push();
+  ref.set({nombre:nombre, orden:orden}).then(function(){
+    toast(editId ? 'Tipo actualizado' : 'Tipo de trabajo agregado','success');
+    closeModal('modal-tipo-trabajo');
+  }).catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
+}
+
+// Elimina un tipo: si es personalizado (id presente) lo borra de Firebase;
+// si es predefinido (id=null) lo marca como oculto para no perderlo del código fuente.
+function eliminarTipoTrabajo(id, nombre) {
+  if (id) {
+    showConfirm('Eliminar tipo','¿Eliminar el tipo <strong>'+esc(nombre)+'</strong>? Los registros existentes no se ven afectados.', function(){
+      db.ref('tipos_trabajo/'+id).remove().then(function(){ toast('Tipo eliminado','success'); }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    });
+  } else {
+    showConfirm('Quitar tipo de trabajo','¿Quitar <strong>'+esc(nombre)+'</strong> del selector de tipo de trabajo? Los registros existentes no se ven afectados y puedes restaurarlo luego.', function(){
+      db.ref('tipos_trabajo_ocultos/'+tipoTrabajoKey(nombre)).set(true).then(function(){ toast('Tipo quitado del selector','success'); }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    });
+  }
+}
+
+function restaurarTipoTrabajo(nombre) {
+  db.ref('tipos_trabajo_ocultos/'+tipoTrabajoKey(nombre)).remove().then(function(){ toast('Tipo restaurado','success'); }).catch(function(e){ toast('Error: '+e.message,'error'); });
+}
+
+// ══════════════════════════════════════════════════════
 // RECEPCIÓN DE HERRAMIENTAS (cuadrilla — selección del catálogo)
 // ══════════════════════════════════════════════════════
 var herrRecSeleccion = {}; // {catId: {nombre, categoria, cantidad, estado}}
@@ -7670,7 +7790,7 @@ function showSection(id) {
 
   // ── Guardia de roles ─────────────────────────────────
   var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
-                   'admin-logs','admin-config','admin-visitas-fallidas','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-motivos-vf','admin-red-interna'];
+                   'admin-logs','admin-config','admin-visitas-fallidas','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-tipos-trabajo','admin-motivos-vf','admin-red-interna'];
   var superOnly = ['admin-logs'];
   var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas','retiros'];
 
@@ -9829,12 +9949,13 @@ function generarInformePDF(tipo) {
     titulo = 'Informe de Asignaciones';
     var repCuad = document.getElementById('rep-cuadrilla') ? document.getElementById('rep-cuadrilla').value : '';
     cuadFiltro = repCuad ? (getCuad(repCuad) ? getCuad(repCuad).nombre : repCuad) : 'Todas';
+    var repTipoTrabajo = document.getElementById('rep-tipotrabajo') ? document.getElementById('rep-tipotrabajo').value : '';
     var ini = document.getElementById('rep-fecha-ini') ? document.getElementById('rep-fecha-ini').value : '';
     var fin = document.getElementById('rep-fecha-fin') ? document.getElementById('rep-fecha-fin').value : '';
     periodo = (ini||'—') + ' al ' + (fin||'—');
     columnas = ['Fecha','Cliente','OT','Cuadrilla','Técnico','Hora Ini','Hora Fin','# Materiales'];
     rows = filtrarPorRango(asigListFiltrada()).filter(function(a){
-      return !repCuad || a.cuadrillaId === repCuad;
+      return (!repCuad || a.cuadrillaId === repCuad) && (!repTipoTrabajo || a.tipo === repTipoTrabajo);
     }).sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);}).map(function(a){
       var cuad=getCuad(a.cuadrillaId);
       return [
@@ -9848,7 +9969,7 @@ function generarInformePDF(tipo) {
         String((a.materiales||[]).length)
       ];
     });
-    subtitulo = 'Cuadrilla: ' + cuadFiltro + '  |  Período: ' + periodo;
+    subtitulo = 'Cuadrilla: ' + cuadFiltro + (repTipoTrabajo ? '  |  Tipo: ' + repTipoTrabajo : '') + '  |  Período: ' + periodo;
     fileName = 'reporte_asignaciones_' + now.toISOString().slice(0,10) + '.pdf';
 
   } else if (tipo === 'asignaciones') {
@@ -10193,6 +10314,32 @@ function mostrarResumenTexto(){
     });
     lineas.push('');
     lineas.push('Total items: '+validos.length);
+  }
+  // Equipos reemplazados (Fix: esta sección faltaba en el resumen "en vivo" —
+  // por eso "Copiar texto" no tomaba los datos de cambio de equipo aunque el
+  // toggle estuviera activo. Sí se guardaban en Firebase, solo no se mostraban aquí).
+  var chkRepl = document.getElementById('toggle-reemplazados');
+  var replActivo = chkRepl && chkRepl.checked;
+  if (replActivo) {
+    var replValidos = reemplazadosRows.filter(function(r){ return r.matId && r.qty > 0; });
+    if (replValidos.length) {
+      lineas.push('');
+      lineas.push('── EQUIPOS REEMPLAZADOS ─');
+      replValidos.forEach(function(r, i){
+        var mat = getMat(r.matId);
+        var nombreRef = mat ? mat.nombre : '—';
+        lineas.push((i+1)+'. '+nombreRef+' × '+(r.qty||1));
+        if (r.unidades && r.unidades.length) {
+          r.unidades.forEach(function(u, ui){
+            if(!u.mac && !u.serie) return;
+            var line = '   ['+(ui+1)+']';
+            if(u.mac)   line += '  MAC: '+u.mac;
+            if(u.serie) line += '  Serie: '+u.serie;
+            lineas.push(line);
+          });
+        }
+      });
+    }
   }
   if(obs){
     lineas.push('');
@@ -10556,6 +10703,8 @@ function renderHistorial(){
         botonesDetalle += '<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\');event.stopPropagation();">📄 PDF</button>';
         botonesDetalle += '<button class="btn btn-sm" onclick="abrirModalEditarMaterialesAdmin(\''+a.id+'\');event.stopPropagation();">✏️ Editar materiales</button>';
         botonesDetalle += '<button class="btn btn-sm btn-red" onclick="anularAsignacion(\''+a.id+'\');event.stopPropagation();">Anular</button>';
+      } else {
+        botonesDetalle += '<button class="btn btn-sm btn-red" onclick="eliminarRIDesdeHistorial(\''+a.id+'\');event.stopPropagation();">🗑️ Eliminar</button>';
       }
       botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button></div>';
 
@@ -10585,6 +10734,33 @@ function renderHistorial(){
         +'</td></tr>';
     }).join('');
   }
+}
+
+// 1b. Eliminar un registro de Red Interna desde Historial (admin).
+// Elimina tanto la entrada espejo en asignaciones/ (que es la que muestra Historial)
+// como el registro original en redInterna/, y restaura el stock consumido.
+function eliminarRIDesdeHistorial(asigId){
+  var a = cache.asignaciones[asigId];
+  if (!a || a.tipoRegistro !== 'redInterna') return;
+  showConfirm('Eliminar registro de Red Interna',
+    '¿Eliminar el registro <strong>'+esc(a.ot||'—')+'</strong> ('+esc(a.cliente||'—')+')?<br>'
+    +'El stock de materiales utilizado será <strong>restaurado</strong> a la bodega de la cuadrilla.<br><br>'
+    +'Esta acción no se puede deshacer.',
+    function(){
+      var updates={};
+      (a.materiales||[]).forEach(function(m){
+        var cur=getStock(a.cuadrillaId,m.matId);
+        updates['stocks/'+a.cuadrillaId+'/'+m.matId]=cur+m.qty;
+      });
+      updates['asignaciones/'+asigId]=null;
+      if (a.redInternaId) updates['redInterna/'+a.redInternaId]=null;
+      updates['_lastUpdate']=Date.now();
+      db.ref().update(updates).then(function(){
+        toast('Registro de Red Interna eliminado y stock restaurado','success');
+        renderHistorial();
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
 }
 
 // 1. Anular asignación (admin)
@@ -11017,7 +11193,11 @@ function renderResumenMateriales(){
   var el=document.getElementById('rep-resumen-mats');
   if(!el) return;
   var cid=document.getElementById('rep-cuadrilla').value||null;
+  var tipoTrabajoSel=(document.getElementById('rep-tipotrabajo')||{value:''}).value;
   var asigs=filtrarPorRango(asigList().filter(function(a){return !a.anulada;}));
+  if (tipoTrabajoSel) asigs = asigs.filter(function(a){ return a.tipo === tipoTrabajoSel; });
+  var tituloEl = document.getElementById('rep-resumen-mats-title');
+  if (tituloEl) tituloEl.textContent = tipoTrabajoSel ? 'Materiales utilizados en "'+tipoTrabajoSel+'" (período)' : 'Materiales utilizados en el período';
   // Sumar por material
   var totales={};
   asigs.forEach(function(a){
@@ -11071,9 +11251,12 @@ function filtrarPorRango(lista){
 function previsualizarReporte(){
   var tipoEl = document.getElementById('rep-tipo');
   var tipo = tipoEl ? tipoEl.value : 'asignaciones';
+  var tipoTrabajoSel = (document.getElementById('rep-tipotrabajo')||{value:''}).value;
   var rows=[];
   if(tipo==='asignaciones'||tipo==='ambos'||tipo==='asignaciones'){
-    filtrarPorRango(asigListFiltrada()).forEach(function(a){
+    filtrarPorRango(asigListFiltrada()).filter(function(a){
+      return !tipoTrabajoSel || a.tipo === tipoTrabajoSel;
+    }).forEach(function(a){
       var cuad=getCuad(a.cuadrillaId);
       rows.push({
         fecha:fmtDate(a.fecha), cuadrilla:cuad?cuad.nombre:'—',
@@ -11122,9 +11305,12 @@ function previsualizarReporte(){
 function exportarExcel(){
   var tipoEl = document.getElementById('rep-tipo');
   var tipo = tipoEl ? tipoEl.value : 'asignaciones';
+  var tipoTrabajoSel = (document.getElementById('rep-tipotrabajo')||{value:''}).value;
   var rows=[['Fecha','Cuadrilla','Tipo','Cliente/Referencia','OT','Técnico','Hora Inicio','Hora Fin','Materiales','Observaciones']];
   if(tipo==='asignaciones'||tipo==='ambos'||!tipoEl){
-    filtrarPorRango(asigListFiltrada()).forEach(function(a){
+    filtrarPorRango(asigListFiltrada()).filter(function(a){
+      return !tipoTrabajoSel || a.tipo === tipoTrabajoSel;
+    }).forEach(function(a){
       var cuad=getCuad(a.cuadrillaId);
       rows.push([fmtDate(a.fecha),cuad?cuad.nombre:'—','Asignación',a.cliente||'—',a.ot||'—',a.tecnico||'—',
         a.horaInicio||'—',a.horaFin||'—',
