@@ -1719,10 +1719,18 @@ select option{background:var(--bg3);color:var(--ink);}
       <div class="modal-overlay" id="modal-editar-materiales">
         <div class="modal" style="max-width:560px;">
           <button class="modal-close" onclick="closeModal('modal-editar-materiales')">✕</button>
-          <h3 style="margin-bottom:.25rem;">✏️ Editar materiales</h3>
+          <h3 style="margin-bottom:.25rem;">✏️ Editar asignación</h3>
           <p id="em-cliente-info" style="font-size:13px;color:var(--ink3);margin-bottom:1rem;"></p>
-          <div style="background:var(--amber-light);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--ink2);margin-bottom:1rem;">
-            ⏱ Solo puedes editar materiales hasta <strong>12 horas</strong> después del registro original. Los cambios ajustan el stock de tu bodega automáticamente.
+          <div id="em-plazo-aviso" style="background:var(--amber-light);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--ink2);margin-bottom:1rem;">
+            ⏱ Solo puedes editar esta asignación hasta <strong>12 horas</strong> después del registro original. Los cambios de materiales ajustan el stock de tu bodega automáticamente.
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Tipo de trabajo</label>
+              <select id="em-tipo"></select>
+            </div>
+            <div class="field"><label>Hora de inicio *</label>
+              <input type="time" id="em-hora-inicio">
+            </div>
           </div>
           <div class="field">
             <label>Materiales asignados</label>
@@ -7132,6 +7140,14 @@ function poblarSelectsTiposTrabajo() {
     repTipo.innerHTML = optsConTodos;
     repTipo.value = cur3;
   }
+  var emTipo = document.getElementById('em-tipo');
+  if (emTipo) {
+    var cur4 = emTipo.value;
+    emTipo.innerHTML = lista.map(function(n){ return '<option'+(cur4===n?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+    if (cur4 && lista.indexOf(cur4) === -1) {
+      emTipo.insertAdjacentHTML('beforeend', '<option selected>'+esc(cur4)+'</option>');
+    }
+  }
 }
 
 function renderTiposTrabajo() {
@@ -8154,7 +8170,7 @@ function buscarEnFila(ctx, rowUid, q) {
     var stk = cid ? getStock(cid, m.id) : 0;
     var color = stk===0 ? 'var(--red)' : stk<m.min ? 'var(--amber)' : 'var(--green)';
     var stockTxt = stk===0 ? '(sin existencia)' : stk+' '+m.unidad;
-    var mostrarStock = (ctx !== 'ret'); // en Retiros el stock no aplica, es solo referencia de nombre
+    var mostrarStock = (ctx !== 'ret' && ctx !== 'repl'); // en Retiros y Equipos reemplazados el stock no aplica, es solo referencia de nombre
 
     var item = document.createElement('div');
     item.style.cssText = 'padding:9px 14px;cursor:pointer;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;-webkit-tap-highlight-color:rgba(232,68,10,0.15);';
@@ -8221,6 +8237,8 @@ function elegirMatFila(ctx, rowUid, matId) {
   } else if (ctx === 'em') {
     var r = editMatRows.find(function(x){ return x.uid === rowUid; });
     if (r) { r.matId = matId; renderEmRows(); }
+  } else if (ctx === 'repl') {
+    setReplMat(rowUid, matId);
   } else {
     var r = asigRows.find(function(x){ return x.uid === rowUid; });
     if (r) { r.matId = matId; renderAsigRows(); }
@@ -9377,6 +9395,21 @@ function abrirModalEditarMateriales(asigId) {
   document.getElementById('em-asig-id').value = asigId;
   document.getElementById('em-cliente-info').textContent =
     asig.cliente + (asig.ot ? ' · OT: '+asig.ot : '') + ' · ' + fmtDT(asig.fecha);
+  var avisoEl = document.getElementById('em-plazo-aviso');
+  if (avisoEl) {
+    avisoEl.style.display = 'block';
+    avisoEl.innerHTML = '⏱ Solo puedes editar esta asignación hasta <strong>12 horas</strong> después del registro original. Los cambios de materiales ajustan el stock de tu bodega automáticamente.';
+  }
+  poblarSelectsTiposTrabajo();
+  var tipoEl = document.getElementById('em-tipo');
+  if (tipoEl) {
+    tipoEl.value = asig.tipo || '';
+    if (asig.tipo && tipoEl.value !== asig.tipo) {
+      tipoEl.insertAdjacentHTML('beforeend', '<option selected>'+esc(asig.tipo)+'</option>');
+    }
+  }
+  var horaEl = document.getElementById('em-hora-inicio');
+  if (horaEl) horaEl.value = asig.horaInicio || '';
 
   editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
     return { uid: uid(), matId: m.matId, qty: m.qty };
@@ -9400,6 +9433,21 @@ function abrirModalEditarMaterialesAdmin(asigId) {
   document.getElementById('em-cliente-info').textContent =
     asig.cliente + (asig.ot ? ' · OT: '+asig.ot : '') + ' · ' + fmtDT(asig.fecha)
     + ' — Admin: sin límite de tiempo';
+  var avisoElAdmin = document.getElementById('em-plazo-aviso');
+  if (avisoElAdmin) {
+    avisoElAdmin.style.display = 'block';
+    avisoElAdmin.innerHTML = '🔓 Como admin puedes editar esta asignación <strong>sin límite de tiempo</strong>. Los cambios de materiales ajustan el stock de la bodega de la cuadrilla automáticamente.';
+  }
+  poblarSelectsTiposTrabajo();
+  var tipoElAdm = document.getElementById('em-tipo');
+  if (tipoElAdm) {
+    tipoElAdm.value = asig.tipo || '';
+    if (asig.tipo && tipoElAdm.value !== asig.tipo) {
+      tipoElAdm.insertAdjacentHTML('beforeend', '<option selected>'+esc(asig.tipo)+'</option>');
+    }
+  }
+  var horaElAdm = document.getElementById('em-hora-inicio');
+  if (horaElAdm) horaElAdm.value = asig.horaInicio || '';
 
   editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
     return { uid: uid(), matId: m.matId, qty: m.qty };
@@ -9457,6 +9505,13 @@ function guardarEdicionMateriales() {
     return;
   }
 
+  var nuevoTipo = (document.getElementById('em-tipo')||{value:''}).value;
+  var nuevaHora = (document.getElementById('em-hora-inicio')||{value:''}).value;
+  if (!nuevaHora) { toast('La hora de inicio es obligatoria','error'); return; }
+
+  var cambioTipo = nuevoTipo !== (asig.tipo||'');
+  var cambioHora = nuevaHora !== (asig.horaInicio||'');
+
   var nuevos = editMatRows.filter(function(r){ return r.matId && r.qty > 0; });
   var cid = asig.cuadrillaId;
 
@@ -9488,22 +9543,28 @@ function guardarEdicionMateriales() {
   });
   if (errs.length) { toast('Stock insuficiente para el cambio: '+errs.join(', '),'error'); return; }
 
-  if (!Object.keys(diffs).length) {
+  if (!Object.keys(diffs).length && !cambioTipo && !cambioHora) {
     toast('No hay cambios para guardar','info');
     closeModal('modal-editar-materiales');
     return;
   }
 
-  var resumenCambios = Object.keys(diffs).map(function(mid){
-    var m = getMat(mid); var d = diffs[mid];
-    return (m?m.nombre:'?') + ' ' + (d>0?'+':'') + d;
-  }).join(', ');
+  var resumenPartes = [];
+  if (Object.keys(diffs).length) {
+    resumenPartes.push('Materiales: ' + Object.keys(diffs).map(function(mid){
+      var m = getMat(mid); var d = diffs[mid];
+      return (m?m.nombre:'?') + ' ' + (d>0?'+':'') + d;
+    }).join(', '));
+  }
+  if (cambioTipo) resumenPartes.push('Tipo de trabajo: '+(asig.tipo||'—')+' → '+(nuevoTipo||'—'));
+  if (cambioHora) resumenPartes.push('Hora de inicio: '+(asig.horaInicio||'—')+' → '+nuevaHora);
+  var resumenCambios = resumenPartes.join(' · ');
 
   showConfirm(
-    'Confirmar edición de materiales',
+    'Confirmar edición de la asignación',
     '<strong>Cliente:</strong> '+esc(asig.cliente||'—')+'<br>'
     +'<strong>Cambios:</strong> '+esc(resumenCambios)+'<br><br>'
-    +'El stock de tu bodega se ajustará automáticamente. ¿Confirmas?',
+    +(Object.keys(diffs).length ? 'El stock de la bodega se ajustará automáticamente. ' : '')+'¿Confirmas?',
     function(){
       var updates = {};
       Object.keys(diffs).forEach(function(mid){
@@ -9521,14 +9582,18 @@ function guardarEdicionMateriales() {
         };
       });
       // Actualizar el array de materiales de la asignación
-      updates['asignaciones/'+asigId+'/materiales'] = nuevos.map(function(r){ return { matId:r.matId, qty:r.qty }; });
+      if (Object.keys(diffs).length) {
+        updates['asignaciones/'+asigId+'/materiales'] = nuevos.map(function(r){ return { matId:r.matId, qty:r.qty }; });
+      }
+      if (cambioTipo) updates['asignaciones/'+asigId+'/tipo'] = nuevoTipo;
+      if (cambioHora) updates['asignaciones/'+asigId+'/horaInicio'] = nuevaHora;
       // Auditoría: visible solo para admin (no se muestra en la vista de cuadrilla)
       updates['asignaciones/'+asigId+'/editadoPor'] = currentUser.nombre || currentUser.username || '';
       updates['asignaciones/'+asigId+'/fechaEdicion'] = nowISOLocal();
       updates['_lastUpdate'] = Date.now();
 
       db.ref().update(updates).then(function(){
-        toast('Materiales actualizados correctamente','success');
+        toast('Asignación actualizada correctamente','success');
         closeModal('modal-editar-materiales');
         renderHistorial();
       }).catch(function(e){ toast('Error: '+e.message,'error'); });
@@ -9584,10 +9649,6 @@ function renderReemplazadosRows() {
   if (!cont) return;
   cont.innerHTML = reemplazadosRows.map(function(row){
     var mat = row.matId ? getMat(row.matId) : null;
-    var mats = materialesList();
-    var opts = mats.map(function(m){
-      return '<option value="'+m.id+'"'+(row.matId===m.id?' selected':'')+'>'+esc(m.nombre)+'</option>';
-    }).join('');
     var needsMAC   = mat && (mat.requireMAC || mat.requireMac);
     var needsSerie = mat && mat.requireSerie;
     var needsUnits = needsMAC || needsSerie;
@@ -9629,9 +9690,16 @@ function renderReemplazadosRows() {
       unidadesHTML+='</div>';
     }
     return '<div class="mat-row" style="grid-template-columns:1fr 70px auto;margin-bottom:6px;">'
-      +'<select onchange="setReplMat(\''+row.uid+'\',this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);">'
-      +'<option value="">-- Equipo reemplazado --</option>'+opts
-      +'</select>'
+      +'<div style="position:relative;">'
+        +'<div onclick="abrirBuscadorFila(\'repl\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+          +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(mat?mat.nombre:'-- Equipo reemplazado --')+'</span>'
+          +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
+        +'</div>'
+        +'<div id="drop-repl-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:300;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<input type="text" placeholder="Buscar equipo..." oninput="buscarEnFila(\'repl\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
+          +'<div id="drop-repl-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
+        +'</div>'
+      +'</div>'
       +'<input type="number" min="1" value="'+row.qty+'" onchange="setReplQty(\''+row.uid+'\',this.value)" style="width:64px;">'
       +'<button class="remove-row-btn" onclick="removeReemplazadoRow(\''+row.uid+'\')">✕</button>'
       +'</div>'+unidadesHTML;
@@ -10589,7 +10657,7 @@ function renderHistorial(){
       if (!esRI) {
         var dentroDePlazo = puedeEditarMateriales(a);
         botonesDetalle += dentroDePlazo
-          ? '<button class="btn btn-sm" onclick="abrirModalEditarMateriales(\''+a.id+'\');event.stopPropagation();">✏️ Editar materiales</button>'
+          ? '<button class="btn btn-sm" onclick="abrirModalEditarMateriales(\''+a.id+'\');event.stopPropagation();">✏️ Editar asignación</button>'
           : '<span style="font-size:11px;color:var(--ink3);padding:6px 0;">✏️ Plazo de edición vencido</span>';
       }
       botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button></div>';
@@ -10709,7 +10777,7 @@ function renderHistorial(){
       var botonesDetalle = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">';
       if (!esRI) {
         botonesDetalle += '<button class="btn btn-sm" onclick="rePDF(\''+a.id+'\');event.stopPropagation();">📄 PDF</button>';
-        botonesDetalle += '<button class="btn btn-sm" onclick="abrirModalEditarMaterialesAdmin(\''+a.id+'\');event.stopPropagation();">✏️ Editar materiales</button>';
+        botonesDetalle += '<button class="btn btn-sm" onclick="abrirModalEditarMaterialesAdmin(\''+a.id+'\');event.stopPropagation();">✏️ Editar asignación</button>';
         botonesDetalle += '<button class="btn btn-sm btn-red" onclick="anularAsignacion(\''+a.id+'\');event.stopPropagation();">Anular</button>';
       } else {
         botonesDetalle += '<button class="btn btn-sm btn-red" onclick="eliminarRIDesdeHistorial(\''+a.id+'\');event.stopPropagation();">🗑️ Eliminar</button>';
