@@ -732,13 +732,13 @@ select option{background:var(--bg3);color:var(--ink);}
           <div class="form-grid">
             <div class="field">
               <label>Nivel de Luz 1490 <span style="font-size:10px;color:var(--ink3);font-weight:400;">opcional · dBm</span></label>
-              <input type="number" id="cli-luz1490" placeholder="Ej: -20.5" step="0.1" max="-0.1"
+              <input type="text" inputmode="decimal" id="cli-luz1490" placeholder="Ej: -20.5"
                 style="width:100%;"
                 oninput="this.value=this.value.replace(/[^0-9.\-]/g,'')">
             </div>
             <div class="field">
               <label>Nivel de Luz 1550 <span style="font-size:10px;color:var(--ink3);font-weight:400;">opcional · dBm</span></label>
-              <input type="number" id="cli-luz1550" placeholder="Ej: -21.0" step="0.1" max="-0.1"
+              <input type="text" inputmode="decimal" id="cli-luz1550" placeholder="Ej: -21.0"
                 style="width:100%;"
                 oninput="this.value=this.value.replace(/[^0-9.\-]/g,'')">
             </div>
@@ -767,7 +767,7 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="field"><label>Técnico responsable <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automático para cuadrilla)</span></label><input type="text" id="cli-tecnico"></div>
           </div>
           <div class="form-grid">
-            <div class="field"><label>Hora de inicio de tarea</label><input type="time" id="cli-hora-inicio" placeholder="Opcional"></div>
+            <div class="field"><label>Hora de inicio de tarea *</label><input type="time" id="cli-hora-inicio" required></div>
             <div class="field"><label>Hora de finalización <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automática)</span></label><input type="time" id="cli-hora-fin" readonly style="background:var(--bg3);color:var(--ink2);cursor:not-allowed;"></div>
           </div>
           <div class="field"><label>Observaciones</label><textarea id="cli-obs" placeholder="Notas..."></textarea></div>
@@ -1493,6 +1493,9 @@ select option{background:var(--bg3);color:var(--ink);}
     /* ── Tipos de trabajo Clientes (personalizados) y predefinidos ocultados ── */
     "tipos_trabajo": { ".read": true, ".write": true },
     "tipos_trabajo_ocultos": { ".read": true, ".write": true },
+
+    /* ── CuadriControl: espejo de registros para el dashboard de cuadrillas ── */
+    "cuadricontrol_registros": { ".read": true, ".write": true },
 
     /* ── Visitas fallidas ── */
     "visitas_fallidas": { ".read": true, ".write": true },
@@ -9150,6 +9153,7 @@ function registrarAsignacion(){
   var nombre=document.getElementById('cli-nombre').value.trim();
   if(!nombre){toast('Ingresa el nombre del cliente','error');return;}
   var horaInicio = document.getElementById('cli-hora-inicio').value;
+  if(!horaInicio){toast('Ingresa la hora de inicio de la tarea','error');return;}
   // Cuadrilla solo puede registrar en su propio cid — admin debe seleccionar cuadrilla explícitamente
   var cid = currentUser.tipo === 'cuadrilla'
     ? currentUser.cuadrillaId
@@ -9635,7 +9639,11 @@ function renderReemplazadosRows() {
 }
 
 function limpiarAsignacion(){
-  ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-cto','cli-luz1490','cli-luz1550','cli-obs','cli-hora-inicio','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
+  ['cli-nombre','cli-tel','cli-dir','cli-idcliente','cli-ip','cli-ot','cli-cto','cli-luz1490','cli-luz1550','cli-obs','cli-hora-fin'].forEach(function(id){document.getElementById(id).value='';});
+  // La hora de inicio es obligatoria: se prellena con la hora actual para no obligar
+  // al técnico a escribirla siempre manualmente; puede ajustarla si lo necesita.
+  var now = new Date();
+  document.getElementById('cli-hora-inicio').value = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   var alertaBox = document.getElementById('cli-alerta-reincidencia');
   if (alertaBox) { alertaBox.style.display = 'none'; alertaBox.innerHTML = ''; }
   asigRows=[{uid:uid(),matId:'',qty:1}];
