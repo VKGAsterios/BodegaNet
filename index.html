@@ -767,7 +767,7 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="field"><label>Técnico responsable <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automático para cuadrilla)</span></label><input type="text" id="cli-tecnico"></div>
           </div>
           <div class="form-grid">
-            <div class="field"><label>Hora de inicio de tarea *</label><input type="time" id="cli-hora-inicio" required></div>
+            <div class="field"><label>Hora de inicio de tarea <span style="color:var(--red);font-weight:700;">* Obligatorio</span></label><input type="time" id="cli-hora-inicio" required oninput="this.style.borderColor=this.value?'var(--green)':'var(--red)';" style="border-color:var(--red);"></div>
             <div class="field"><label>Hora de finalización <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automática)</span></label><input type="time" id="cli-hora-fin" readonly style="background:var(--bg3);color:var(--ink2);cursor:not-allowed;"></div>
           </div>
           <div class="field"><label>Observaciones</label><textarea id="cli-obs" placeholder="Notas..."></textarea></div>
@@ -801,8 +801,9 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
-        <!-- Espacio extra para que el nav inferior no tape los materiales -->
-        <div style="height:20px;"></div>
+        <!-- Espacio extra para que el nav inferior (60px) no tape el panel de cambio de equipo,
+             tanto activado como desactivado -->
+        <div style="height:90px;"></div>
       </section>
 
       <!-- INVENTARIO -->
@@ -9778,7 +9779,9 @@ function limpiarAsignacion(){
   // La hora de inicio es obligatoria: se prellena con la hora actual para no obligar
   // al técnico a escribirla siempre manualmente; puede ajustarla si lo necesita.
   var now = new Date();
-  document.getElementById('cli-hora-inicio').value = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  var horaInicioEl = document.getElementById('cli-hora-inicio');
+  horaInicioEl.value = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  horaInicioEl.style.borderColor = 'var(--green)';
   var alertaBox = document.getElementById('cli-alerta-reincidencia');
   if (alertaBox) { alertaBox.style.display = 'none'; alertaBox.innerHTML = ''; }
   asigRows=[{uid:uid(),matId:'',qty:1}];
@@ -10395,6 +10398,9 @@ function generarInformePDF(tipo) {
 
 function mostrarResumenTexto(){
   var nombre=document.getElementById('cli-nombre').value.trim();
+  if(!nombre){toast('Ingresa el nombre del cliente','error');return;}
+  var horaInicio=document.getElementById('cli-hora-inicio').value;
+  if(!horaInicio){toast('Ingresa la hora de inicio de la tarea','error');return;}
   var tel=document.getElementById('cli-tel').value.trim();
   var dir=document.getElementById('cli-dir').value.trim();
   var idCliente=document.getElementById('cli-idcliente').value.trim();
