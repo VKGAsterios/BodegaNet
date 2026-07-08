@@ -9808,14 +9808,56 @@ function generarPDF(asig){
   var {jsPDF}=window.jspdf;
   var doc=new jsPDF({unit:'mm',format:'a4'});
   var L=20,R=190,y=20;
-  doc.setFillColor(232,68,10);doc.rect(0,0,210,28,'F');
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(18);
-  doc.text('BodegaNet — Reporte de Materiales',L,14);
-  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Control de Materiales ISP',L,21);
+  var PAGE_LIMIT=268; // límite antes de reservar espacio para el pie de página
+
+  function pintarHeader(){
+    doc.setFillColor(232,68,10);doc.rect(0,0,210,28,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(18);
+    doc.text('BodegaNet — Reporte de Materiales',L,14);
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Control de Materiales ISP',L,21);
+  }
+  function pintarFooter(){
+    doc.setFillColor(30,30,30);doc.rect(0,282,210,15,'F');
+    doc.setTextColor(160,160,160);doc.setFontSize(8);
+    doc.text('BodegaNet  |  '+fmtDT(nowISO())+'  |  ID:'+asig.id,L,291);
+  }
+  // Salta de página si lo que sigue (altura estimada en mm) no cabe antes del pie.
+  // Si se pasa redrawHeader, lo vuelve a dibujar arriba de la nueva página (para tablas).
+  function checkPageBreak(neededH, redrawHeader){
+    if (y + neededH > PAGE_LIMIT) {
+      doc.addPage();
+      pintarHeader();
+      y = 38;
+      if (redrawHeader) redrawHeader();
+    }
+  }
+  function wrapLines(text, maxWidthMm){
+    return doc.splitTextToSize(String(text==null?'':text), maxWidthMm);
+  }
+
+  pintarHeader();
   y=38;
   var cuad=getCuad(asig.cuadrillaId);
-  function sec(t){doc.setFillColor(245,244,240);doc.rect(L,y,170,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(30,30,30);doc.text(t,L+4,y+5.5);y+=12;}
-  function r2(a,b,c,d){doc.setFont('helvetica','bold');doc.text(a,L,y);doc.setFont('helvetica','normal');doc.text(b,L+32,y);if(c){doc.setFont('helvetica','bold');doc.text(c,120,y);}if(d){doc.setFont('helvetica','normal');doc.text(d,142,y);}y+=7;}
+  function sec(t){
+    checkPageBreak(12);
+    doc.setFillColor(245,244,240);doc.rect(L,y,170,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(30,30,30);doc.text(t,L+4,y+5.5);y+=12;
+  }
+  // Fila de 2 pares label/valor. Envuelve el texto si es largo, para no montarse
+  // con la siguiente columna, y ajusta la altura de la fila según haga falta.
+  function r2(a,b,c,d){
+    var bLines = wrapLines(b, c ? 82 : 150);
+    var dLines = d ? wrapLines(d, 45) : [];
+    var lineas = Math.max(bLines.length, dLines.length, 1);
+    checkPageBreak(7 + (lineas-1)*4.5);
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(30,30,30);doc.text(a,L,y);
+    doc.setFont('helvetica','normal');
+    bLines.forEach(function(line,i){ doc.text(line,L+32,y+i*4.5); });
+    if(c){
+      doc.setFont('helvetica','bold');doc.text(c,120,y);
+      if(d){ doc.setFont('helvetica','normal'); dLines.forEach(function(line,i){ doc.text(line,142,y+i*4.5); }); }
+    }
+    y += 7 + (lineas-1)*4.5;
+  }
   sec('INFORMACIÓN GENERAL');
   r2('Cuadrilla:',cuad?cuad.nombre:'—','Fecha:',fmtDate(asig.fecha));
   r2('Técnico:',asig.tecnico||'—','OT:',asig.ot||'—');
@@ -9825,28 +9867,39 @@ function generarPDF(asig){
   sec('DATOS DEL CLIENTE');
   [['Cliente:',asig.cliente],['Teléfono:',asig.tel||'—'],['Dirección:',asig.dir||'—'],['ID Cliente:',asig.idCliente||'—'],['IP:',asig.ip||'—']].forEach(function(r){r2(r[0],r[1]);});
   if(asig.luz1490||asig.luz1550) r2('Nivel Luz 1490:',(asig.luz1490?asig.luz1490+' dBm':'—'),'Nivel Luz 1550:',(asig.luz1550?asig.luz1550+' dBm':'—'));
-  y+=4;sec('MATERIALES UTILIZADOS');
-  doc.setFillColor(26,26,25);doc.rect(L,y,170,7,'F');
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
-  doc.text('Código',L+2,y+4.8);doc.text('Material',L+25,y+4.8);doc.text('Unidad',L+115,y+4.8);doc.text('Cantidad',L+143,y+4.8);y+=7;
+  y+=4;
+
+  // ── Tabla de materiales, con nombre envuelto y altura de fila dinámica ──
+  function materialesHeader(){
+    doc.setFillColor(26,26,25);doc.rect(L,y,170,7,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
+    doc.text('Código',L+2,y+4.8);doc.text('Material',L+25,y+4.8);doc.text('Unidad',L+115,y+4.8);doc.text('Cantidad',L+143,y+4.8);
+    y+=7;
+  }
+  sec('MATERIALES UTILIZADOS');
+  materialesHeader();
   (asig.materiales||[]).forEach(function(m,i){
     var mat=getMat(m.matId);if(!mat)return;
+    var nombreLines = wrapLines(mat.nombre, 88); // ancho disponible antes de la columna Unidad
+    var unidadesConDato = (m.unidades||[]).filter(function(u){ return u.mac||u.serie; });
+    var rowH = Math.max(6.5, nombreLines.length*4.2 + 2.3);
+    checkPageBreak(rowH + unidadesConDato.length*4.5, materialesHeader);
     doc.setTextColor(30,30,30);doc.setFont('helvetica','normal');doc.setFontSize(9);
-    if(i%2===0){doc.setFillColor(249,248,245);doc.rect(L,y,170,6.5,'F');}
-    doc.text(mat.codigo||'—',L+2,y+4.5);doc.text(mat.nombre,L+25,y+4.5);
-    doc.text(mat.unidad,L+115,y+4.5);doc.setFont('helvetica','bold');doc.text(String(m.qty),L+150,y+4.5);y+=6.5;
-    // MAC/Serie por unidad
-    if(m.unidades&&m.unidades.length){
-      m.unidades.forEach(function(u,ui){
-        if(!u.mac&&!u.serie) return;
-        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
-        var line='  ['+(ui+1)+']';
-        if(u.mac)   line+='  MAC: '+u.mac;
-        if(u.serie) line+='  Serie: '+u.serie;
-        doc.text(line,L+4,y+3.5);y+=4.5;
-      });
-    }
+    if(i%2===0){doc.setFillColor(249,248,245);doc.rect(L,y,170,rowH,'F');}
+    doc.text(mat.codigo||'—',L+2,y+4.5);
+    nombreLines.forEach(function(line,li){ doc.text(line,L+25,y+4.5+li*4.2); });
+    doc.text(mat.unidad,L+115,y+4.5);doc.setFont('helvetica','bold');doc.text(String(m.qty),L+150,y+4.5);
+    y+=rowH;
+    unidadesConDato.forEach(function(u,ui){
+      checkPageBreak(4.5, materialesHeader);
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+      var line='  ['+(ui+1)+']';
+      if(u.mac)   line+='  MAC: '+u.mac;
+      if(u.serie) line+='  Serie: '+u.serie;
+      doc.text(line,L+27,y+3.5);y+=4.5;
+    });
   });
+  checkPageBreak(11);
   y+=4;doc.setFillColor(232,68,10);doc.rect(L,y,170,7,'F');
   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
   doc.text('Total: '+(asig.materiales||[]).length+' líneas',L+4,y+4.8);y+=10;
@@ -9854,36 +9907,51 @@ function generarPDF(asig){
   // Equipos reemplazados (solo si existen)
   if(asig.equiposReemplazados&&asig.equiposReemplazados.length){
     y+=4;sec('EQUIPOS REEMPLAZADOS');
-    doc.setFillColor(200,60,10);doc.rect(L,y,170,7,'F');
-    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
-    doc.text('Equipo retirado',L+2,y+4.8);doc.text('Cant.',L+120,y+4.8);y+=7;
+    function reemplazadosHeader(){
+      doc.setFillColor(200,60,10);doc.rect(L,y,170,7,'F');
+      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);
+      doc.text('Equipo retirado',L+2,y+4.8);doc.text('Cant.',L+120,y+4.8);y+=7;
+    }
+    reemplazadosHeader();
     asig.equiposReemplazados.forEach(function(e,i){
+      var nombreLines = wrapLines(e.nombreRef||'—', 90);
+      var unidadesConDato = (e.unidades||[]).filter(function(u){ return u.mac||u.serie; });
+      var rowH = Math.max(6.5, nombreLines.length*4.2 + 2.3);
+      checkPageBreak(rowH + unidadesConDato.length*4.5, reemplazadosHeader);
       doc.setTextColor(30,30,30);doc.setFont('helvetica','normal');doc.setFontSize(9);
-      if(i%2===0){doc.setFillColor(255,240,235);doc.rect(L,y,170,6.5,'F');}
-      doc.text(e.nombreRef||'—',L+2,y+4.5);
-      doc.setFont('helvetica','bold');doc.text(String(e.qty||1),L+122,y+4.5);y+=6.5;
-      if(e.unidades&&e.unidades.length){
-        e.unidades.forEach(function(u,ui){
-          if(!u.mac&&!u.serie) return;
-          doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
-          var line='  ['+(ui+1)+']';
-          if(u.mac)   line+='  MAC: '+u.mac;
-          if(u.serie) line+='  Serie: '+u.serie;
-          doc.text(line,L+4,y+3.5);y+=4.5;
-        });
-      }
+      if(i%2===0){doc.setFillColor(255,240,235);doc.rect(L,y,170,rowH,'F');}
+      nombreLines.forEach(function(line,li){ doc.text(line,L+2,y+4.5+li*4.2); });
+      doc.setFont('helvetica','bold');doc.text(String(e.qty||1),L+122,y+4.5);
+      y+=rowH;
+      unidadesConDato.forEach(function(u,ui){
+        checkPageBreak(4.5, reemplazadosHeader);
+        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+        var line='  ['+(ui+1)+']';
+        if(u.mac)   line+='  MAC: '+u.mac;
+        if(u.serie) line+='  Serie: '+u.serie;
+        doc.text(line,L+4,y+3.5);y+=4.5;
+      });
     });
     y+=4;
   }
 
-  if(asig.obs){doc.setTextColor(30,30,30);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observaciones:',L,y);y+=6;doc.setFont('helvetica','normal');doc.splitTextToSize(asig.obs,160).forEach(function(l){doc.text(l,L,y);y+=5;});y+=4;}
+  if(asig.obs){
+    var obsLines = wrapLines(asig.obs, 160);
+    checkPageBreak(6 + obsLines.length*5);
+    doc.setTextColor(30,30,30);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('Observaciones:',L,y);y+=6;
+    doc.setFont('helvetica','normal');
+    obsLines.forEach(function(l){ doc.text(l,L,y); y+=5; });
+    y+=4;
+  }
+
+  // Firma: si no cabe antes del pie de página, se mueve a una página nueva
+  checkPageBreak(30);
   y=Math.max(y,240);
+  if (y > PAGE_LIMIT) { doc.addPage(); pintarHeader(); y=60; } // caso límite: firma no cupo ni con el mínimo
   doc.setDrawColor(200,200,200);doc.setLineWidth(.3);doc.line(L,y,L+60,y);doc.line(130,y,R,y);
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(120,120,120);
   doc.text('Firma del técnico',L+8,y+5);doc.text('Firma del cliente',133,y+5);
-  doc.setFillColor(30,30,30);doc.rect(0,282,210,15,'F');
-  doc.setTextColor(160,160,160);doc.setFontSize(8);
-  doc.text('BodegaNet  |  '+fmtDT(nowISO())+'  |  ID:'+asig.id,L,291);
+  pintarFooter();
   doc.save('asignacion_'+(asig.cliente||'cliente').replace(/\s/g,'_')+'_'+(asig.ot||'SN')+'.pdf');
 }
 // ── Acordeón del Historial ──────────────────────────────────────────────
