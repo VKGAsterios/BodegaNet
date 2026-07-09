@@ -10,8 +10,6 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- jsPDF — carga diferida para no bloquear Firebase -->
-<!-- Tesseract.js OCR — escáner de MAC por foto -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <!-- Firebase SDK v10 compat — más estable -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -260,9 +258,6 @@ select option{background:var(--bg3);color:var(--ink);}
 .remove-row-btn:hover{background:rgba(239,68,68,.16);}
 /* ── Stock label ── */
 .stock-label{font-size:11px;font-family:monospace;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.6);}
-/* ── OCR Scanner ── */
-@keyframes ocr-scan{0%{top:36%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:64%;opacity:0}}
-#scanner-capture-btn:disabled{opacity:.45;cursor:not-allowed;}
 /* ── Herramientas ── */
 .herr-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:0;overflow:hidden;margin-bottom:.6rem;transition:border-color .15s;}
 .herr-card:hover{border-color:var(--border2);}
@@ -2225,10 +2220,16 @@ select option{background:var(--bg3);color:var(--ink);}
             <h2>🖧 Red Interna</h2>
             <p id="ri-subtitle">Registro de trabajos en red</p>
           </div>
-          <button class="btn btn-accent" onclick="openModalRedInterna()">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            Nuevo registro
-          </button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" id="ri-btn-sync" onclick="sincronizarRIPendientes(true)" style="display:none;">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 10a6 6 0 0110-4.24M4 4v4h4M16 10a6 6 0 01-10 4.24M16 16v-4h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Sincronizar<span id="ri-pend-badge"></span>
+            </button>
+            <button class="btn btn-accent" onclick="openModalRedInterna()">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Nuevo registro
+            </button>
+          </div>
         </div>
         <!-- KPI bar Red Interna -->
         <div id="ri-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem;"></div>
@@ -2237,6 +2238,7 @@ select option{background:var(--bg3);color:var(--ink);}
             <button class="tab-btn active" onclick="switchRiTab('hoy',this)">Hoy</button>
             <button class="tab-btn" onclick="switchRiTab('semana',this)">Esta semana</button>
             <button class="tab-btn" onclick="switchRiTab('todos',this)">Todos</button>
+            <button class="tab-btn" onclick="switchRiTab('pendientes',this)">⏳ Pendientes<span id="ri-pend-badge-tab"></span></button>
           </div>
           <div id="ri-lista" style="margin-top:.5rem;"></div>
         </div>
@@ -2709,7 +2711,7 @@ select option{background:var(--bg3);color:var(--ink);}
     </div>
 
     <!-- Botón tomar foto -->
-    <div style="margin-bottom:10px;">
+    <div style="margin-bottom:10px>
       <button id="scanner-capture-btn" onclick="ocrCapturar()"
         style="width:100%;padding:11px;border-radius:var(--r);border:2px solid #3b82f6;background:rgba(59,130,246,.1);color:#3b82f6;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .15s;"
         onmouseover="this.style.background='rgba(59,130,246,.2)'" onmouseout="this.style.background='rgba(59,130,246,.1)'"
@@ -4348,7 +4350,7 @@ function renderEfectividadReporte(cidFiltro, rango) {
   var tablaEl = document.getElementById('tm-efectividad-tabla');
   if (!wrap || !tablaEl) return;
 
-  var cuads = cidFiltro ? [getCuad(cidFiltro)].filter(Boolean) : getCuadrillasFiltradas();
+  var cuads = cidFiltro ? cuadrillasList().filter(function(c){ return c.id === cidFiltro; }) : getCuadrillasFiltradas();
 
   var allAsigs = asigListFiltrada().filter(function(a){
     if (a.anulada) return false;
@@ -5223,6 +5225,12 @@ function initFirebaseListeners() {
   // Monitor de desbloqueo — escucha si el admin desbloqueó este dispositivo
   iniciarMonitorDesbloqueo();
 
+  // Red Interna: si quedaron registros pendientes de una sesión anterior
+  // (por ejemplo, la app se cerró sin conexión), se intenta sincronizar
+  // apenas arranca la app.
+  actualizarBadgeRIPendientes();
+  if (navigator.onLine) sincronizarRIPendientes(false);
+
   db.ref('cuadrillas').on('value', function(snap) {
     cache.cuadrillas = snap.val() || {};
     populateLoginSelect();
@@ -5253,6 +5261,7 @@ function initFirebaseListeners() {
   // Red Interna
   db.ref('redInterna').on('value', function(snap) {
     cache.redInterna = snap.val() || {};
+    rehidratarRIPendientesEnCache();
     if (currentUser) {
       if (currentUser.tipo==='cuadrilla' && currentSection==='red-interna') renderRedInterna();
     }
@@ -5886,6 +5895,7 @@ function renderRedInterna() {
     var kpiEl = document.getElementById('ri-kpis'); if (kpiEl) kpiEl.innerHTML = '';
     return;
   }
+  actualizarBadgeRIPendientes();
   var sub = document.getElementById('ri-subtitle');
   if (sub && cuad) sub.textContent = cuad.nombre + ' — Trabajos en red';
   var hoy = new Date().toISOString().slice(0,10);
@@ -5902,14 +5912,15 @@ function renderRedInterna() {
       kpi('Total', todosItems.length, 'todos los registros', '');
   }
   var items = todosItems.filter(function(r) {
-    if (riTabActual === 'hoy')    return r.fecha === hoy;
-    if (riTabActual === 'semana') return r.fecha >= ini7;
+    if (riTabActual === 'hoy')        return r.fecha === hoy;
+    if (riTabActual === 'semana')     return r.fecha >= ini7;
+    if (riTabActual === 'pendientes') return !!r._pendiente;
     return true;
   }).sort(function(a,b){ return (b.fecha+b.horaIni).localeCompare(a.fecha+a.horaIni); });
   var lista = document.getElementById('ri-lista');
   if (!items.length) {
     lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;padding:1rem 0;">'
-      + (riTabActual==='hoy' ? 'Sin registros hoy.' : 'Sin registros en este periodo.')
+      + (riTabActual==='hoy' ? 'Sin registros hoy.' : riTabActual==='pendientes' ? 'No hay registros pendientes por sincronizar. 🎉' : 'Sin registros en este periodo.')
       + '</p>';
     return;
   }
@@ -5921,8 +5932,9 @@ function renderRedInterna() {
         var tsReg = r.tsRegistro
           ? new Date(r.tsRegistro).toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'})
           : (r.fecha||'—');
+        var pendBadge = r._pendiente ? ' <span class="badge" style="font-size:10px;background:rgba(245,158,11,.15);color:var(--amber);">⏳ Pendiente</span>' : '';
         return '<tr>'
-          + '<td style="font-size:11px;white-space:nowrap;color:var(--ink3);">'+esc(tsReg)+'</td>'
+          + '<td style="font-size:11px;white-space:nowrap;color:var(--ink3);">'+esc(tsReg)+pendBadge+'</td>'
           + '<td><span class="badge badge-blue" style="font-size:11px;">'+esc(r.tipo)+'</span></td>'
           + '<td style="font-family:monospace;font-size:12px;">'+esc(r.orden)+'</td>'
           + '<td style="font-size:12px;">'+esc(r.nodo)+'</td>'
@@ -6073,6 +6085,82 @@ function copiarTextoRIUltimo() {
   if (riUltimoId) copiarTextoRI(riUltimoId);
 }
 
+// ══════════════════════════════════════════════════════
+// COLA DE SINCRONIZACIÓN LOCAL — Red Interna sin conexión
+// Si al guardar no hay internet (o el servidor no responde a tiempo), el
+// registro se guarda en localStorage y se refleja de inmediato en pantalla
+// como "pendiente". Se reintenta solo al reconectar, cada 30s, o al pulsar
+// "Sincronizar". Nota: el descuento de stock queda calculado con los datos
+// del momento del intento original; si hubo otros movimientos de bodega
+// mientras estuvo pendiente, conviene sincronizar cuanto antes.
+// ══════════════════════════════════════════════════════
+// Vuelve a insertar en cache.redInterna los registros que quedaron pendientes en
+// localStorage (por ejemplo si la app se recargó antes de poder sincronizar),
+// para que sigan visibles en la pestaña "⏳ Pendientes" hasta que se confirmen.
+function rehidratarRIPendientesEnCache(){
+  getRIPendientes().forEach(function(item){
+    if (!cache.redInterna[item.riId] && item.updates && item.updates['redInterna/'+item.riId]) {
+      cache.redInterna[item.riId] = Object.assign({id:item.riId, _pendiente:true}, item.updates['redInterna/'+item.riId]);
+    }
+  });
+}
+
+var RI_PENDIENTES_KEY = 'bodeganet_ri_pendientes';
+
+function getRIPendientes(){
+  try { return JSON.parse(localStorage.getItem(RI_PENDIENTES_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function setRIPendientes(arr){
+  try { localStorage.setItem(RI_PENDIENTES_KEY, JSON.stringify(arr)); } catch(e){}
+}
+function encolarRIPendiente(riId, updates, resumen){
+  var arr = getRIPendientes();
+  arr.push({ riId: riId, updates: updates, resumen: resumen, ts: Date.now() });
+  setRIPendientes(arr);
+  actualizarBadgeRIPendientes();
+}
+function quitarRIPendientePorId(riId){
+  setRIPendientes(getRIPendientes().filter(function(x){ return x.riId !== riId; }));
+  actualizarBadgeRIPendientes();
+}
+function actualizarBadgeRIPendientes(){
+  var n = getRIPendientes().length;
+  var badge = document.getElementById('ri-pend-badge');
+  if (badge) badge.textContent = n>0 ? ' ('+n+')' : '';
+  var badgeTab = document.getElementById('ri-pend-badge-tab');
+  if (badgeTab) badgeTab.textContent = n>0 ? ' ('+n+')' : '';
+  var btnSync = document.getElementById('ri-btn-sync');
+  if (btnSync) btnSync.style.display = n>0 ? 'flex' : 'none';
+}
+function sincronizarRIPendientes(manual){
+  var arr = getRIPendientes();
+  if (!arr.length) { if (manual) toast('No hay registros pendientes por sincronizar','info'); return; }
+  if (!navigator.onLine) { if (manual) toast('Sigues sin conexión, se reintentará automáticamente','error'); return; }
+  if (manual) toast('Sincronizando '+arr.length+' registro(s)...','info');
+  var restantes = arr.slice();
+  var exitosos = 0;
+  (function procesarSiguiente(){
+    if (!restantes.length){
+      if (exitosos>0) { toast(exitosos+' registro(s) sincronizado(s) ✅','success'); renderRedInterna(); }
+      return;
+    }
+    var item = restantes.shift();
+    db.ref().update(item.updates).then(function(){
+      exitosos++;
+      quitarRIPendientePorId(item.riId);
+      var r = cache.redInterna[item.riId];
+      if (r) { r._pendiente = false; }
+      procesarSiguiente();
+    }).catch(function(){
+      // Se detiene aquí para no perder el orden; lo que falta se reintenta la próxima vez
+      if (manual) toast('Falló la sincronización de uno o más registros, se reintentará automáticamente','error');
+    });
+  })();
+}
+window.addEventListener('online', function(){ sincronizarRIPendientes(false); });
+setInterval(function(){ if (navigator.onLine) sincronizarRIPendientes(false); }, 30000);
+
 function guardarRedInterna() {
   if (!currentUser) return;
   var orden  = document.getElementById('ri-orden').value.trim();
@@ -6140,10 +6228,16 @@ function guardarRedInterna() {
   };
   updates['redInterna/'+newId] = registro;
 
-  // 2. Descuento de stock de bodega por cada material
+  // 2. Descuento de stock de bodega por cada material.
+  // Fix preventivo: si el mismo material aparece en más de una fila (poco común,
+  // pero no bloqueado por la interfaz), se acumula el descuento en vez de
+  // sobreescribirlo — mismo tipo de corrección aplicada antes en Kardex.
+  var stockAcumuladoRI = {};
   matsArray.forEach(function(m){
-    var curStock = getStock(cid, m.matId);
-    updates['stocks/'+cid+'/'+m.matId] = Math.max(0, curStock - m.qty);
+    var curStock = stockAcumuladoRI.hasOwnProperty(m.matId) ? stockAcumuladoRI[m.matId] : getStock(cid, m.matId);
+    var nuevoStock = Math.max(0, curStock - m.qty);
+    stockAcumuladoRI[m.matId] = nuevoStock;
+    updates['stocks/'+cid+'/'+m.matId] = nuevoStock;
   });
 
   // 3. Entrada en asignaciones/ para que aparezca en Historial con badge RI
@@ -6168,9 +6262,10 @@ function guardarRedInterna() {
     };
   }
 
-  db.ref().update(updates).then(function() {
+  var resumenRI = { orden: orden, tipo: tipo, nodo: nodo, tecnico: tec, fecha: registro.fecha };
+
+  function aplicarExitoRI(){
     riUltimoId = newId;
-    cache.redInterna[newId] = Object.assign({id: newId}, registro);
     var panel   = document.getElementById('ri-success-panel');
     var preview = document.getElementById('ri-success-preview');
     var cuad    = getCuad(cid);
@@ -6191,9 +6286,44 @@ function guardarRedInterna() {
     ].filter(Boolean).join('\n');
     if (preview) preview.textContent = textoPreview;
     if (panel)   panel.style.display = '';
-    toast('Registro guardado ✅','success');
     renderRedInterna();
-  }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  }
+
+  // Reflejo local inmediato (para que la cuadrilla vea su registro al instante,
+  // esté o no confirmado por el servidor todavía)
+  cache.redInterna[newId] = Object.assign({id: newId}, registro);
+
+  if (!navigator.onLine) {
+    cache.redInterna[newId]._pendiente = true;
+    encolarRIPendiente(newId, updates, resumenRI);
+    aplicarExitoRI();
+    toast('Sin conexión: guardado localmente. Se sincronizará automáticamente ✅','info');
+    return;
+  }
+
+  var yaResuelto = false;
+  var timeoutId = setTimeout(function(){
+    if (yaResuelto) return;
+    yaResuelto = true;
+    cache.redInterna[newId]._pendiente = true;
+    encolarRIPendiente(newId, updates, resumenRI);
+    aplicarExitoRI();
+    toast('Sin respuesta del servidor: guardado localmente, se sincronizará después','info');
+  }, 8000);
+
+  db.ref().update(updates).then(function() {
+    if (yaResuelto) { quitarRIPendientePorId(newId); return; } // llegó tarde pero sí se confirmó: evita duplicar
+    yaResuelto = true; clearTimeout(timeoutId);
+    aplicarExitoRI();
+    toast('Registro guardado ✅','success');
+  }).catch(function(e){
+    if (yaResuelto) return;
+    yaResuelto = true; clearTimeout(timeoutId);
+    cache.redInterna[newId]._pendiente = true;
+    encolarRIPendiente(newId, updates, resumenRI);
+    aplicarExitoRI();
+    toast('Sin conexión: guardado localmente. Se sincronizará automáticamente ✅','info');
+  });
 }
 
 function eliminarRI(id) {
@@ -8084,17 +8214,38 @@ function descargarPDFDia() {
   var doc = new jsPDF({unit:'mm',format:'a4'});
   var L=20, y=20;
   var cuad = getCuad(cid);
+  var PAGE_LIMIT = 268; // deja espacio para el pie de página fijo
+
+  function pintarHeader(){
+    doc.setFillColor(232,68,10); doc.rect(0,0,210,28,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text('BodegaNet — Resumen del Día', L, 13);
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text((cuad?cuad.nombre:'Cuadrilla')+' · '+today, L, 21);
+  }
+  function pintarFooter(){
+    doc.setFillColor(30,30,30); doc.rect(0,282,210,15,'F');
+    doc.setTextColor(160,160,160); doc.setFontSize(8);
+    doc.text('BodegaNet  |  '+today+'  |  '+asigs.length+' asignaciones', L, 291);
+  }
+  // Salta de página si lo siguiente no cabe antes del pie de página fijo
+  function checkPageBreak(neededH){
+    if (y + neededH > PAGE_LIMIT) {
+      doc.addPage();
+      pintarHeader();
+      y = 36;
+    }
+  }
+  function wrapLines(text, maxWidthMm){
+    return doc.splitTextToSize(String(text==null?'':text), maxWidthMm);
+  }
 
   // Header
-  doc.setFillColor(232,68,10); doc.rect(0,0,210,28,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text('BodegaNet — Resumen del Día', L, 13);
-  doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text((cuad?cuad.nombre:'Cuadrilla')+' · '+today, L, 21);
+  pintarHeader();
   y = 36;
 
   asigs.forEach(function(a, idx) {
-    if (y > 250) { doc.addPage(); y = 20; }
+    checkPageBreak(10);
     // Bloque asignación
     doc.setFillColor(245,244,240); doc.rect(L,y,170,8,'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(30,30,30);
@@ -8104,17 +8255,27 @@ function descargarPDFDia() {
     y += 10;
     (a.materiales||[]).forEach(function(m) {
       var mt = getMat(m.matId); if(!mt) return;
-      doc.text('  • '+mt.nombre+': '+m.qty+' '+mt.unidad, L+4, y);
-      y += 5.5;
+      checkPageBreak(5.5);
+      doc.setTextColor(30,30,30); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      var lineaMat = wrapLines('  • '+mt.nombre+': '+m.qty+' '+mt.unidad, 160);
+      checkPageBreak(lineaMat.length*5.5);
+      lineaMat.forEach(function(l){ doc.text(l, L+4, y); y += 5.5; });
     });
-    if (a.obs) { doc.setTextColor(100,100,100); doc.text('  Obs: '+a.obs, L+4, y); y+=5.5; doc.setTextColor(30,30,30); }
+    if (a.obs) {
+      // Ajuste de texto: respeta saltos de línea existentes y envuelve líneas largas,
+      // avanzando "y" según el número REAL de líneas (antes solo avanzaba una línea fija,
+      // por lo que el bloque siguiente se dibujaba encima del texto sobrante).
+      var obsLines = wrapLines('Obs: '+a.obs, 160);
+      checkPageBreak(obsLines.length*5.5);
+      doc.setTextColor(100,100,100); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      obsLines.forEach(function(line){ doc.text('  '+line, L+4, y); y += 5.5; });
+      doc.setTextColor(30,30,30);
+    }
     y += 4;
   });
 
   // Footer
-  doc.setFillColor(30,30,30); doc.rect(0,282,210,15,'F');
-  doc.setTextColor(160,160,160); doc.setFontSize(8);
-  doc.text('BodegaNet  |  '+today+'  |  '+asigs.length+' asignaciones', L, 291);
+  pintarFooter();
   doc.save('resumen_dia_'+(cuad?cuad.nombre.replace(/\s/g,'_'):'cuadrilla')+'_'+today.replace(/\//g,'-')+'.pdf');
   toast('PDF del día generado ('+asigs.length+' asignaciones)','success');
 }
