@@ -10,6 +10,8 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- jsPDF — carga diferida para no bloquear Firebase -->
+<!-- Tesseract.js OCR — escáner de MAC por foto -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <!-- Firebase SDK v10 compat — más estable -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -258,6 +260,9 @@ select option{background:var(--bg3);color:var(--ink);}
 .remove-row-btn:hover{background:rgba(239,68,68,.16);}
 /* ── Stock label ── */
 .stock-label{font-size:11px;font-family:monospace;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.6);}
+/* ── OCR Scanner ── */
+@keyframes ocr-scan{0%{top:36%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:64%;opacity:0}}
+#scanner-capture-btn:disabled{opacity:.45;cursor:not-allowed;}
 /* ── Herramientas ── */
 .herr-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:0;overflow:hidden;margin-bottom:.6rem;transition:border-color .15s;}
 .herr-card:hover{border-color:var(--border2);}
@@ -335,6 +340,10 @@ select option{background:var(--bg3);color:var(--ink);}
     <div class="topbar-right">
       <div id="super-sector-selector" style="display:none;align-items:center;gap:6px;margin-right:8px;"></div>
       <span class="topbar-sync sync-ok" id="sync-indicator">● En línea</span>
+      <button class="alert-bell" onclick="bnRefrescarTodoAhora();bnSincronizarPendientesG(true);" title="Actualizar datos / Sincronizar pendientes">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M4 10a6 6 0 0110-4.24M4 4v4h4M16 10a6 6 0 01-10 4.24M16 16v-4h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span id="bn-pend-badge" style="font-size:10px;font-weight:700;color:var(--amber);"></span>
+      </button>
       <button class="alert-bell" onclick="showSection('alertas')">
         <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>
         <span class="alert-count" id="alert-count" style="display:none">0</span>
@@ -2711,7 +2720,7 @@ select option{background:var(--bg3);color:var(--ink);}
     </div>
 
     <!-- Botón tomar foto -->
-    <div style="margin-bottom:10px>
+    <div style="margin-bottom:10px;">
       <button id="scanner-capture-btn" onclick="ocrCapturar()"
         style="width:100%;padding:11px;border-radius:var(--r);border:2px solid #3b82f6;background:rgba(59,130,246,.1);color:#3b82f6;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .15s;"
         onmouseover="this.style.background='rgba(59,130,246,.2)'" onmouseout="this.style.background='rgba(59,130,246,.1)'"
@@ -3163,16 +3172,33 @@ function guardarMotivoVF() {
   if (!nombre) { toast('Ingresa el nombre del motivo','error'); return; }
   var editId = document.getElementById('motivo-vf-edit-id').value;
   var orden = editId ? ((cache.motivos_vf||{})[editId]||{}).orden||0 : Object.keys(cache.motivos_vf||{}).length;
-  var ref = editId ? db.ref('motivos_vf/'+editId) : db.ref('motivos_vf').push();
-  ref.set({nombre:nombre,orden:orden}).then(function(){
-    toast(editId?'Motivo actualizado':'Motivo agregado','success');
-    closeModal('modal-motivo-vf');
+  var idFinal = editId || uid();
+  var data = {nombre:nombre, orden:orden};
+  bnGuardarBlindado({
+    operacion: { metodo:'set', path:'motivos_vf/'+idFinal, data: data },
+    aplicarLocal: function(){ cache.motivos_vf[idFinal]=data; bnGuardarCacheLocal('motivos_vf', cache.motivos_vf); },
+    tipo: 'motivo_vf',
+    resumen: (editId?'Editar':'Agregar')+' motivo: '+nombre,
+    onFinal: function(pendiente){
+      if (!pendiente) toast(editId?'Motivo actualizado':'Motivo agregado','success');
+      closeModal('modal-motivo-vf');
+      if (currentSection==='admin-motivos-vf') renderMotivosVF();
+    }
   });
 }
 
 function eliminarMotivoVF(id,nombre) {
   showConfirm('Eliminar motivo','¿Eliminar el motivo <strong>'+esc(nombre)+'</strong>? Los registros existentes no se ven afectados.',function(){
-    db.ref('motivos_vf/'+id).remove().then(function(){ toast('Motivo eliminado','success'); });
+    bnGuardarBlindado({
+      operacion: { metodo:'remove', path:'motivos_vf/'+id },
+      aplicarLocal: function(){ delete cache.motivos_vf[id]; bnGuardarCacheLocal('motivos_vf', cache.motivos_vf); },
+      tipo: 'motivo_vf_eliminar',
+      resumen: 'Eliminar motivo: '+nombre,
+      onFinal: function(pendiente){
+        if (!pendiente) toast('Motivo eliminado','success');
+        if (currentSection==='admin-motivos-vf') renderMotivosVF();
+      }
+    });
   });
 }
 
@@ -3273,15 +3299,25 @@ function guardarVisitaFallida() {
   };
   if (!editId) data.id = uid();
 
-  var ref = editId ? db.ref('visitas_fallidas/'+editId) : db.ref('visitas_fallidas/'+data.id);
-  ref.set(data).then(function(){
-    toast(editId?'Visita fallida actualizada':'Visita fallida registrada','success');
-    closeModal('modal-visita-fallida');
-    // Re-render inmediato según qué sección esté activa, sin esperar al listener
-    if (currentSection === 'visitas-fallidas-cuad') renderVisitasFallidasCuad();
-    if (currentSection === 'admin-visitas-fallidas') renderAdminVF();
-    if (currentSection === 'admin-reportes') renderVisitasFallidas();
-  }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  var idFinal = editId || data.id;
+  var pathFinal = 'visitas_fallidas/'+idFinal;
+  bnGuardarBlindado({
+    operacion: { metodo:'set', path: pathFinal, data: data },
+    aplicarLocal: function(){
+      cache.visitas_fallidas[idFinal] = data;
+      bnGuardarCacheLocal('visitas_fallidas', cache.visitas_fallidas);
+    },
+    tipo: 'visita_fallida',
+    resumen: 'Visita fallida: '+(data.cliente||'—')+' — '+(data.motivo||''),
+    onFinal: function(pendiente){
+      if (!pendiente) toast(editId?'Visita fallida actualizada':'Visita fallida registrada','success');
+      closeModal('modal-visita-fallida');
+      // Re-render inmediato según qué sección esté activa
+      if (currentSection === 'visitas-fallidas-cuad') renderVisitasFallidasCuad();
+      if (currentSection === 'admin-visitas-fallidas') renderAdminVF();
+      if (currentSection === 'admin-reportes') renderVisitasFallidas();
+    }
+  });
 }
 
 // ── ADMIN VISITAS FALLIDAS (sección standalone) ───────
@@ -4243,6 +4279,9 @@ function exportarCuadresCSV() {
 // siga contando en los cálculos de duración. Los trabajos con tiempo
 // estimado quedan marcados con badge ámbar en Tiempos e Historial.
 // ══════════════════════════════════════════════════════════════════════════
+// Logo COMPU+ para encabezado de PDFs (base64, evita depender de un archivo externo)
+var LOGO_BASE64 = 'data:image/png;base64,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';
+
 var TIPOS_TRABAJO = [
   'Instalaciones','Cambio a FO','Sin Conexión','Link Loss','Visita Repetidor',
   'Instalación TV','Problemas TV','Problema FO','Fallas VoIP','Reconf. Caja Digital',
@@ -5221,6 +5260,199 @@ function iniciarMonitorDesbloqueo() {
   });
 }
 
+// ══════════════════════════════════════════════════════
+// CARGA PERIÓDICA CON CACHÉ LOCAL — reduce el consumo de banda de Firebase
+// En vez de mantener ~15 conexiones ".on(value)" permanentes que se
+// re-sincronizan por completo cada vez que el celular pierde y recupera
+// señal (muy frecuente en campo), se hace una lectura única (.once) al
+// abrir la app, se guarda en localStorage, y se repite automáticamente
+// cada ~5 horas mientras la pestaña siga abierta — cubriendo una
+// actualización "de la mañana" y otra "de la tarde" sin depender de una
+// hora exacta del reloj. Además hay un botón manual "Actualizar ahora"
+// para cuando alguien necesita datos frescos de inmediato.
+// ══════════════════════════════════════════════════════
+// Aplica un objeto de "updates" (el mismo que se manda a db.ref().update()) directamente
+// sobre la caché local en memoria. Esto es indispensable ahora que los nodos grandes ya
+// no tienen un listener en tiempo real (para ahorrar banda): sin esto, el propio usuario
+// no vería reflejado su cambio hasta la siguiente actualización periódica.
+function bnAplicarUpdatesLocal(updates){
+  Object.keys(updates||{}).forEach(function(path){
+    if (path.indexOf('/') === -1 && path.charAt(0) === '_') return; // ej. "_lastUpdate", no es parte de cache
+    var val = updates[path];
+    var partes = path.split('/');
+    var nodoRaiz = partes[0];
+    if (!(nodoRaiz in cache)) return; // nodo que no mantenemos en caché local (ok, ignorar)
+    var obj = cache;
+    for (var i=0; i<partes.length-1; i++){
+      var key = partes[i];
+      if (obj[key] === undefined || obj[key] === null || typeof obj[key] !== 'object') obj[key] = {};
+      obj = obj[key];
+    }
+    var ultimaKey = partes[partes.length-1];
+    if (val === null) { delete obj[ultimaKey]; } else { obj[ultimaKey] = val; }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// BLINDAJE GENÉRICO SIN CONEXIÓN — para TODOS los guardados de la app
+// Mismo patrón que ya se probó en Red Interna, generalizado: si no hay
+// conexión (o el servidor no responde en 8s), el cambio se refleja de
+// inmediato en la pantalla del usuario y se guarda en localStorage para
+// reintentar después — sobrevive incluso si se cierra el navegador.
+// ══════════════════════════════════════════════════════
+var BN_PEND_KEY = 'bodeganet_pendientes_generico';
+
+function bnGetPendientesG(){
+  try { return JSON.parse(localStorage.getItem(BN_PEND_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function bnSetPendientesG(arr){
+  try { localStorage.setItem(BN_PEND_KEY, JSON.stringify(arr)); } catch(e){}
+}
+function bnActualizarBadgePendientesG(){
+  var n = bnGetPendientesG().length;
+  var badge = document.getElementById('bn-pend-badge');
+  if (badge) badge.textContent = n>0 ? ' ('+n+')' : '';
+}
+function bnEncolarPendienteG(id, tipo, operacion, resumen){
+  var arr = bnGetPendientesG();
+  arr.push({ id:id, tipo:tipo, operacion:operacion, resumen:resumen, ts:Date.now() });
+  bnSetPendientesG(arr);
+  bnActualizarBadgePendientesG();
+}
+function bnQuitarPendienteG(id){
+  bnSetPendientesG(bnGetPendientesG().filter(function(x){ return x.id !== id; }));
+  bnActualizarBadgePendientesG();
+}
+// Ejecuta una "operación" descrita como datos planos (serializable), para
+// poder guardarla en localStorage y repetirla después tal cual.
+function bnEjecutarOperacion(op){
+  if (op.metodo === 'update') return db.ref().update(op.updates);
+  if (op.metodo === 'set')    return db.ref(op.path).set(op.data);
+  if (op.metodo === 'remove') return db.ref(op.path).remove();
+  return Promise.reject(new Error('Operación desconocida: '+op.metodo));
+}
+function bnSincronizarPendientesG(manual){
+  var arr = bnGetPendientesG();
+  if (!arr.length) { if (manual) toast('No hay registros pendientes por sincronizar','info'); return; }
+  if (!navigator.onLine) { if (manual) toast('Sigues sin conexión, se reintentará automáticamente','error'); return; }
+  if (manual) toast('Sincronizando '+arr.length+' registro(s)...','info');
+  var restantes = arr.slice();
+  var exitosos = 0;
+  (function siguiente(){
+    if (!restantes.length){
+      if (exitosos>0) { toast(exitosos+' registro(s) sincronizado(s) ✅','success'); renderCurrentSection(); }
+      return;
+    }
+    var item = restantes.shift();
+    bnEjecutarOperacion(item.operacion).then(function(){
+      exitosos++;
+      bnQuitarPendienteG(item.id);
+      siguiente();
+    }).catch(function(){
+      if (manual) toast('Falló la sincronización de uno o más registros, se reintentará automáticamente','error');
+    });
+  })();
+}
+window.addEventListener('online', function(){ bnSincronizarPendientesG(false); });
+setInterval(function(){ if (navigator.onLine) bnSincronizarPendientesG(false); }, 30000);
+
+// Envoltorio genérico para "guardar blindado": aplica el cambio localmente de
+// inmediato, intenta guardarlo en Firebase, y si falla/no hay conexión/no hay
+// respuesta en 8s, lo encola para reintentar después sin perder el dato.
+//   cfg = {
+//     operacion:   { metodo:'update', updates:{...} } | { metodo:'set', path, data } | { metodo:'remove', path },
+//     aplicarLocal: function(){ ... mutar cache directamente para reflejo inmediato ... },
+//     tipo:        'kardex' | 'asignacion' | ... (etiqueta interna),
+//     resumen:     'texto corto para identificar este pendiente',
+//     onFinal:     function(pendiente){ ... toast, cerrar modal, re-render ... }
+//   }
+function bnGuardarBlindado(cfg){
+  var id = 'pend_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+  try { cfg.aplicarLocal(); } catch(e){ console.warn('bnGuardarBlindado aplicarLocal() falló', e); }
+
+  function encolarYAvisar(motivo){
+    bnEncolarPendienteG(id, cfg.tipo, cfg.operacion, cfg.resumen);
+    toast((motivo||'Sin conexión')+': guardado localmente, se sincronizará automáticamente ✅','info');
+    if (cfg.onFinal) cfg.onFinal(true);
+  }
+
+  if (!navigator.onLine) { encolarYAvisar('Sin conexión'); return; }
+
+  var resuelto = false;
+  var timeoutId = setTimeout(function(){
+    if (resuelto) return;
+    resuelto = true;
+    encolarYAvisar('Sin respuesta del servidor');
+  }, 8000);
+
+  bnEjecutarOperacion(cfg.operacion).then(function(){
+    if (resuelto) { bnQuitarPendienteG(id); return; } // llegó tarde pero sí se confirmó: evita duplicar
+    resuelto = true; clearTimeout(timeoutId);
+    if (cfg.onFinal) cfg.onFinal(false);
+  }).catch(function(){
+    if (resuelto) return;
+    resuelto = true; clearTimeout(timeoutId);
+    encolarYAvisar('Sin conexión');
+  });
+}
+
+var BN_CACHE_PREFIX = 'bn_cache_';
+var BN_REFRESH_INTERVAL_MS = 5 * 60 * 60 * 1000; // ~5 horas
+var bnFetchers = {}; // { nombreNodo: función que trae ese nodo fresco de Firebase (once) }
+
+function bnGuardarCacheLocal(nombre, data){
+  try { localStorage.setItem(BN_CACHE_PREFIX+nombre, JSON.stringify({data:data, ts:Date.now()})); } catch(e){}
+}
+function bnLeerCacheLocal(nombre){
+  try {
+    var raw = localStorage.getItem(BN_CACHE_PREFIX+nombre);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e){ return null; }
+}
+function bnCargarNodoPeriodico(nombre, aplicar){
+  // 1. Pinta lo último que se guardó localmente, sin esperar respuesta de red
+  var cacheado = bnLeerCacheLocal(nombre);
+  if (cacheado) { try { aplicar(cacheado.data || {}); } catch(e){ console.warn('bnCargarNodoPeriodico aplicar() falló para', nombre, e); } }
+  // 2. Trae datos frescos con una sola lectura (no dejar conexión abierta)
+  function traerFresco(){
+    return db.ref(nombre).once('value').then(function(snap){
+      var val = snap.val() || {};
+      try { aplicar(val); } catch(e){ console.warn('bnCargarNodoPeriodico aplicar() falló para', nombre, e); }
+      bnGuardarCacheLocal(nombre, val);
+      return val;
+    }).catch(function(e){ console.warn('bnCargarNodoPeriodico: no se pudo actualizar '+nombre, e); });
+  }
+  bnFetchers[nombre] = traerFresco;
+  // Si cargarDatosIniciales() ya trajo este nodo fresco de Firebase hace unos
+  // segundos (antes de loguearse), no lo volvemos a pedir de inmediato — solo
+  // aplicamos lo que ya está en cache y lo guardamos en localStorage, evitando
+  // una doble descarga completa en cada apertura de la app.
+  if (window.BN_NODOS_YA_CARGADOS && window.BN_NODOS_YA_CARGADOS[nombre] && cache[nombre]) {
+    try { aplicar(cache[nombre]); } catch(e){}
+    bnGuardarCacheLocal(nombre, cache[nombre]);
+  } else {
+    traerFresco();
+  }
+  setInterval(traerFresco, BN_REFRESH_INTERVAL_MS);
+}
+// Refresca UN nodo específico ahora mismo (para usar justo después de guardar algo
+// en un catálogo, en vez de esperar el ciclo periódico de ~5 horas)
+function bnRefrescarNodo(nombre){
+  if (bnFetchers[nombre]) return bnFetchers[nombre]();
+  return Promise.resolve();
+}
+// Fuerza actualizar todos los nodos periódicos ahora mismo (botón manual)
+function bnRefrescarTodoAhora(){
+  if (!navigator.onLine) { toast('Sin conexión, no se puede actualizar ahora','error'); return; }
+  toast('Actualizando datos...','info');
+  Object.keys(bnFetchers).forEach(function(k){ bnFetchers[k](); });
+  setTimeout(function(){ toast('Datos actualizados ✅','success'); }, 1200);
+}
+// Actualiza también al recuperar señal, por si el timer de 5h no ha llegado
+window.addEventListener('online', function(){ Object.keys(bnFetchers).forEach(function(k){ bnFetchers[k](); }); });
+
 function initFirebaseListeners() {
   // Monitor de desbloqueo — escucha si el admin desbloqueó este dispositivo
   iniciarMonitorDesbloqueo();
@@ -5230,83 +5462,88 @@ function initFirebaseListeners() {
   // apenas arranca la app.
   actualizarBadgeRIPendientes();
   if (navigator.onLine) sincronizarRIPendientes(false);
+  // Igual para la cola genérica (Kardex, Asignaciones, catálogos, etc.)
+  bnActualizarBadgePendientesG();
+  if (navigator.onLine) bnSincronizarPendientesG(false);
 
-  db.ref('cuadrillas').on('value', function(snap) {
-    cache.cuadrillas = snap.val() || {};
+  bnCargarNodoPeriodico('cuadrillas', function(val) {
+    cache.cuadrillas = val;
     populateLoginSelect();
     if (currentUser) { updateAlertCount(); renderCurrentSection(); }
   });
-  db.ref('materiales').on('value', function(snap) {
-    cache.materiales = snap.val() || {};
+  bnCargarNodoPeriodico('materiales', function(val) {
+    cache.materiales = val;
     if (currentUser) { updateAlertCount(); renderCurrentSection(); }
   });
-  db.ref('stocks').on('value', function(snap) {
-    cache.stocks = snap.val() || {};
+  bnCargarNodoPeriodico('stocks', function(val) {
+    cache.stocks = val;
     if (currentUser) { updateAlertCount(); renderCurrentSection(); }
   });
-  db.ref('kardex').on('value', function(snap) {
-    cache.kardex = snap.val() || {};
+  bnCargarNodoPeriodico('kardex', function(val) {
+    cache.kardex = val;
     if (currentUser) renderCurrentSection();
   });
-  db.ref('asignaciones').on('value', function(snap) {
-    cache.asignaciones = snap.val() || {};
+  bnCargarNodoPeriodico('asignaciones', function(val) {
+    cache.asignaciones = val;
     if (currentUser) renderCurrentSection();
   });
-  // Listeners de config — protegidos para no romper si la ruta no existe aún
+  // Listeners de config — protegidos para no romper si la ruta no existe aún.
+  // Se dejan en tiempo real (.on) porque son valores diminutos (unos bytes cada
+  // uno), no nodos completos — su costo de banda es insignificante.
   try { db.ref('config/adminPass').on('value',      function(snap){ if(snap.val()) ADMIN_PASS     = snap.val(); }); } catch(e){}
   try { db.ref('config/admin2Pass').on('value',     function(snap){ if(snap.val()) ADMIN2_PASS    = snap.val(); }); } catch(e){}
   try { db.ref('config/superPass').on('value',      function(snap){ if(snap.val()) SUPER_PASS     = snap.val(); }); } catch(e){}
   try { db.ref('config/sector1Nombre').on('value',  function(snap){ if(snap.val()) SECTOR1_NOMBRE = snap.val(); }); } catch(e){}
   try { db.ref('config/sector2Nombre').on('value',  function(snap){ if(snap.val()) SECTOR2_NOMBRE = snap.val(); }); } catch(e){}
   // Red Interna
-  db.ref('redInterna').on('value', function(snap) {
-    cache.redInterna = snap.val() || {};
+  bnCargarNodoPeriodico('redInterna', function(val) {
+    cache.redInterna = val;
     rehidratarRIPendientesEnCache();
     if (currentUser) {
       if (currentUser.tipo==='cuadrilla' && currentSection==='red-interna') renderRedInterna();
     }
   });
   // Motivos de visita fallida (dinámicos)
-  db.ref('motivos_vf').on('value', function(snap) {
-    cache.motivos_vf = snap.val() || {};
+  bnCargarNodoPeriodico('motivos_vf', function(val) {
+    cache.motivos_vf = val;
     poblarSelectMotivosVF();
     if (currentUser && currentUser.tipo==='admin' && currentSection==='admin-motivos-vf') renderMotivosVF();
   });
   // Tipos de trabajo Red Interna (dinámicos)
-  db.ref('tipos_red_interna').on('value', function(snap) {
-    cache.tipos_red_interna = snap.val() || {};
+  bnCargarNodoPeriodico('tipos_red_interna', function(val) {
+    cache.tipos_red_interna = val;
     poblarSelectTiposRI();
   });
   // Tipos de trabajo — Asignaciones a clientes (dinámicos, editable por admin)
-  db.ref('tipos_trabajo').on('value', function(snap) {
-    cache.tipos_trabajo = snap.val() || {};
+  bnCargarNodoPeriodico('tipos_trabajo', function(val) {
+    cache.tipos_trabajo = val;
     poblarSelectsTiposTrabajo();
     if (currentUser && currentUser.tipo==='admin' && currentSection==='admin-tipos-trabajo') renderTiposTrabajo();
   });
-  db.ref('tipos_trabajo_ocultos').on('value', function(snap) {
-    cache.tipos_trabajo_ocultos = snap.val() || {};
+  bnCargarNodoPeriodico('tipos_trabajo_ocultos', function(val) {
+    cache.tipos_trabajo_ocultos = val;
     poblarSelectsTiposTrabajo();
     if (currentUser && currentUser.tipo==='admin' && currentSection==='admin-tipos-trabajo') renderTiposTrabajo();
   });
   // Catálogo de herramientas (admin crea, cuadrilla selecciona)
-  db.ref('catalogo_herramientas').on('value', function(snap) {
-    cache.catalogo_herramientas = snap.val() || {};
+  bnCargarNodoPeriodico('catalogo_herramientas', function(val) {
+    cache.catalogo_herramientas = val;
     if (currentUser) {
       if (currentUser.tipo==='cuadrilla' && currentSection==='herramientas') renderHerramientas();
       if (currentUser.tipo==='admin') renderCatalogoHerramientasAdmin();
     }
   });
   // Herramientas
-  db.ref('herramientas').on('value', function(snap) {
-    cache.herramientas = snap.val() || {};
+  bnCargarNodoPeriodico('herramientas', function(val) {
+    cache.herramientas = val;
     if (currentUser) {
       if (currentUser.tipo === 'cuadrilla' && currentSection === 'herramientas') renderHerramientas();
       if (currentUser.tipo === 'admin' && currentSection === 'admin-herramientas') renderAdminHerramientas();
     }
   });
   // Retiros / Recuperaciones de equipos
-  db.ref('retiros').on('value', function(snap) {
-    cache.retiros = snap.val() || {};
+  bnCargarNodoPeriodico('retiros', function(val) {
+    cache.retiros = val;
     if (currentUser && currentUser.tipo === 'cuadrilla' && currentSection === 'retiros') renderRetiros();
   });
   // Tiempos por defecto por tipo de trabajo (configurados por admin por sector)
@@ -5314,23 +5551,17 @@ function initFirebaseListeners() {
     cache.tiemposDefault = snap.val() || {};
   });
   // Sectores dinamicos
-  db.ref('sectores').on('value', function(snap) {
-    cache.sectores = snap.val() || {};
+  bnCargarNodoPeriodico('sectores', function(val) {
+    cache.sectores = val;
     SECTORES_CACHE = cache.sectores;
     populateAdminLoginSelect();
     if (currentUser && currentUser.rol === 'superadmin') renderSectorSelectorSuper();
     if (currentUser) renderCurrentSection();
   });
-  // 1. Escuchar visitas fallidas
-  db.ref('visitas_fallidas').on('value', function(snap) {
-    cache.visitas_fallidas = snap.val() || {};
+  // 1. Visitas fallidas
+  bnCargarNodoPeriodico('visitas_fallidas', function(val) {
+    cache.visitas_fallidas = val;
     if (!currentUser) return;
-    // FIX: el listener original solo re-renderizaba si currentSection === 'visitas-fallidas'
-    // (una sección muerta con display:none!important que nunca se activa).
-    // Ahora cubre los tres puntos reales donde se muestran visitas fallidas:
-    // 1. Vista cuadrilla — sección 'visitas-fallidas-cuad'
-    // 2. Vista admin sección dedicada — 'admin-visitas-fallidas'
-    // 3. Pestaña 'visitas' dentro de admin-reportes
     if (currentSection === 'visitas-fallidas-cuad') renderVisitasFallidasCuad();
     if (currentSection === 'admin-visitas-fallidas') renderAdminVF();
     if (currentSection === 'admin-reportes') renderVisitasFallidas();
@@ -6290,8 +6521,10 @@ function guardarRedInterna() {
   }
 
   // Reflejo local inmediato (para que la cuadrilla vea su registro al instante,
-  // esté o no confirmado por el servidor todavía)
+  // esté o no confirmado por el servidor todavía) — incluye el descuento de stock,
+  // ya que ese nodo ya no tiene un listener en tiempo real permanente.
   cache.redInterna[newId] = Object.assign({id: newId}, registro);
+  bnAplicarUpdatesLocal(updates);
 
   if (!navigator.onLine) {
     cache.redInterna[newId]._pendiente = true;
@@ -6331,8 +6564,15 @@ function eliminarRI(id) {
   showConfirm('Eliminar registro',
     '¿Eliminar el registro <strong>'+esc(r.orden)+'</strong>? Esta acción no se puede deshacer.',
     function() {
-      db.ref('redInterna/'+id).remove().then(function(){
-        toast('Registro eliminado','success'); renderRedInterna();
+      bnGuardarBlindado({
+        operacion: { metodo:'remove', path:'redInterna/'+id },
+        aplicarLocal: function(){ delete cache.redInterna[id]; bnGuardarCacheLocal('redInterna', cache.redInterna); },
+        tipo: 'red_interna_eliminar',
+        resumen: 'Eliminar RI: '+(r.orden||id),
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Registro eliminado','success');
+          renderRedInterna();
+        }
       });
     }
   );
@@ -6431,10 +6671,19 @@ function renderRiPermisos() {
 }
 
 function toggleRiPermiso(cuadId, habilitado) {
-  db.ref('cuadrillas/'+cuadId+'/redInterna').set(habilitado).then(function() {
-    toast((habilitado ? '✅ Red Interna habilitada' : 'Acceso removido') + ' para ' + ((getCuad(cuadId)||{nombre:'?'}).nombre), 'success');
-    renderRiPermisos();
-  }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  bnGuardarBlindado({
+    operacion: { metodo:'set', path:'cuadrillas/'+cuadId+'/redInterna', data: habilitado },
+    aplicarLocal: function(){
+      if (cache.cuadrillas[cuadId]) cache.cuadrillas[cuadId].redInterna = habilitado;
+      bnGuardarCacheLocal('cuadrillas', cache.cuadrillas);
+    },
+    tipo: 'permiso_ri',
+    resumen: (habilitado?'Habilitar':'Quitar')+' Red Interna: '+((getCuad(cuadId)||{nombre:'?'}).nombre),
+    onFinal: function(pendiente){
+      if (!pendiente) toast((habilitado ? '✅ Red Interna habilitada' : 'Acceso removido') + ' para ' + ((getCuad(cuadId)||{nombre:'?'}).nombre), 'success');
+      renderRiPermisos();
+    }
+  });
 }
 
 function exportarRedInternaCSV() {
@@ -6622,10 +6871,17 @@ function eliminarEquipoPendiente(retiroId, equipoId) {
     var updates = {};
     if (!equipos.length) updates['retiros/'+retiroId] = null;
     else updates['retiros/'+retiroId+'/equipos'] = equipos;
-    db.ref().update(updates).then(function(){
-      delete retiroSeleccion[retiroId+'__'+equipoId];
-      toast('Equipo eliminado','success');
-    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    bnGuardarBlindado({
+      operacion: { metodo:'update', updates: updates },
+      aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+      tipo: 'retiro_equipo_eliminado',
+      resumen: 'Eliminar equipo de retiro pendiente',
+      onFinal: function(pendiente){
+        delete retiroSeleccion[retiroId+'__'+equipoId];
+        if (!pendiente) toast('Equipo eliminado','success');
+        renderRetPendientes();
+      }
+    });
   });
 }
 
@@ -6736,9 +6992,20 @@ function guardarRetiro() {
   var data = { cliente:cliente, numTrabajo:(document.getElementById('ret-num-trabajo').value||'').trim(),
     fecha:fecha, cuadrillaId:cid, tsRegistro:Date.now(), equipos:equiposData };
 
-  db.ref('retiros/'+rid).set(data)
-    .then(function(){ toast('Retiro registrado correctamente','success'); closeModal('modal-retiro'); })
-    .catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
+  bnGuardarBlindado({
+    operacion: { metodo:'set', path:'retiros/'+rid, data: data },
+    aplicarLocal: function(){
+      cache.retiros[rid] = data;
+      bnGuardarCacheLocal('retiros', cache.retiros);
+    },
+    tipo: 'retiro',
+    resumen: 'Retiro de equipo: '+(data.cliente||'—'),
+    onFinal: function(pendiente){
+      if (!pendiente) toast('Retiro registrado correctamente','success');
+      closeModal('modal-retiro');
+      renderRetiros();
+    }
+  });
 }
 
 function abrirModalCuadre() {
@@ -6784,13 +7051,18 @@ function confirmarCuadre() {
     updates['retiros/'+rid+'/equipos']=equipos;
   });
 
-  db.ref().update(updates)
-    .then(function(){
+  bnGuardarBlindado({
+    operacion: { metodo:'update', updates: updates },
+    aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+    tipo: 'cuadre_retiro',
+    resumen: 'Cuadre N.º '+numCuadre,
+    onFinal: function(pendiente){
       retiroSeleccion={};
-      toast('Cuadre N.º '+numCuadre+' registrado correctamente','success');
+      if (!pendiente) toast('Cuadre N.º '+numCuadre+' registrado correctamente','success');
       closeModal('modal-cuadre');
-    })
-    .catch(function(e){ toast('Error al cuadrar: '+e.message,'error'); });
+      renderRetCuadres();
+    }
+  });
 }
 
 // ── VISTA CUADRILLA ──────────────────────────────────
@@ -7036,22 +7308,38 @@ function guardarHerramientaPropia() {
   };
 
   if (editId) {
-    db.ref('herramientas/'+editId).update(data).then(function(){
-      toast('Herramienta actualizada ✅', 'success');
-      closeModal('modal-herr-propia');
-      renderHerramientas();
-    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    bnGuardarBlindado({
+      operacion: { metodo:'update', updates: (function(){ var u={}; Object.keys(data).forEach(function(k){ u['herramientas/'+editId+'/'+k]=data[k]; }); return u; })() },
+      aplicarLocal: function(){
+        cache.herramientas[editId] = Object.assign({}, cache.herramientas[editId]||{}, data);
+        bnGuardarCacheLocal('herramientas', cache.herramientas);
+      },
+      tipo: 'herramienta_propia',
+      resumen: 'Editar herramienta propia: '+nombre,
+      onFinal: function(pendiente){
+        if (!pendiente) toast('Herramienta actualizada ✅', 'success');
+        closeModal('modal-herr-propia');
+        renderHerramientas();
+      }
+    });
   } else {
     data.historial = obs ? [{
       fecha: new Date().toISOString(), estadoAnterior: '—', estadoNuevo: estado,
       tipo: 'registro', responsable: (getCuad(cid)||{nombre:''}).nombre,
       obs: obs, kardexRef: ''
     }] : [];
-    db.ref('herramientas/'+uid()).set(data).then(function(){
-      toast('Herramienta registrada ✅', 'success');
-      closeModal('modal-herr-propia');
-      renderHerramientas();
-    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    var nuevoId = uid();
+    bnGuardarBlindado({
+      operacion: { metodo:'set', path:'herramientas/'+nuevoId, data: data },
+      aplicarLocal: function(){ cache.herramientas[nuevoId]=data; bnGuardarCacheLocal('herramientas', cache.herramientas); },
+      tipo: 'herramienta_propia_nueva',
+      resumen: 'Registrar herramienta: '+nombre,
+      onFinal: function(pendiente){
+        if (!pendiente) toast('Herramienta registrada ✅', 'success');
+        closeModal('modal-herr-propia');
+        renderHerramientas();
+      }
+    });
   }
 }
 
@@ -7123,16 +7411,21 @@ function confirmarCambioEstado() {
   var historial = (h.historial||[]).slice();
   historial.push(cambio);
 
-  db.ref('herramientas/'+herrId).update({
-    estado:       nuevoEst,
-    historial:    historial,
-    verificacion: 'verificado'
-  }).then(function(){
-    closeModal('modal-herr-estado');
-    toast('✅ Cambio registrado · Ref: '+kardexRef, 'success');
-    renderHerramientas();
-    if (herrTabActual === 'kardex') renderHerrKardex();
-  }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  bnGuardarBlindado({
+    operacion: { metodo:'update', updates: (function(){ var u={}; u['herramientas/'+herrId+'/estado']=nuevoEst; u['herramientas/'+herrId+'/historial']=historial; u['herramientas/'+herrId+'/verificacion']='verificado'; return u; })() },
+    aplicarLocal: function(){
+      if (cache.herramientas[herrId]) { cache.herramientas[herrId].estado=nuevoEst; cache.herramientas[herrId].historial=historial; cache.herramientas[herrId].verificacion='verificado'; }
+      bnGuardarCacheLocal('herramientas', cache.herramientas);
+    },
+    tipo: 'cambio_estado_herramienta',
+    resumen: 'Cambio de estado herramienta: '+(h.nombre||herrId)+' → '+nuevoEst,
+    onFinal: function(pendiente){
+      closeModal('modal-herr-estado');
+      if (!pendiente) toast('✅ Cambio registrado · Ref: '+kardexRef, 'success');
+      renderHerramientas();
+      if (herrTabActual === 'kardex') renderHerrKardex();
+    }
+  });
 }
 
 
@@ -7212,18 +7505,32 @@ function guardarCatalogoHerr() {
     activo: document.getElementById('cat-herr-activo').checked
   };
   var editId = document.getElementById('cat-herr-edit-id').value;
-  var ref = editId ? db.ref('catalogo_herramientas/'+editId) : db.ref('catalogo_herramientas').push();
-  ref.set(data).then(function(){
-    toast(editId ? 'Herramienta actualizada' : 'Herramienta agregada al catálogo', 'success');
-    closeModal('modal-catalogo-herr');
-  }).catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
+  var idFinal = editId || uid();
+  bnGuardarBlindado({
+    operacion: { metodo:'set', path:'catalogo_herramientas/'+idFinal, data: data },
+    aplicarLocal: function(){ cache.catalogo_herramientas[idFinal]=data; bnGuardarCacheLocal('catalogo_herramientas', cache.catalogo_herramientas); },
+    tipo: 'catalogo_herramienta',
+    resumen: (editId?'Editar':'Agregar')+' herramienta: '+nombre,
+    onFinal: function(pendiente){
+      if (!pendiente) toast(editId ? 'Herramienta actualizada' : 'Herramienta agregada al catálogo', 'success');
+      closeModal('modal-catalogo-herr');
+      if (currentUser && currentUser.tipo==='admin') renderCatalogoHerramientasAdmin();
+    }
+  });
 }
 
 function eliminarCatalogoHerr(id, nombre) {
   showConfirm('Eliminar del catálogo','¿Eliminar <strong>'+esc(nombre)+'</strong> del catálogo? Las herramientas ya asignadas a cuadrillas no se verán afectadas.', function(){
-    db.ref('catalogo_herramientas/'+id).remove().then(function(){
-      toast('Herramienta eliminada del catálogo','success');
-    }).catch(function(e){ toast('Error al eliminar: '+e.message,'error'); });
+    bnGuardarBlindado({
+      operacion: { metodo:'remove', path:'catalogo_herramientas/'+id },
+      aplicarLocal: function(){ delete cache.catalogo_herramientas[id]; bnGuardarCacheLocal('catalogo_herramientas', cache.catalogo_herramientas); },
+      tipo: 'catalogo_herramienta_eliminar',
+      resumen: 'Eliminar herramienta de catálogo: '+nombre,
+      onFinal: function(pendiente){
+        if (!pendiente) toast('Herramienta eliminada del catálogo','success');
+        if (currentUser && currentUser.tipo==='admin') renderCatalogoHerramientasAdmin();
+      }
+    });
   });
 }
 
@@ -7302,16 +7609,29 @@ function guardarTipoRI() {
   if (!nombre) { toast('Ingresa el nombre del tipo de trabajo','error'); return; }
   var editId = document.getElementById('tipo-ri-edit-id').value;
   var orden = editId ? (cache.tipos_red_interna[editId]||{}).orden||0 : Object.keys(cache.tipos_red_interna).length;
-  var ref = editId ? db.ref('tipos_red_interna/'+editId) : db.ref('tipos_red_interna').push();
-  ref.set({nombre:nombre, orden:orden}).then(function(){
-    toast(editId ? 'Tipo actualizado' : 'Tipo de trabajo agregado','success');
-    closeModal('modal-tipo-ri');
-  }).catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
+  var idFinal = editId || uid();
+  var data = {nombre:nombre, orden:orden};
+  bnGuardarBlindado({
+    operacion: { metodo:'set', path:'tipos_red_interna/'+idFinal, data: data },
+    aplicarLocal: function(){ cache.tipos_red_interna[idFinal]=data; bnGuardarCacheLocal('tipos_red_interna', cache.tipos_red_interna); poblarSelectTiposRI(); },
+    tipo: 'tipo_ri',
+    resumen: (editId?'Editar':'Agregar')+' tipo RI: '+nombre,
+    onFinal: function(pendiente){
+      if (!pendiente) toast(editId ? 'Tipo actualizado' : 'Tipo de trabajo agregado','success');
+      closeModal('modal-tipo-ri');
+    }
+  });
 }
 
 function eliminarTipoRI(id, nombre) {
   showConfirm('Eliminar tipo','¿Eliminar el tipo <strong>'+esc(nombre)+'</strong>? Los registros existentes no se ven afectados.', function(){
-    db.ref('tipos_red_interna/'+id).remove().then(function(){ toast('Tipo eliminado','success'); }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    bnGuardarBlindado({
+      operacion: { metodo:'remove', path:'tipos_red_interna/'+id },
+      aplicarLocal: function(){ delete cache.tipos_red_interna[id]; bnGuardarCacheLocal('tipos_red_interna', cache.tipos_red_interna); poblarSelectTiposRI(); },
+      tipo: 'tipo_ri_eliminar',
+      resumen: 'Eliminar tipo RI: '+nombre,
+      onFinal: function(pendiente){ if (!pendiente) toast('Tipo eliminado','success'); }
+    });
   });
 }
 
@@ -7443,11 +7763,18 @@ function guardarTipoTrabajo() {
   var yaExiste = tiposTrabajoActivos().some(function(n){ return n.toLowerCase()===nombre.toLowerCase() && (!editId || (cache.tipos_trabajo[editId]||{}).nombre!==n); });
   if (yaExiste) { toast('Ya existe un tipo de trabajo con ese nombre','error'); return; }
   var orden = editId ? (cache.tipos_trabajo[editId]||{}).orden||0 : Object.keys(cache.tipos_trabajo).length;
-  var ref = editId ? db.ref('tipos_trabajo/'+editId) : db.ref('tipos_trabajo').push();
-  ref.set({nombre:nombre, orden:orden}).then(function(){
-    toast(editId ? 'Tipo actualizado' : 'Tipo de trabajo agregado','success');
-    closeModal('modal-tipo-trabajo');
-  }).catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
+  var idFinal = editId || uid();
+  var data = {nombre:nombre, orden:orden};
+  bnGuardarBlindado({
+    operacion: { metodo:'set', path:'tipos_trabajo/'+idFinal, data: data },
+    aplicarLocal: function(){ cache.tipos_trabajo[idFinal]=data; bnGuardarCacheLocal('tipos_trabajo', cache.tipos_trabajo); poblarSelectsTiposTrabajo(); if(currentSection==='admin-tipos-trabajo') renderTiposTrabajo(); },
+    tipo: 'tipo_trabajo',
+    resumen: (editId?'Editar':'Agregar')+' tipo de trabajo: '+nombre,
+    onFinal: function(pendiente){
+      if (!pendiente) toast(editId ? 'Tipo actualizado' : 'Tipo de trabajo agregado','success');
+      closeModal('modal-tipo-trabajo');
+    }
+  });
 }
 
 // Elimina un tipo: si es personalizado (id presente) lo borra de Firebase;
@@ -7455,17 +7782,35 @@ function guardarTipoTrabajo() {
 function eliminarTipoTrabajo(id, nombre) {
   if (id) {
     showConfirm('Eliminar tipo','¿Eliminar el tipo <strong>'+esc(nombre)+'</strong>? Los registros existentes no se ven afectados.', function(){
-      db.ref('tipos_trabajo/'+id).remove().then(function(){ toast('Tipo eliminado','success'); }).catch(function(e){ toast('Error: '+e.message,'error'); });
+      bnGuardarBlindado({
+        operacion: { metodo:'remove', path:'tipos_trabajo/'+id },
+        aplicarLocal: function(){ delete cache.tipos_trabajo[id]; bnGuardarCacheLocal('tipos_trabajo', cache.tipos_trabajo); poblarSelectsTiposTrabajo(); if(currentSection==='admin-tipos-trabajo') renderTiposTrabajo(); },
+        tipo: 'tipo_trabajo_eliminar',
+        resumen: 'Eliminar tipo de trabajo: '+nombre,
+        onFinal: function(pendiente){ if (!pendiente) toast('Tipo eliminado','success'); }
+      });
     });
   } else {
     showConfirm('Quitar tipo de trabajo','¿Quitar <strong>'+esc(nombre)+'</strong> del selector de tipo de trabajo? Los registros existentes no se ven afectados y puedes restaurarlo luego.', function(){
-      db.ref('tipos_trabajo_ocultos/'+tipoTrabajoKey(nombre)).set(true).then(function(){ toast('Tipo quitado del selector','success'); }).catch(function(e){ toast('Error: '+e.message,'error'); });
+      bnGuardarBlindado({
+        operacion: { metodo:'set', path:'tipos_trabajo_ocultos/'+tipoTrabajoKey(nombre), data: true },
+        aplicarLocal: function(){ cache.tipos_trabajo_ocultos[tipoTrabajoKey(nombre)]=true; bnGuardarCacheLocal('tipos_trabajo_ocultos', cache.tipos_trabajo_ocultos); poblarSelectsTiposTrabajo(); if(currentSection==='admin-tipos-trabajo') renderTiposTrabajo(); },
+        tipo: 'tipo_trabajo_ocultar',
+        resumen: 'Ocultar tipo de trabajo: '+nombre,
+        onFinal: function(pendiente){ if (!pendiente) toast('Tipo quitado del selector','success'); }
+      });
     });
   }
 }
 
 function restaurarTipoTrabajo(nombre) {
-  db.ref('tipos_trabajo_ocultos/'+tipoTrabajoKey(nombre)).remove().then(function(){ toast('Tipo restaurado','success'); }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  bnGuardarBlindado({
+    operacion: { metodo:'remove', path:'tipos_trabajo_ocultos/'+tipoTrabajoKey(nombre) },
+    aplicarLocal: function(){ delete cache.tipos_trabajo_ocultos[tipoTrabajoKey(nombre)]; bnGuardarCacheLocal('tipos_trabajo_ocultos', cache.tipos_trabajo_ocultos); poblarSelectsTiposTrabajo(); if(currentSection==='admin-tipos-trabajo') renderTiposTrabajo(); },
+    tipo: 'tipo_trabajo_restaurar',
+    resumen: 'Restaurar tipo de trabajo: '+nombre,
+    onFinal: function(pendiente){ if (!pendiente) toast('Tipo restaurado','success'); }
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -7581,10 +7926,17 @@ function guardarRecepcionHerramientas() {
       };
     }
   });
-  db.ref().update(updates).then(function(){
-    toast('Recepción registrada — '+ids.length+' herramienta(s)','success');
-    closeModal('modal-herr-recepcion');
-    herrRecSeleccion = {};
+  bnGuardarBlindado({
+    operacion: { metodo:'update', updates: updates },
+    aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+    tipo: 'recepcion_herramientas',
+    resumen: 'Recepción de '+ids.length+' herramienta(s)',
+    onFinal: function(pendiente){
+      if (!pendiente) toast('Recepción registrada — '+ids.length+' herramienta(s)','success');
+      closeModal('modal-herr-recepcion');
+      herrRecSeleccion = {};
+      renderHerramientas();
+    }
   });
 }
 
@@ -7693,12 +8045,18 @@ function guardarHerramienta() {
   }
   var data = { nombre: nombre, cuadrillaId: cuadId, estado: estado, serie: serie,
     verificacion: 'verificado', historial: editId ? (cache.herramientas[editId].historial||[]) : [] };
-  var ref = editId ? db.ref('herramientas/' + editId) : db.ref('herramientas').push();
-  ref.set(data).then(function() {
-    closeModal('modal-herramienta');
-    toast(editId ? 'Herramienta actualizada' : 'Herramienta registrada', 'success');
-    renderAdminHerramientas();
-  }).catch(function(e){ toast('Error: ' + e.message, 'error'); });
+  var idFinal = editId || uid();
+  bnGuardarBlindado({
+    operacion: { metodo:'set', path:'herramientas/'+idFinal, data: data },
+    aplicarLocal: function(){ cache.herramientas[idFinal]=data; bnGuardarCacheLocal('herramientas', cache.herramientas); },
+    tipo: 'herramienta_admin',
+    resumen: (editId?'Editar':'Registrar')+' herramienta: '+nombre,
+    onFinal: function(pendiente){
+      closeModal('modal-herramienta');
+      if (!pendiente) toast(editId ? 'Herramienta actualizada' : 'Herramienta registrada', 'success');
+      renderAdminHerramientas();
+    }
+  });
 }
 
 function eliminarHerramienta(id) {
@@ -7715,8 +8073,15 @@ function eliminarHerramienta(id) {
   showConfirm('Eliminar herramienta',
     '\u00bfEliminar <strong>' + h.nombre + '</strong>? Se borrar\u00e1 todo su historial.',
     function() {
-      db.ref('herramientas/' + id).remove().then(function(){
-        toast('Herramienta eliminada', 'success'); renderAdminHerramientas();
+      bnGuardarBlindado({
+        operacion: { metodo:'remove', path:'herramientas/'+id },
+        aplicarLocal: function(){ delete cache.herramientas[id]; bnGuardarCacheLocal('herramientas', cache.herramientas); },
+        tipo: 'herramienta_eliminar',
+        resumen: 'Eliminar herramienta: '+h.nombre,
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Herramienta eliminada', 'success');
+          renderAdminHerramientas();
+        }
       });
     }
   );
@@ -7737,12 +8102,18 @@ function verificarKardexManual(herrId) {
   ult.fechaVerificacion  = new Date().toISOString();
   historial[historial.length-1] = ult;
 
-  db.ref('herramientas/' + herrId).update({
-    historial:    historial,
-    verificacion: 'verificado'
-  }).then(function() {
-    toast('✅ Cambio verificado correctamente', 'success');
-    renderAdminHerramientas();
+  bnGuardarBlindado({
+    operacion: { metodo:'update', updates: (function(){ var u={}; u['herramientas/'+herrId+'/historial']=historial; u['herramientas/'+herrId+'/verificacion']='verificado'; return u; })() },
+    aplicarLocal: function(){
+      if (cache.herramientas[herrId]) { cache.herramientas[herrId].historial=historial; cache.herramientas[herrId].verificacion='verificado'; }
+      bnGuardarCacheLocal('herramientas', cache.herramientas);
+    },
+    tipo: 'kardex_herramienta_verificar',
+    resumen: 'Verificar cambio de herramienta: '+(h.nombre||herrId),
+    onFinal: function(pendiente){
+      if (!pendiente) toast('✅ Cambio verificado correctamente', 'success');
+      renderAdminHerramientas();
+    }
   });
 }
 
@@ -7979,12 +8350,18 @@ function guardarSector() {
   if (!pass || pass.length < 6) { toast('La contraseña debe tener al menos 6 caracteres', 'error'); return; }
   hashPass(pass).then(function(hashed) {
     var data = { nombre: nombre, pass: hashed };
-    var ref = editId ? db.ref('sectores/' + editId) : db.ref('sectores').push();
-    return ref.set(data);
-  }).then(function() {
-    toast(editId ? 'Sector actualizado' : 'Sector "' + nombre + '" creado', 'success');
-    closeModal('modal-sector');
-    renderCfgSectores();
+    var idFinal = editId || uid();
+    bnGuardarBlindado({
+      operacion: { metodo:'set', path:'sectores/'+idFinal, data: data },
+      aplicarLocal: function(){ cache.sectores[idFinal]=data; SECTORES_CACHE=cache.sectores; bnGuardarCacheLocal('sectores', cache.sectores); },
+      tipo: 'sector',
+      resumen: (editId?'Editar':'Crear')+' sector: '+nombre,
+      onFinal: function(pendiente){
+        if (!pendiente) toast(editId ? 'Sector actualizado' : 'Sector "' + nombre + '" creado', 'success');
+        closeModal('modal-sector');
+        renderCfgSectores();
+      }
+    });
   }).catch(function(e) { toast('Error: ' + e.message, 'error'); });
 }
 
@@ -7995,9 +8372,15 @@ function eliminarSector(id) {
   showConfirm('Eliminar sector',
     '¿Eliminar el sector <strong>' + (s ? s.nombre : id) + '</strong>?<br>Esta acción no se puede deshacer.',
     function() {
-      db.ref('sectores/' + id).remove().then(function() {
-        toast('Sector eliminado', 'success');
-        renderCfgSectores();
+      bnGuardarBlindado({
+        operacion: { metodo:'remove', path:'sectores/'+id },
+        aplicarLocal: function(){ delete cache.sectores[id]; SECTORES_CACHE=cache.sectores; bnGuardarCacheLocal('sectores', cache.sectores); },
+        tipo: 'sector_eliminar',
+        resumen: 'Eliminar sector: '+(s?s.nombre:id),
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Sector eliminado', 'success');
+          renderCfgSectores();
+        }
       });
     }
   );
@@ -8218,6 +8601,7 @@ function descargarPDFDia() {
 
   function pintarHeader(){
     doc.setFillColor(232,68,10); doc.rect(0,0,210,28,'F');
+    try { doc.addImage(LOGO_BASE64, 'PNG', 178, 5, 18, 18); } catch(e){}
     doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
     doc.text('BodegaNet — Resumen del Día', L, 13);
     doc.setFontSize(9); doc.setFont('helvetica','normal');
@@ -8236,8 +8620,20 @@ function descargarPDFDia() {
       y = 36;
     }
   }
+  // Fix: primero respeta los saltos de línea que el técnico ya escribió, y
+  // luego ajusta el ancho DENTRO de cada una por separado. Si se le pasa el
+  // texto completo directo a splitTextToSize, a veces fusiona internamente
+  // dos líneas cortas en una sola entrada (que sigue con el salto oculto),
+  // y doc.text() la dibuja como 2 líneas físicas aunque solo se avance "y"
+  // como si fuera 1 — eso es lo que causaba el texto montado.
   function wrapLines(text, maxWidthMm){
-    return doc.splitTextToSize(String(text==null?'':text), maxWidthMm);
+    var partes = String(text==null?'':text).split(String.fromCharCode(10));
+    var out = [];
+    partes.forEach(function(p){
+      if (p === '') { out.push(''); return; }
+      out = out.concat(doc.splitTextToSize(p, maxWidthMm));
+    });
+    return out;
   }
 
   // Header
@@ -8576,9 +8972,17 @@ function registrarKardex(){
         };
         updates['kardex/'+kid]=entradaKardex;
       });
-      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
-        toast(validos.length+' material(es) registrado(s) como '+kardexTipo,'success');
-      }).catch(function(e){toast('Error: '+e.message,'error');});
+      updates['_lastUpdate']=Date.now();
+      bnGuardarBlindado({
+        operacion: { metodo:'update', updates: updates },
+        aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+        tipo: 'kardex',
+        resumen: 'Kardex ('+kardexTipo+'): '+resumen+' — '+(cuad?cuad.nombre:'—'),
+        onFinal: function(pendiente){
+          if (!pendiente) toast(validos.length+' material(es) registrado(s) como '+kardexTipo,'success');
+          renderKardex();
+        }
+      });
     }
   );
 }
@@ -9584,13 +9988,19 @@ function registrarAsignacion(){
       });
       // ── FIN SYNC ─────────────────────────────────────────
 
-      db.ref().update(updates).then(function(){
-        toast('Asignación registrada. Generando PDF...','success');
-        generarPDF(asig);
-        // 2. Limpieza automática completa al confirmar
-        limpiarAsignacion();
-        showSection('dashboard');
-      }).catch(function(e){toast('Error: '+e.message,'error');});
+      bnGuardarBlindado({
+        operacion: { metodo:'update', updates: updates },
+        aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+        tipo: 'asignacion',
+        resumen: 'Asignación: '+(asig.cliente||'—')+' — OT: '+(asig.ot||'—'),
+        onFinal: function(pendiente){
+          toast(pendiente ? 'Asignación guardada localmente. Generando PDF...' : 'Asignación registrada. Generando PDF...', pendiente?'info':'success');
+          generarPDF(asig);
+          // 2. Limpieza automática completa al confirmar
+          limpiarAsignacion();
+          showSection('dashboard');
+        }
+      });
     }
   );
 }
@@ -9821,11 +10231,17 @@ function guardarEdicionMateriales() {
       updates['asignaciones/'+asigId+'/fechaEdicion'] = nowISOLocal();
       updates['_lastUpdate'] = Date.now();
 
-      db.ref().update(updates).then(function(){
-        toast('Asignación actualizada correctamente','success');
-        closeModal('modal-editar-materiales');
-        renderHistorial();
-      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+      bnGuardarBlindado({
+        operacion: { metodo:'update', updates: updates },
+        aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+        tipo: 'editar_asignacion',
+        resumen: 'Editar asignación #'+asigId,
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Asignación actualizada correctamente','success');
+          closeModal('modal-editar-materiales');
+          renderHistorial();
+        }
+      });
     }
   );
 }
@@ -9973,14 +10389,23 @@ function generarPDF(asig){
 
   function pintarHeader(){
     doc.setFillColor(232,68,10);doc.rect(0,0,210,28,'F');
+    try { doc.addImage(LOGO_BASE64, 'PNG', 178, 5, 18, 18); } catch(e){}
     doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(18);
     doc.text('BodegaNet — Reporte de Materiales',L,14);
     doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Control de Materiales ISP',L,21);
   }
+  // Leyenda legal fija para el PDF de asignaciones a clientes (equipo en calidad de préstamo)
+  var LEYENDA_LEGAL = 'Todos los equipos y materiales utilizados son propiedad de Datos S. de R. L. de C.V.; durante el cliente mantenga el servicio con dicha compañía, están en calidad de préstamo, proporcionando el cliente protección y regulación eléctrica para su buen funcionamiento.';
   function pintarFooter(){
-    doc.setFillColor(30,30,30);doc.rect(0,282,210,15,'F');
-    doc.setTextColor(160,160,160);doc.setFontSize(8);
-    doc.text('BodegaNet  |  '+fmtDT(nowISO())+'  |  ID:'+asig.id,L,291);
+    doc.setFont('helvetica','italic');doc.setFontSize(6.5);
+    var leyLines = doc.splitTextToSize(LEYENDA_LEGAL, 170);
+    var footerH = 9 + leyLines.length*3;
+    var footerY = 297 - footerH;
+    doc.setFillColor(30,30,30);doc.rect(0,footerY,210,footerH,'F');
+    doc.setTextColor(190,190,190);
+    leyLines.forEach(function(l,i){ doc.text(l, L, footerY+4+i*3); });
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(160,160,160);
+    doc.text('BodegaNet  |  '+fmtDT(nowISO())+'  |  ID:'+asig.id,L,footerY+footerH-2.5);
   }
   // Salta de página si lo que sigue (altura estimada en mm) no cabe antes del pie.
   // Si se pasa redrawHeader, lo vuelve a dibujar arriba de la nueva página (para tablas).
@@ -9992,8 +10417,20 @@ function generarPDF(asig){
       if (redrawHeader) redrawHeader();
     }
   }
+  // Fix: primero respeta los saltos de línea que el técnico ya escribió, y
+  // luego ajusta el ancho DENTRO de cada una por separado. Si se le pasa el
+  // texto completo directo a splitTextToSize, a veces fusiona internamente
+  // dos líneas cortas en una sola entrada (que sigue con el salto oculto),
+  // y doc.text() la dibuja como 2 líneas físicas aunque solo se avance "y"
+  // como si fuera 1 — eso es lo que causaba el texto montado.
   function wrapLines(text, maxWidthMm){
-    return doc.splitTextToSize(String(text==null?'':text), maxWidthMm);
+    var partes = String(text==null?'':text).split(String.fromCharCode(10));
+    var out = [];
+    partes.forEach(function(p){
+      if (p === '') { out.push(''); return; }
+      out = out.concat(doc.splitTextToSize(p, maxWidthMm));
+    });
+    return out;
   }
 
   pintarHeader();
@@ -11158,10 +11595,16 @@ function eliminarRIDesdeHistorial(asigId){
       updates['asignaciones/'+asigId]=null;
       if (a.redInternaId) updates['redInterna/'+a.redInternaId]=null;
       updates['_lastUpdate']=Date.now();
-      db.ref().update(updates).then(function(){
-        toast('Registro de Red Interna eliminado y stock restaurado','success');
-        renderHistorial();
-      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+      bnGuardarBlindado({
+        operacion: { metodo:'update', updates: updates },
+        aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+        tipo: 'eliminar_ri_historial',
+        resumen: 'Eliminar RI: '+(a.ot||'—'),
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Registro de Red Interna eliminado y stock restaurado','success');
+          renderHistorial();
+        }
+      });
     }
   );
 }
@@ -11184,9 +11627,16 @@ function anularAsignacion(asigId){
       // Marcar como anulada
       updates['asignaciones/'+asigId+'/anulada']=true;
       updates['asignaciones/'+asigId+'/fechaAnulacion']=nowISO();
-      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
-        toast('Asignación anulada y stock restaurado','success');
-        renderHistorial();
+      updates['_lastUpdate']=Date.now();
+      bnGuardarBlindado({
+        operacion: { metodo:'update', updates: updates },
+        aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+        tipo: 'anular_asignacion',
+        resumen: 'Anular asignación: '+(a.cliente||'—'),
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Asignación anulada y stock restaurado','success');
+          renderHistorial();
+        }
       });
     }
   );
@@ -11201,8 +11651,15 @@ function eliminarKardex(kid){
     +'<strong>Cantidad:</strong> '+(k?k.qty:'')+'<br><br>'
     +'⚠ Esto solo elimina el registro histórico. El stock <strong>no se ajusta automáticamente</strong>.',
     function(){
-      db.ref('kardex/'+kid).remove().then(function(){
-        toast('Registro eliminado','success'); renderKardex();
+      bnGuardarBlindado({
+        operacion: { metodo:'remove', path:'kardex/'+kid },
+        aplicarLocal: function(){ delete cache.kardex[kid]; bnGuardarCacheLocal('kardex', cache.kardex); },
+        tipo: 'kardex_eliminar',
+        resumen: 'Eliminar Kardex: '+(mat?mat.nombre:kid),
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Registro eliminado','success');
+          renderKardex();
+        }
       });
     }
   );
@@ -11331,11 +11788,18 @@ function guardarMaterial(){
     +'<strong>Stock mínimo:</strong> '+mat.min+'<br><br>'
     +'¿Confirmas '+(editId?'los cambios?':'el nuevo material?'),
     function(){
-      var ref=editId?db.ref('materiales/'+editId):db.ref('materiales').push();
-      ref.set(mat).then(function(){
-        toast(editId?'Material actualizado':'Material "'+nombre+'" agregado','success');
-        closeModal('modal-material');
-      }).catch(function(e){toast('Error: '+e.message,'error');});
+      var idFinal = editId || uid();
+      bnGuardarBlindado({
+        operacion: { metodo:'set', path:'materiales/'+idFinal, data: mat },
+        aplicarLocal: function(){ cache.materiales[idFinal]=mat; bnGuardarCacheLocal('materiales', cache.materiales); },
+        tipo: 'material',
+        resumen: (editId?'Editar':'Agregar')+' material: '+nombre,
+        onFinal: function(pendiente){
+          if (!pendiente) toast(editId?'Material actualizado':'Material "'+nombre+'" agregado','success');
+          closeModal('modal-material');
+          if(currentSection==='admin-materiales') renderAdminMateriales();
+        }
+      });
     }
   );
 }
@@ -11344,7 +11808,18 @@ function deleteMat(id){
   var m=getMat(id);
   showConfirm('Eliminar material',
     '¿Eliminar <strong>'+(m?m.nombre:'este material')+'</strong>?<br><br>Esta acción no se puede deshacer.',
-    function(){ db.ref('materiales/'+id).remove().then(function(){toast('Material eliminado','success');}); }
+    function(){
+      bnGuardarBlindado({
+        operacion: { metodo:'remove', path:'materiales/'+id },
+        aplicarLocal: function(){ delete cache.materiales[id]; bnGuardarCacheLocal('materiales', cache.materiales); },
+        tipo: 'material_eliminar',
+        resumen: 'Eliminar material: '+(m?m.nombre:id),
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Material eliminado','success');
+          renderAdminMateriales();
+        }
+      });
+    }
   );
 }
 
@@ -11452,11 +11927,18 @@ function guardarCuadrilla(){
         var riAcceso = document.getElementById('cuad-red-interna').checked;
         var metaVal = parseInt(document.getElementById('cuad-meta').value) || 0;
         var cuad={nombre:nombre,responsable:respVal,zona:zonaVal,sectorId:sectorId,sector:sectorId,username:username,pass:hashed,redInterna:riAcceso,meta:metaVal};
-        var ref=editId?db.ref('cuadrillas/'+editId):db.ref('cuadrillas').push();
-        return ref.set(cuad);
-      }).then(function(){
-        toast(editId?'Cuadrilla actualizada':'"'+nombre+'" creada','success');
-        closeModal('modal-cuadrilla');
+        var idFinal = editId || uid();
+        bnGuardarBlindado({
+          operacion: { metodo:'set', path:'cuadrillas/'+idFinal, data: cuad },
+          aplicarLocal: function(){ cache.cuadrillas[idFinal]=cuad; bnGuardarCacheLocal('cuadrillas', cache.cuadrillas); },
+          tipo: 'cuadrilla',
+          resumen: (editId?'Editar':'Crear')+' cuadrilla: '+nombre,
+          onFinal: function(pendiente){
+            if (!pendiente) toast(editId?'Cuadrilla actualizada':'"'+nombre+'" creada','success');
+            closeModal('modal-cuadrilla');
+            if(currentSection==='admin-cuadrillas') renderAdminCuadrillas();
+          }
+        });
       }).catch(function(e){toast('Error: '+e.message,'error');});
     }
   );
@@ -11480,7 +11962,17 @@ function deleteCuadrilla(id){
       updates['cuadrillas/'+id]=null; updates['stocks/'+id]=null;
       kardexList().filter(function(k){return k.cuadrillaId===id;}).forEach(function(k){updates['kardex/'+k.id]=null;});
       asigList().filter(function(a){return a.cuadrillaId===id;}).forEach(function(a){updates['asignaciones/'+a.id]=null;});
-      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){toast('Cuadrilla eliminada','success');});
+      updates['_lastUpdate']=Date.now();
+      bnGuardarBlindado({
+        operacion: { metodo:'update', updates: updates },
+        aplicarLocal: function(){ bnAplicarUpdatesLocal(updates); },
+        tipo: 'eliminar_cuadrilla',
+        resumen: 'Eliminar cuadrilla: '+(c?c.nombre:id),
+        onFinal: function(pendiente){
+          if (!pendiente) toast('Cuadrilla eliminada','success');
+          renderAdminCuadrillas();
+        }
+      });
     }
   );
 }
@@ -11999,6 +12491,15 @@ function cargarDatosIniciales() {
     cache.catalogo_herramientas = snaps[9].val() || {};
     cache.tipos_red_interna = snaps[10].val() || {};
     cache.motivos_vf        = snaps[11].val() || {};
+    // Marca qué nodos ya se trajeron aquí, para que bnCargarNodoPeriodico no los
+    // vuelva a descargar de inmediato al iniciar sesión (evita una doble descarga
+    // completa en cada apertura de la app: una aquí, antes del login, y otra al
+    // arrancar los listeners después de loguearse).
+    window.BN_NODOS_YA_CARGADOS = {
+      cuadrillas:true, materiales:true, stocks:true, kardex:true, asignaciones:true,
+      sectores:true, herramientas:true, redInterna:true, visitas_fallidas:true,
+      catalogo_herramientas:true, tipos_red_interna:true, motivos_vf:true
+    };
     if (snaps[12].val()) ADMIN_PASS     = snaps[12].val();
     if (snaps[13].val()) ADMIN2_PASS    = snaps[13].val();
     if (snaps[14].val()) SUPER_PASS     = snaps[14].val();
