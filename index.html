@@ -1756,6 +1756,15 @@ select option{background:var(--bg3);color:var(--ink);}
               <input type="time" id="em-hora-inicio">
             </div>
           </div>
+          <div class="form-grid" id="em-admin-fields" style="display:none;">
+            <div class="field"><label># de Ticket (OT)</label>
+              <input type="text" id="em-ot" placeholder="Ej: 417880">
+            </div>
+            <div class="field"><label>ID Cliente</label>
+              <input type="text" id="em-idcliente" placeholder="Ej: 12345">
+            </div>
+          </div>
+          <p id="em-admin-fields-nota" style="display:none;font-size:11px;color:var(--ink3);margin:-8px 0 10px;">🔒 Editable solo por administradores.</p>
           <div class="field">
             <label>Materiales asignados</label>
             <div id="em-rows"></div>
@@ -5332,6 +5341,18 @@ function bnEjecutarOperacion(op){
   if (op.metodo === 'remove') return db.ref(op.path).remove();
   return Promise.reject(new Error('Operación desconocida: '+op.metodo));
 }
+// Aplica localmente el mismo efecto de una "operación" (update/set/remove) —
+// se usa para volver a reflejar en caché un pendiente recién sincronizado,
+// por si justo en ese momento una actualización periódica (bnCargarNodoPeriodico)
+// trajo una foto del servidor tomada ANTES de que el pendiente terminara de
+// subirse, y pisó el cambio local. Sin esto, un registro (ej. Kardex) podía
+// "desaparecer" de la pantalla después de sincronizar, aunque sí quedó bien
+// guardado en Firebase.
+function bnAplicarOperacionLocal(op){
+  if (op.metodo === 'update') { bnAplicarUpdatesLocal(op.updates); return; }
+  if (op.metodo === 'set')    { var u1={}; u1[op.path]=op.data; bnAplicarUpdatesLocal(u1); return; }
+  if (op.metodo === 'remove') { var u2={}; u2[op.path]=null;    bnAplicarUpdatesLocal(u2); return; }
+}
 function bnSincronizarPendientesG(manual){
   var arr = bnGetPendientesG();
   if (!arr.length) { if (manual) toast('No hay registros pendientes por sincronizar','info'); return; }
@@ -5348,6 +5369,7 @@ function bnSincronizarPendientesG(manual){
     bnEjecutarOperacion(item.operacion).then(function(){
       exitosos++;
       bnQuitarPendienteG(item.id);
+      try { bnAplicarOperacionLocal(item.operacion); } catch(e){ console.warn('bnAplicarOperacionLocal falló', e); }
       siguiente();
     }).catch(function(){
       if (manual) toast('Falló la sincronización de uno o más registros, se reintentará automáticamente','error');
@@ -5387,7 +5409,15 @@ function bnGuardarBlindado(cfg){
   }, 8000);
 
   bnEjecutarOperacion(cfg.operacion).then(function(){
-    if (resuelto) { bnQuitarPendienteG(id); return; } // llegó tarde pero sí se confirmó: evita duplicar
+    if (resuelto) {
+      // llegó tarde pero sí se confirmó: quita el pendiente y vuelve a aplicar el
+      // cambio localmente, por si una actualización periódica ya había pisado
+      // la caché mientras tanto.
+      bnQuitarPendienteG(id);
+      try { bnAplicarOperacionLocal(cfg.operacion); } catch(e){}
+      if (currentSection && renderCurrentSection) { try { renderCurrentSection(); } catch(e){} }
+      return;
+    }
     resuelto = true; clearTimeout(timeoutId);
     if (cfg.onFinal) cfg.onFinal(false);
   }).catch(function(){
@@ -10049,6 +10079,11 @@ function abrirModalEditarMateriales(asigId) {
   }
   var horaEl = document.getElementById('em-hora-inicio');
   if (horaEl) horaEl.value = asig.horaInicio || '';
+  // OT e ID Cliente: solo editables por admin/superadmin
+  var camposAdmin = document.getElementById('em-admin-fields');
+  var notaAdmin = document.getElementById('em-admin-fields-nota');
+  if (camposAdmin) camposAdmin.style.display = 'none';
+  if (notaAdmin) notaAdmin.style.display = 'block';
 
   editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
     return { uid: uid(), matId: m.matId, qty: m.qty };
@@ -10087,6 +10122,15 @@ function abrirModalEditarMaterialesAdmin(asigId) {
   }
   var horaElAdm = document.getElementById('em-hora-inicio');
   if (horaElAdm) horaElAdm.value = asig.horaInicio || '';
+  // OT e ID Cliente: editables solo aquí (admin/superadmin)
+  var camposAdminV = document.getElementById('em-admin-fields');
+  var notaAdminV = document.getElementById('em-admin-fields-nota');
+  if (camposAdminV) camposAdminV.style.display = '';
+  if (notaAdminV) notaAdminV.style.display = 'none';
+  var otEl = document.getElementById('em-ot');
+  if (otEl) otEl.value = asig.ot || '';
+  var idClienteEl = document.getElementById('em-idcliente');
+  if (idClienteEl) idClienteEl.value = asig.idCliente || '';
 
   editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
     return { uid: uid(), matId: m.matId, qty: m.qty };
@@ -10151,6 +10195,12 @@ function guardarEdicionMateriales() {
   var cambioTipo = nuevoTipo !== (asig.tipo||'');
   var cambioHora = nuevaHora !== (asig.horaInicio||'');
 
+  // OT e ID Cliente: solo admin/superadmin pueden verlos y editarlos en este modal
+  var nuevoOT = esAdmin ? (document.getElementById('em-ot')||{value:asig.ot||''}).value.trim() : (asig.ot||'');
+  var nuevoIdCliente = esAdmin ? (document.getElementById('em-idcliente')||{value:asig.idCliente||''}).value.trim() : (asig.idCliente||'');
+  var cambioOT = esAdmin && nuevoOT !== (asig.ot||'');
+  var cambioIdCliente = esAdmin && nuevoIdCliente !== (asig.idCliente||'');
+
   var nuevos = editMatRows.filter(function(r){ return r.matId && r.qty > 0; });
   var cid = asig.cuadrillaId;
 
@@ -10182,7 +10232,7 @@ function guardarEdicionMateriales() {
   });
   if (errs.length) { toast('Stock insuficiente para el cambio: '+errs.join(', '),'error'); return; }
 
-  if (!Object.keys(diffs).length && !cambioTipo && !cambioHora) {
+  if (!Object.keys(diffs).length && !cambioTipo && !cambioHora && !cambioOT && !cambioIdCliente) {
     toast('No hay cambios para guardar','info');
     closeModal('modal-editar-materiales');
     return;
@@ -10197,6 +10247,8 @@ function guardarEdicionMateriales() {
   }
   if (cambioTipo) resumenPartes.push('Tipo de trabajo: '+(asig.tipo||'—')+' → '+(nuevoTipo||'—'));
   if (cambioHora) resumenPartes.push('Hora de inicio: '+(asig.horaInicio||'—')+' → '+nuevaHora);
+  if (cambioOT) resumenPartes.push('OT: '+(asig.ot||'—')+' → '+(nuevoOT||'—'));
+  if (cambioIdCliente) resumenPartes.push('ID Cliente: '+(asig.idCliente||'—')+' → '+(nuevoIdCliente||'—'));
   var resumenCambios = resumenPartes.join(' · ');
 
   showConfirm(
@@ -10226,6 +10278,8 @@ function guardarEdicionMateriales() {
       }
       if (cambioTipo) updates['asignaciones/'+asigId+'/tipo'] = nuevoTipo;
       if (cambioHora) updates['asignaciones/'+asigId+'/horaInicio'] = nuevaHora;
+      if (cambioOT) updates['asignaciones/'+asigId+'/ot'] = nuevoOT;
+      if (cambioIdCliente) updates['asignaciones/'+asigId+'/idCliente'] = nuevoIdCliente;
       // Auditoría: visible solo para admin (no se muestra en la vista de cuadrilla)
       updates['asignaciones/'+asigId+'/editadoPor'] = currentUser.nombre || currentUser.username || '';
       updates['asignaciones/'+asigId+'/fechaEdicion'] = nowISOLocal();
