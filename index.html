@@ -340,7 +340,7 @@ select option{background:var(--bg3);color:var(--ink);}
     <div class="topbar-right">
       <div id="super-sector-selector" style="display:none;align-items:center;gap:6px;margin-right:8px;"></div>
       <span class="topbar-sync sync-ok" id="sync-indicator">● En línea</span>
-      <button class="alert-bell" onclick="bnRefrescarTodoAhora();bnSincronizarPendientesG(true);" title="Actualizar datos / Sincronizar pendientes">
+      <button class="alert-bell" onclick="abrirPanelPendientes()" title="Ver pendientes / Actualizar datos">
         <svg viewBox="0 0 20 20" fill="none"><path d="M4 10a6 6 0 0110-4.24M4 4v4h4M16 10a6 6 0 01-10 4.24M16 16v-4h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span id="bn-pend-badge" style="font-size:10px;font-weight:700;color:var(--amber);"></span>
       </button>
@@ -583,10 +583,35 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
-        <!-- Vista CUADRILLA: solo total de materiales -->
+        <!-- Vista CUADRILLA -->
         <div id="dash-cuad-view" style="display:none;">
           <!-- KPI cuadrilla: total de materiales en bodega -->
           <div class="kpi-grid" id="kpi-grid-cuad"></div>
+
+          <!-- MIS AVANCES -->
+          <div class="card" id="dash-mi-efectividad-wrap" style="margin-bottom:.75rem;padding:1.25rem 1.25rem 1rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1rem;">
+              <div>
+                <div class="card-title" style="margin-bottom:2px;">⚡ Mis avances</div>
+                <p id="mi-efec-desc" style="font-size:12px;color:var(--ink3);">Tu efectividad en el período seleccionado</p>
+              </div>
+              <div style="display:flex;border:1.5px solid var(--border2);border-radius:var(--r);overflow:hidden;">
+                <button id="mep-dia"    class="efec-periodo-btn" onclick="setMiEfecPeriodo('dia')"    style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:600;">Día</button>
+                <button id="mep-semana" class="efec-periodo-btn" onclick="setMiEfecPeriodo('semana')" style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:rgba(255,255,255,.6);color:var(--ink2);">Semana</button>
+                <button id="mep-mes"    class="efec-periodo-btn" onclick="setMiEfecPeriodo('mes')"    style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:rgba(255,255,255,.6);color:var(--ink2);">Mes</button>
+              </div>
+            </div>
+            <div id="mi-efec-contenido"></div>
+          </div>
+
+          <!-- VISTA PREVIA DE MI BODEGA -->
+          <div class="card" id="dash-mi-bodega-wrap">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:.5rem;">
+              <div class="card-title" style="margin-bottom:0;">📦 Vista previa de mi bodega</div>
+              <button class="btn btn-sm btn-ghost" onclick="showSection('inventario')">Ver inventario completo →</button>
+            </div>
+            <div id="mi-bodega-preview"></div>
+          </div>
         </div>
       </section>
 
@@ -2780,6 +2805,19 @@ select option{background:var(--bg3);color:var(--ink);}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-pendientes">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeModal('modal-pendientes')">✕</button>
+    <h3 style="margin-bottom:.25rem;">🔄 Transacciones pendientes</h3>
+    <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;">Registros guardados localmente que aún no se han confirmado en el servidor.</p>
+    <div id="pendientes-lista" style="max-height:320px;overflow-y:auto;"></div>
+    <div class="btn-row" style="margin-top:1rem;">
+      <button class="btn btn-accent" onclick="sincronizarTodoPendientes()">🔄 Sincronizar ahora</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-pendientes')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-resumen-texto">
   <div class="modal" style="max-width:480px;">
     <button class="modal-close" onclick="closeModal('modal-resumen-texto')">✕</button>
@@ -4650,6 +4688,7 @@ function exportarTiemposCSV(){
 // EFECTIVIDAD POR CUADRILLA
 // ══════════════════════════════════════════════════════
 var efecPeriodo = 'dia';
+var miEfecPeriodo = 'dia'; // período del panel "Mis avances" en el dashboard de cuadrilla
 
 function setEfecPeriodo(p) {
   efecPeriodo = p;
@@ -4661,6 +4700,108 @@ function setEfecPeriodo(p) {
     btn.style.fontWeight = k===p ? '600'           : '400';
   });
   renderEfectividad();
+}
+
+// ── "Mis avances" — panel de efectividad propio en el dashboard de cuadrilla ──
+function setMiEfecPeriodo(p) {
+  miEfecPeriodo = p;
+  ['dia','semana','mes'].forEach(function(k) {
+    var btn = document.getElementById('mep-'+k);
+    if (!btn) return;
+    btn.style.background = k===p ? 'var(--accent)' : 'rgba(255,255,255,.6)';
+    btn.style.color      = k===p ? '#fff'          : 'var(--ink2)';
+    btn.style.fontWeight = k===p ? '600'           : '400';
+  });
+  renderMiEfectividad();
+}
+
+function renderMiEfectividad() {
+  if (!currentUser || currentUser.tipo !== 'cuadrilla') return;
+  var cont = document.getElementById('mi-efec-contenido');
+  if (!cont) return;
+  var cid = currentUser.cuadrillaId;
+  var cu = getCuad(cid);
+  if (!cu) return;
+
+  // Mismo rango que usa el panel de efectividad del admin, calculado con el
+  // período propio de este panel (miEfecPeriodo) en vez del compartido.
+  var hoy = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  var fechaHoy = hoy.getFullYear()+'-'+pad(hoy.getMonth()+1)+'-'+pad(hoy.getDate());
+  var fin = fechaHoy + 'T23:59:59';
+  var ini;
+  if (miEfecPeriodo==='dia') { ini = fechaHoy; }
+  else if (miEfecPeriodo==='semana') { var d=new Date(hoy); d.setDate(d.getDate()-6); ini=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  else { var d2=new Date(hoy); d2.setDate(1); ini=d2.getFullYear()+'-'+pad(d2.getMonth()+1)+'-'+pad(d2.getDate()); }
+
+  var desc = document.getElementById('mi-efec-desc');
+  var periodoLabel = {dia:'hoy',semana:'esta semana',mes:'este mes'}[miEfecPeriodo];
+  if (desc) desc.textContent = 'Tu efectividad de ' + periodoLabel;
+
+  var asigsCuad = asigListFiltrada().filter(function(a){ return !a.anulada && a.cuadrillaId===cid && a.fecha>=ini && a.fecha<=fin; });
+  var vfsCuad = Object.values(cache.visitas_fallidas||{}).filter(function(v){ return v.cuadrillaId===cid && v.fecha>=ini && v.fecha<=fin; });
+  var retirosCuad = retirosListFiltrada().filter(function(r){ return r.cuadrillaId===cid && r.fecha>=ini && r.fecha<=fin; });
+
+  var metaDiaria = cu.meta || 0;
+  var realizados = asigsCuad.length + retirosCuad.length;
+  var fallidas = vfsCuad.length;
+
+  var diasSet = {};
+  asigsCuad.forEach(function(a){ diasSet[(a.fecha||'').slice(0,10)]=1; });
+  vfsCuad.forEach(function(v){ diasSet[(v.fecha||'').slice(0,10)]=1; });
+  retirosCuad.forEach(function(r){ diasSet[(r.fecha||'').slice(0,10)]=1; });
+  var diasActivos = Object.keys(diasSet).filter(function(d){ return d.length===10; }).length;
+
+  var metaPeriodo = metaDiaria > 0 ? metaDiaria * Math.max(diasActivos, 1) : 0;
+  var pct = metaPeriodo > 0 ? Math.round(Math.min(realizados/metaPeriodo*100, 100)) : null;
+  var color = pct===null ? '#9aa0ac' : efecGaugeColor(pct);
+
+  cont.innerHTML = '<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">'
+    + '<div style="flex-shrink:0;position:relative;width:88px;height:88px;">'
+      + efecGaugeSVG(pct===null?0:pct, color, 88)
+      + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:18px;font-weight:700;color:'+color+';">'+(pct===null?'—':pct+'%')+'</div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;flex:1;min-width:220px;">'
+      + '<div><div style="font-size:11px;color:var(--ink3);">Meta diaria</div><div style="font-size:17px;font-weight:700;">'+(metaDiaria||'—')+'</div></div>'
+      + '<div><div style="font-size:11px;color:var(--ink3);">Días activos</div><div style="font-size:17px;font-weight:700;">'+diasActivos+'</div></div>'
+      + '<div><div style="font-size:11px;color:var(--ink3);">Meta período</div><div style="font-size:17px;font-weight:700;">'+(metaPeriodo||'—')+'</div></div>'
+      + '<div><div style="font-size:11px;color:var(--ink3);">Realizados</div><div style="font-size:17px;font-weight:700;color:var(--green);">'+realizados+'</div></div>'
+      + '<div><div style="font-size:11px;color:var(--ink3);">Fallidas</div><div style="font-size:17px;font-weight:700;color:'+(fallidas>0?'var(--red)':'inherit')+';">'+fallidas+'</div></div>'
+    + '</div>'
+    + '</div>'
+    + (metaDiaria ? '' : '<p style="font-size:11px;color:var(--ink3);margin-top:10px;">💡 Tu administrador aún no configuró una meta diaria para tu cuadrilla.</p>');
+}
+
+// ── Vista previa de bodega en el dashboard de cuadrilla ──
+function renderMiBodegaPreview() {
+  if (!currentUser || currentUser.tipo !== 'cuadrilla') return;
+  var cont = document.getElementById('mi-bodega-preview');
+  if (!cont) return;
+  var cid = currentUser.cuadrillaId;
+  var items = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); })
+    .map(function(m){ return { mat:m, stock: getStock(cid, m.id) }; })
+    .sort(function(a,b){ return b.stock - a.stock; });
+
+  if (!items.length) {
+    cont.innerHTML = empty('Aún no tienes materiales registrados en tu bodega');
+    return;
+  }
+  var TOP_N = 8;
+  var visibles = items.slice(0, TOP_N);
+  var bajos = items.filter(function(it){ return it.stock < it.mat.min; }).length;
+
+  cont.innerHTML = '<div class="table-wrap"><table>'
+    + '<thead><tr><th>Material</th><th>Categoría</th><th>Stock</th></tr></thead>'
+    + '<tbody>' + visibles.map(function(it){
+        var sc = it.stock===0 ? 'var(--red)' : it.stock<it.mat.min ? 'var(--amber)' : 'var(--green)';
+        return '<tr>'
+          + '<td><strong>'+esc(it.mat.nombre)+'</strong></td>'
+          + '<td><span class="badge badge-gray">'+esc(it.mat.cat||'')+'</span></td>'
+          + '<td style="font-weight:700;color:'+sc+';">'+it.stock+' '+esc(it.mat.unidad||'')+'</td>'
+          + '</tr>';
+      }).join('') + '</tbody></table></div>'
+    + (items.length>TOP_N ? '<p style="font-size:11px;color:var(--ink3);margin-top:8px;">Mostrando los '+TOP_N+' con más existencia de '+items.length+' materiales totales.</p>' : '')
+    + (bajos>0 ? '<p style="font-size:11px;color:var(--amber);margin-top:4px;">⚠ '+bajos+' material(es) con stock bajo el mínimo.</p>' : '');
 }
 
 function efecRango() {
@@ -5319,7 +5460,7 @@ function bnSetPendientesG(arr){
   try { localStorage.setItem(BN_PEND_KEY, JSON.stringify(arr)); } catch(e){}
 }
 function bnActualizarBadgePendientesG(){
-  var n = bnGetPendientesG().length;
+  var n = bnGetPendientesG().length + (typeof getRIPendientes==='function' ? getRIPendientes().length : 0);
   var badge = document.getElementById('bn-pend-badge');
   if (badge) badge.textContent = n>0 ? ' ('+n+')' : '';
 }
@@ -5328,6 +5469,51 @@ function bnEncolarPendienteG(id, tipo, operacion, resumen){
   arr.push({ id:id, tipo:tipo, operacion:operacion, resumen:resumen, ts:Date.now() });
   bnSetPendientesG(arr);
   bnActualizarBadgePendientesG();
+}
+
+// ── Ventana de "Transacciones pendientes" (combina la cola genérica + la de Red Interna) ──
+function bnTiempoTranscurrido(ts){
+  var seg = Math.floor((Date.now()-ts)/1000);
+  if (seg < 60) return 'hace segundos';
+  var min = Math.floor(seg/60);
+  if (min < 60) return 'hace '+min+' min';
+  var hr = Math.floor(min/60);
+  if (hr < 24) return 'hace '+hr+' h';
+  var dias = Math.floor(hr/24);
+  return 'hace '+dias+' día'+(dias>1?'s':'');
+}
+function abrirPanelPendientes(){
+  renderListaPendientes();
+  openModal('modal-pendientes');
+}
+function renderListaPendientes(){
+  var cont = document.getElementById('pendientes-lista');
+  if (!cont) return;
+  var genericos = bnGetPendientesG().map(function(x){ return { tipo:x.tipo, resumen:x.resumen, ts:x.ts }; });
+  var ri = (typeof getRIPendientes==='function' ? getRIPendientes() : []).map(function(x){
+    return { tipo:'red_interna', resumen: (x.resumen ? (x.resumen.orden ? '# '+x.resumen.orden+' — '+(x.resumen.tipo||'') : JSON.stringify(x.resumen)) : 'Registro de Red Interna'), ts:x.ts };
+  });
+  var todos = genericos.concat(ri).sort(function(a,b){ return b.ts-a.ts; });
+
+  if (!todos.length) {
+    cont.innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:1.5rem 0;">✅ No hay transacciones pendientes. Todo está sincronizado.</p>';
+    return;
+  }
+  cont.innerHTML = todos.map(function(item){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">'
+      + '<div style="min-width:0;">'
+        + '<div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(item.resumen||'—')+'</div>'
+        + '<div style="font-size:11px;color:var(--ink3);">'+bnTiempoTranscurrido(item.ts)+'</div>'
+      + '</div>'
+      + '<span class="badge" style="font-size:10px;background:rgba(245,158,11,.15);color:var(--amber);flex-shrink:0;">⏳ Pendiente</span>'
+    + '</div>';
+  }).join('');
+}
+function sincronizarTodoPendientes(){
+  if (!navigator.onLine) { toast('Sin conexión, no se puede sincronizar ahora','error'); return; }
+  bnSincronizarPendientesG(true);
+  if (typeof sincronizarRIPendientes==='function') sincronizarRIPendientes(true);
+  setTimeout(renderListaPendientes, 1500);
 }
 function bnQuitarPendienteG(id){
   bnSetPendientesG(bnGetPendientesG().filter(function(x){ return x.id !== id; }));
@@ -6393,6 +6579,7 @@ function actualizarBadgeRIPendientes(){
   if (badgeTab) badgeTab.textContent = n>0 ? ' ('+n+')' : '';
   var btnSync = document.getElementById('ri-btn-sync');
   if (btnSync) btnSync.style.display = n>0 ? 'flex' : 'none';
+  if (typeof bnActualizarBadgePendientesG==='function') bnActualizarBadgePendientesG();
 }
 function sincronizarRIPendientes(manual){
   var arr = getRIPendientes();
@@ -8555,6 +8742,8 @@ function renderDashboard() {
     var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
     document.getElementById('kpi-grid-cuad').innerHTML =
       kpi('Materiales en bodega', matsCuad.length, 'tipos de material registrados', 'c-accent');
+    renderMiEfectividad();
+    renderMiBodegaPreview();
   }
 }
 
