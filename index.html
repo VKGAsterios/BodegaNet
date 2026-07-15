@@ -1284,6 +1284,19 @@ select option{background:var(--bg3);color:var(--ink);}
             <tbody id="auditoria-tbody"><tr><td colspan="7">Cargando…</td></tr></tbody>
           </table>
         </div>
+
+        <div style="margin-top:2rem;">
+          <div class="page-header" style="margin-bottom:.75rem;">
+            <div><h3 style="margin:0;font-size:15px;">Ajustes de auditoría aplicados</h3><p>Movimientos con referencia "AJUSTE DE AUDITORÍA" — si alguno se aplicó por error, puedes deshacerlo aquí</p></div>
+            <button class="btn" id="btn-deshacer-todos-aud" style="display:none;border-color:var(--red);color:var(--red);" onclick="confirmarDeshacerTodosAjustes()">Deshacer todos</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Material</th><th>Tipo</th><th>Cantidad</th><th></th></tr></thead>
+              <tbody id="auditoria-ajustes-tbody"><tr><td colspan="6">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- ADMIN LOGS DE ACCESO -->
@@ -11376,6 +11389,146 @@ function renderAuditoriaStock() {
       + '<td><button class="btn btn-sm btn-accent" onclick="confirmarAjusteAuditoria(\''+f.cuadrillaId+'\',\''+f.matId+'\')">Corregir</button></td>'
       + '</tr>';
   }).join('');
+
+  renderAjustesAuditoriaAplicados();
+}
+
+function listarAjustesAuditoria() {
+  return kardexListFiltrada().filter(function(k){ return k.ref === 'AJUSTE DE AUDITORÍA'; })
+    .sort(function(a,b){ return (b.tsRegistro||0) - (a.tsRegistro||0); });
+}
+
+function renderAjustesAuditoriaAplicados() {
+  var tbody = document.getElementById('auditoria-ajustes-tbody');
+  var btnTodos = document.getElementById('btn-deshacer-todos-aud');
+  if (!tbody) return;
+  var ajustes = listarAjustesAuditoria();
+
+  if (btnTodos) btnTodos.style.display = ajustes.length ? '' : 'none';
+
+  if (!ajustes.length) {
+    tbody.innerHTML = '<tr><td colspan="6">'+empty('No hay ajustes de auditoría aplicados actualmente.')+'</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = ajustes.map(function(k){
+    var mat = getMat(k.matId), cuad = getCuad(k.cuadrillaId);
+    var color = k.tipo === 'ingreso' ? 'var(--green)' : 'var(--red)';
+    return '<tr>'
+      + '<td style="font-size:11px;white-space:nowrap;">'+fmtDTK(k)+'</td>'
+      + '<td><span class="badge badge-gray">'+esc(cuad?cuad.nombre:'—')+'</span></td>'
+      + '<td style="font-size:12px;">'+esc(mat?mat.nombre:'?')+'</td>'
+      + '<td style="color:'+color+';font-weight:600;">'+k.tipo+'</td>'
+      + '<td>'+k.qty+' '+esc(mat?mat.unidad:'')+'</td>'
+      + '<td>'
+      + '<button class="btn btn-sm" style="border-color:var(--ink3);color:var(--ink2);margin-right:4px;" onclick="deshacerAjusteAuditoria(\''+k.id+'\')">Deshacer (solo Kardex)</button>'
+      + '<button class="btn btn-sm" style="border-color:var(--red);color:var(--red);" onclick="deshacerYCorregirStock(\''+k.id+'\')">Deshacer + corregir stock</button>'
+      + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function deshacerAjusteAuditoria(kid) {
+  var k = cache.kardex[kid];
+  if (!k) { toast('Ese ajuste ya no existe','info'); renderAuditoriaStock(); return; }
+  var mat = getMat(k.matId), cuad = getCuad(k.cuadrillaId);
+  showConfirm(
+    'Deshacer ajuste (solo Kardex)',
+    '<strong>Bodega:</strong> '+esc(cuad?cuad.nombre:'—')+'<br>'
+    +'<strong>Material:</strong> '+esc(mat?mat.nombre:'?')+'<br>'
+    +'<strong>Movimiento a eliminar:</strong> '+k.tipo+' de '+k.qty+' '+esc(mat?mat.unidad:'')+'<br><br>'
+    +'Esto <strong>no modifica el stock actual</strong> (este ajuste nunca lo tocó) — solo elimina el asiento '
+    +'de Kardex, y las anulaciones relacionadas volverán a aparecer como pendientes en la auditoría. '
+    +'Úsalo si vas a resolver la salida real del material por otra vía (asignación nueva, edición de asignación, etc). '
+    +'Si necesitas que el stock también se corrija de una vez, usa el botón "Deshacer + corregir stock real". ¿Confirmas?',
+    function(){
+      var updates = {};
+      updates['kardex/'+kid] = null;
+      // Revertir el flag en las asignaciones relacionadas para que vuelvan a evaluarse
+      (k.asigIdsRelacionadas||[]).forEach(function(aid){
+        updates['asignaciones/'+aid+'/reversoKardexRegistrado'] = null;
+      });
+      updates['_lastUpdate'] = Date.now();
+      db.ref().update(updates).then(function(){
+        toast('Ajuste deshecho','success');
+        renderAuditoriaStock();
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
+}
+
+// Deshacer el ajuste de auditoría Y, además, ejecutar sobre el stock real el
+// movimiento que en verdad correspondía — para los casos donde el ajuste de
+// auditoría asumió que el stock real estaba bien (Escenario A) pero en
+// realidad el material sí salió/entró de verdad (Escenario B) y hace falta
+// corregir la bodega directamente, por ejemplo mientras "Editar asignación"
+// no esté descontando materiales correctamente.
+function deshacerYCorregirStock(kid) {
+  var k = cache.kardex[kid];
+  if (!k) { toast('Ese ajuste ya no existe','info'); renderAuditoriaStock(); return; }
+  var mat = getMat(k.matId), cuad = getCuad(k.cuadrillaId);
+  var cur = getStock(k.cuadrillaId, k.matId);
+  // Si el ajuste fue un "ingreso" (el stock real estaba de más), la corrección
+  // real es un egreso de esa cantidad. Si fue "egreso", la corrección real es
+  // un ingreso — devuelve la simetría del ajuste original.
+  var tipoReal = k.tipo === 'ingreso' ? 'egreso' : 'ingreso';
+  var delta = k.tipo === 'ingreso' ? -k.qty : k.qty;
+  var nuevoStock = Math.max(0, cur + delta);
+
+  showConfirm(
+    'Deshacer + corregir stock real',
+    '<strong>Bodega:</strong> '+esc(cuad?cuad.nombre:'—')+'<br>'
+    +'<strong>Material:</strong> '+esc(mat?mat.nombre:'?')+'<br>'
+    +'<strong>Stock actual:</strong> '+cur+' '+esc(mat?mat.unidad:'')+'<br>'
+    +'<strong>Se ejecutará un '+tipoReal+' real de:</strong> '+k.qty+' '+esc(mat?mat.unidad:'')+'<br>'
+    +'<strong>Stock quedará en:</strong> '+nuevoStock+' '+esc(mat?mat.unidad:'')+'<br><br>'
+    +'⚠️ A diferencia de "Deshacer (solo Kardex)", esta acción <strong>sí modifica el stock real</strong> '
+    +'de la bodega. Úsala cuando el material efectivamente salió/entró de verdad y necesitas corregir '
+    +'la bodega de una vez, sin depender de editar la asignación. ¿Confirmas?',
+    function(){
+      var updates = {};
+      updates['kardex/'+kid] = null; // quita el ajuste "de papel"
+      updates['stocks/'+k.cuadrillaId+'/'+k.matId] = nuevoStock;
+      var kidNuevo = uid();
+      updates['kardex/'+kidNuevo] = {
+        fecha: nowISO(), tsRegistro: Date.now(), tipo: tipoReal, matId: k.matId, qty: k.qty,
+        ref: 'CORRECCIÓN DE STOCK', resp: currentUser.nombre||currentUser.username||'',
+        obs: 'Reverso de ajuste de auditoría — se ejecuta el movimiento real que correspondía en la bodega',
+        cuadrillaId: k.cuadrillaId, saldo: nuevoStock
+      };
+      updates['_lastUpdate'] = Date.now();
+      db.ref().update(updates).then(function(){
+        toast('Stock corregido y ajuste reemplazado por el movimiento real','success');
+        renderAuditoriaStock();
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
+}
+
+function confirmarDeshacerTodosAjustes() {
+  var ajustes = listarAjustesAuditoria();
+  if (!ajustes.length) return;
+  showConfirm(
+    'Deshacer todos los ajustes de auditoría',
+    'Se eliminarán <strong>'+ajustes.length+' movimiento(s)</strong> de Kardex con referencia "AJUSTE DE AUDITORÍA" '
+    +'en las bodegas que puedes ver.<br><br>'
+    +'Esto <strong>no modifica ningún stock actual</strong> — solo borra esos asientos y las anulaciones '
+    +'relacionadas vuelven a quedar pendientes de revisión. ¿Confirmas?',
+    function(){
+      var updates = {};
+      ajustes.forEach(function(k){
+        updates['kardex/'+k.id] = null;
+        (k.asigIdsRelacionadas||[]).forEach(function(aid){
+          updates['asignaciones/'+aid+'/reversoKardexRegistrado'] = null;
+        });
+      });
+      updates['_lastUpdate'] = Date.now();
+      db.ref().update(updates).then(function(){
+        toast('Todos los ajustes fueron deshechos','success');
+        renderAuditoriaStock();
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
 }
 
 function confirmarAjusteAuditoria(cid, mid) {
@@ -11400,16 +11553,18 @@ function confirmarAjusteAuditoria(cid, mid) {
     function(){
       var updates = {};
       var kid = uid();
+      var asigIdsRelacionadas = (fila.candidatas||[]).map(function(a){ return a.id; });
       updates['kardex/'+kid] = {
         fecha: nowISO(), tsRegistro: Date.now(), tipo: tipoAjuste, matId: mid, qty: qtyAjuste,
         ref: 'AJUSTE DE AUDITORÍA', resp: currentUser.nombre||currentUser.username||'',
         obs: 'Corrección para que el Kardex cuadre con el stock real de la bodega',
-        cuadrillaId: cid, saldo: fila.real
+        cuadrillaId: cid, saldo: fila.real,
+        asigIdsRelacionadas: asigIdsRelacionadas // para poder deshacer el ajuste completo si fue un error
       };
       // Marca las anulaciones candidatas como ya resueltas para que no se vuelvan
       // a reportar en próximas auditorías.
-      (fila.candidatas||[]).forEach(function(a){
-        updates['asignaciones/'+a.id+'/reversoKardexRegistrado'] = true;
+      asigIdsRelacionadas.forEach(function(aid){
+        updates['asignaciones/'+aid+'/reversoKardexRegistrado'] = true;
       });
       updates['_lastUpdate'] = Date.now();
       db.ref().update(updates).then(function(){
