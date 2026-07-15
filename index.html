@@ -11373,6 +11373,7 @@ function renderAuditoriaStock() {
 
   if (!filas.length) {
     tbody.innerHTML = '<tr><td colspan="7">'+empty('Sin discrepancias. El stock real coincide con el historial de Kardex.')+'</td></tr>';
+    renderAjustesAuditoriaAplicados();
     return;
   }
 
