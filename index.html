@@ -416,6 +416,9 @@ select option{background:var(--bg3);color:var(--ink);}
               <button class="nav-item" onclick="showSection('admin-reportes')">
                 <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Reportes / Excel
               </button>
+              <button class="nav-item" onclick="showSection('admin-auditoria')">
+                <svg viewBox="0 0 20 20" fill="none"><path d="M10 3l6 3v4c0 4-2.7 6.7-6 8-3.3-1.3-6-4-6-8V6l6-3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 10l2 2 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Auditoría de stock
+              </button>
               <button class="nav-item" onclick="showSection('admin-visitas-fallidas')" style="color:#f97316;">
                 <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#f97316" stroke-width="1.5"/><path d="M10 7v4M10 14h.01" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/></svg>Visitas fallidas
               </button>
@@ -1255,6 +1258,31 @@ select option{background:var(--bg3);color:var(--ink);}
             </div>
             <div id="vf-chart-container"></div>
           </div>
+        </div>
+      </section>
+
+      <!-- ADMIN AUDITORÍA DE STOCK -->
+      <section class="section" id="sec-admin-auditoria">
+        <div class="page-header">
+          <div><h2>Auditoría de stock</h2><p>Compara el stock real de cada bodega contra lo que dice el historial de Kardex, y detecta anulaciones antiguas sin reverso registrado</p></div>
+          <button class="btn" onclick="renderAuditoriaStock()">↻ Volver a calcular</button>
+        </div>
+
+        <div class="card" style="margin-bottom:1rem;">
+          <div style="font-size:13px;color:var(--ink2);line-height:1.5;">
+            <strong>¿Qué hace esto?</strong> Para cada material y cuadrilla, se recalcula el stock <em>"teórico"</em> sumando
+            todos los ingresos y restando todos los egresos registrados en Kardex, y se compara contra el stock real
+            guardado en la bodega. Si no coinciden, aquí puedes generar un ajuste de corrección que quede documentado
+            en el Kardex — nunca se modifica el stock directamente desde aquí.
+          </div>
+        </div>
+
+        <div id="auditoria-resumen" style="margin-bottom:1rem;"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cuadrilla</th><th>Material</th><th>Stock real</th><th>Stock teórico (Kardex)</th><th>Diferencia</th><th>Posible causa</th><th></th></tr></thead>
+            <tbody id="auditoria-tbody"><tr><td colspan="7">Cargando…</td></tr></tbody>
+          </table>
         </div>
       </section>
 
@@ -5346,6 +5374,7 @@ function renderCurrentSection() {
     historial: renderHistorial, 'admin-materiales': renderAdminMateriales,
     'admin-cuadrillas': renderAdminCuadrillas,
     'admin-reportes': renderAdminReportes,
+    'admin-auditoria': renderAuditoriaStock,
     'admin-logs': renderAdminLogs,
     'admin-config': function(){ renderSesionesActivasConfig(); renderBloqueosLogin(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); },
     'herramientas': renderHerramientas,
@@ -5508,7 +5537,7 @@ function expandNavGroupForSection(section) {
     'dashboard':'navg-principal','kardex':'navg-principal','asignar':'navg-principal',
     'inventario':'navg-inventario','alertas':'navg-inventario','historial':'navg-inventario',
     'herramientas':'navg-inventario','red-interna':'navg-inventario',
-    'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion',
+    'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion','admin-auditoria':'navg-gestion',
     'admin-visitas-fallidas':'navg-gestion','admin-herramientas':'navg-control','admin-catalogo-herramientas':'navg-control','admin-tipos-ri':'navg-control','admin-tipos-trabajo':'navg-control','admin-motivos-vf':'navg-control','admin-red-interna':'navg-control',
     'admin-logs':'navg-sistema','admin-config':'navg-sistema'
   };
@@ -8044,7 +8073,7 @@ function showSection(id) {
   if (!currentUser) return;
 
   // ── Guardia de roles ─────────────────────────────────
-  var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
+  var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes','admin-auditoria',
                    'admin-logs','admin-config','admin-visitas-fallidas','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-tipos-trabajo','admin-motivos-vf','admin-red-interna'];
   var superOnly = ['admin-logs'];
   var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas','retiros'];
@@ -11216,6 +11245,7 @@ function anularAsignacion(asigId){
       // Marcar como anulada
       updates['asignaciones/'+asigId+'/anulada']=true;
       updates['asignaciones/'+asigId+'/fechaAnulacion']=nowISO();
+      updates['asignaciones/'+asigId+'/reversoKardexRegistrado']=true;
       updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
         toast('Asignación anulada, stock restaurado y reverso registrado en Kardex','success');
         renderHistorial();
@@ -11249,6 +11279,145 @@ function exportCSV(){
   });
   var csv=rows.map(function(r){return r.map(function(c){return'"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='historial.csv';a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// ADMIN — AUDITORÍA DE STOCK
+// Recalcula el stock "teórico" de cada bodega replicando todo el historial
+// de Kardex (ingresos - egresos) y lo compara contra el stock real guardado
+// en stocks/. Si difieren, permite generar un ajuste de corrección que queda
+// documentado en el Kardex, sin tocar nunca el stock directamente desde aquí.
+// ══════════════════════════════════════════════════════
+function calcularAuditoriaStock() {
+  var cuads = getCuadrillasFiltradas();
+  var kx = kardexListFiltrada();
+  // Anulaciones históricas cuyo reverso NO quedó registrado en Kardex
+  // (asignaciones anuladas antes de este parche, o cuyo reverso falló).
+  var anuladasSinReverso = asigListFiltrada().filter(function(a){
+    return a.anulada && !a.reversoKardexRegistrado;
+  });
+
+  var filas = [];
+  cuads.forEach(function(cuad){
+    var cid = cuad.id;
+    // Teórico: replica ingresos (+) y egresos (-) de este Kardex
+    var teorico = {};
+    kx.filter(function(k){ return k.cuadrillaId === cid; }).forEach(function(k){
+      var mid = k.matId, qty = parseInt(k.qty) || 0;
+      if (!teorico.hasOwnProperty(mid)) teorico[mid] = 0;
+      teorico[mid] += (k.tipo === 'ingreso' ? qty : -qty);
+    });
+    // Universo de materiales a revisar: los que tienen movimientos + los que tienen stock real
+    var idsAVerificar = {};
+    Object.keys(teorico).forEach(function(mid){ idsAVerificar[mid] = true; });
+    Object.keys(cache.stocks[cid] || {}).forEach(function(mid){ idsAVerificar[mid] = true; });
+
+    Object.keys(idsAVerificar).forEach(function(mid){
+      var real = getStock(cid, mid);
+      var teo  = teorico.hasOwnProperty(mid) ? teorico[mid] : 0;
+      var diff = real - teo;
+      if (diff === 0) return; // cuadra, no hay nada que mostrar
+      var mat = getMat(mid);
+      if (!mat) return; // material eliminado del catálogo, se ignora
+
+      // Buscar anulaciones sin reverso de este material/cuadrilla como posible causa
+      var candidatas = anuladasSinReverso.filter(function(a){
+        return a.cuadrillaId === cid && (a.materiales||[]).some(function(m){ return m.matId === mid; });
+      });
+      var causa = '—';
+      if (candidatas.length) {
+        var sumaCandidatas = candidatas.reduce(function(s,a){
+          var mr=(a.materiales||[]).find(function(m){return m.matId===mid;});
+          return s + (mr?(parseInt(mr.qty)||0):0);
+        }, 0);
+        causa = candidatas.length + ' anulación(es) anterior(es) al parche sin reverso en Kardex'
+          + (sumaCandidatas === diff ? ' — coincide exactamente' : ' (suma '+sumaCandidatas+' '+ (mat.unidad||'') +')');
+      }
+
+      filas.push({
+        cuadrillaId: cid, cuadrillaNombre: cuad.nombre, matId: mid,
+        matNombre: mat.nombre, unidad: mat.unidad||'',
+        real: real, teorico: teo, diff: diff, causa: causa,
+        candidatas: candidatas
+      });
+    });
+  });
+  filas.sort(function(a,b){ return Math.abs(b.diff) - Math.abs(a.diff); });
+  return filas;
+}
+
+function renderAuditoriaStock() {
+  var tbody = document.getElementById('auditoria-tbody');
+  var resumen = document.getElementById('auditoria-resumen');
+  if (!tbody) return;
+  var filas = calcularAuditoriaStock();
+
+  if (resumen) {
+    resumen.innerHTML = filas.length
+      ? '<span class="badge badge-accent">'+filas.length+' discrepancia(s) encontrada(s)</span>'
+      : '<span class="badge badge-green">✓ Todo cuadra — stock real y Kardex coinciden en todas las bodegas visibles</span>';
+  }
+
+  if (!filas.length) {
+    tbody.innerHTML = '<tr><td colspan="7">'+empty('Sin discrepancias. El stock real coincide con el historial de Kardex.')+'</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filas.map(function(f){
+    var color = f.diff > 0 ? 'var(--green)' : 'var(--red)';
+    var signo = f.diff > 0 ? '+' : '';
+    return '<tr>'
+      + '<td><span class="badge badge-gray">'+esc(f.cuadrillaNombre)+'</span></td>'
+      + '<td style="font-size:12px;">'+esc(f.matNombre)+'</td>'
+      + '<td>'+f.real+' '+esc(f.unidad)+'</td>'
+      + '<td>'+f.teorico+' '+esc(f.unidad)+'</td>'
+      + '<td style="font-weight:700;color:'+color+';">'+signo+f.diff+' '+esc(f.unidad)+'</td>'
+      + '<td style="font-size:11px;color:var(--ink3);max-width:220px;">'+esc(f.causa)+'</td>'
+      + '<td><button class="btn btn-sm btn-accent" onclick="confirmarAjusteAuditoria(\''+f.cuadrillaId+'\',\''+f.matId+'\')">Corregir</button></td>'
+      + '</tr>';
+  }).join('');
+}
+
+function confirmarAjusteAuditoria(cid, mid) {
+  // Se recalcula en el momento de confirmar, no se usa el array cacheado del render,
+  // por si hubo cambios en la bodega entre que se abrió la pantalla y se hizo clic.
+  var fila = calcularAuditoriaStock().filter(function(f){ return f.cuadrillaId===cid && f.matId===mid; })[0];
+  if (!fila) { toast('Ya no hay discrepancia para ese material — puede que ya se haya corregido','info'); renderAuditoriaStock(); return; }
+
+  var tipoAjuste = fila.diff > 0 ? 'ingreso' : 'egreso';
+  var qtyAjuste = Math.abs(fila.diff);
+  var cuad = getCuad(cid);
+
+  showConfirm(
+    'Aplicar ajuste de auditoría',
+    '<strong>Bodega:</strong> '+esc(cuad?cuad.nombre:'—')+'<br>'
+    +'<strong>Material:</strong> '+esc(fila.matNombre)+'<br>'
+    +'<strong>Stock real:</strong> '+fila.real+' '+esc(fila.unidad)+'<br>'
+    +'<strong>Stock según Kardex:</strong> '+fila.teorico+' '+esc(fila.unidad)+'<br>'
+    +'<strong>Se registrará un '+tipoAjuste+' de:</strong> '+qtyAjuste+' '+esc(fila.unidad)+'<br><br>'
+    +'Esto <strong>no modifica el stock actual</strong> (que ya es correcto) — solo agrega el movimiento '
+    +'faltante en Kardex para que el historial cuadre con la realidad. ¿Confirmas?',
+    function(){
+      var updates = {};
+      var kid = uid();
+      updates['kardex/'+kid] = {
+        fecha: nowISO(), tsRegistro: Date.now(), tipo: tipoAjuste, matId: mid, qty: qtyAjuste,
+        ref: 'AJUSTE DE AUDITORÍA', resp: currentUser.nombre||currentUser.username||'',
+        obs: 'Corrección para que el Kardex cuadre con el stock real de la bodega',
+        cuadrillaId: cid, saldo: fila.real
+      };
+      // Marca las anulaciones candidatas como ya resueltas para que no se vuelvan
+      // a reportar en próximas auditorías.
+      (fila.candidatas||[]).forEach(function(a){
+        updates['asignaciones/'+a.id+'/reversoKardexRegistrado'] = true;
+      });
+      updates['_lastUpdate'] = Date.now();
+      db.ref().update(updates).then(function(){
+        toast('Ajuste registrado en Kardex','success');
+        renderAuditoriaStock();
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
 }
 
 // ══════════════════════════════════════════════════════
