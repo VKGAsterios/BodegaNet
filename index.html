@@ -8783,8 +8783,9 @@ function buscarUsoMaterial() {
       && (!cidFiltro || k.cuadrillaId === cidFiltro);
   }).sort(function(a, b) { return new Date(b.fecha) - new Date(a.fecha); });
 
-  // Asignaciones que usaron este material
+  // Asignaciones que usaron este material (excluye anuladas, igual que el resto de reportes)
   var asigs = asigListFiltrada().filter(function(a) {
+    if (a.anulada) return false;
     if (cidFiltro && a.cuadrillaId !== cidFiltro) return false;
     return (a.materiales || []).some(function(m) { return m.matId === trazMatId; });
   }).sort(function(a, b) { return new Date(b.fecha) - new Date(a.fecha); });
@@ -11151,9 +11152,24 @@ function eliminarRIDesdeHistorial(asigId){
     +'Esta acción no se puede deshacer.',
     function(){
       var updates={};
+      // Fix: acumula si el mismo material aparece en más de una fila, y registra
+      // un ingreso en Kardex por cada devolución para que el reporte de
+      // trazabilidad (egresos en Kardex) quede sincronizado con el stock real.
+      var stockAcumuladoRI = {};
+      var movIdDevolucion = uid();
       (a.materiales||[]).forEach(function(m){
-        var cur=getStock(a.cuadrillaId,m.matId);
-        updates['stocks/'+a.cuadrillaId+'/'+m.matId]=cur+m.qty;
+        var curStock = stockAcumuladoRI.hasOwnProperty(m.matId) ? stockAcumuladoRI[m.matId] : getStock(a.cuadrillaId, m.matId);
+        var nuevoStock = curStock + m.qty;
+        stockAcumuladoRI[m.matId] = nuevoStock;
+        updates['stocks/'+a.cuadrillaId+'/'+m.matId]=nuevoStock;
+        var kid=uid();
+        updates['kardex/'+kid]={
+          fecha: nowISO(), tsRegistro: Date.now(), movId: movIdDevolucion,
+          tipo: 'ingreso', matId: m.matId, qty: m.qty,
+          ref: 'DEVOLUCIÓN RI:'+(a.ot||asigId), resp: currentUser.nombre||currentUser.username||'',
+          obs: 'Reverso automático por eliminación de registro de Red Interna',
+          cuadrillaId: a.cuadrillaId, saldo: nuevoStock
+        };
       });
       updates['asignaciones/'+asigId]=null;
       if (a.redInternaId) updates['redInterna/'+a.redInternaId]=null;
@@ -11176,16 +11192,32 @@ function anularAsignacion(asigId){
     +'El stock de materiales será <strong>restaurado</strong> a la bodega de la cuadrilla.',
     function(){
       var updates={};
-      // Restaurar stock
+      // Restaurar stock. Fix: acumula si el mismo material aparece en más de
+      // una fila, y registra un ingreso en Kardex por cada devolución para que
+      // el reporte de trazabilidad (egresos en Kardex) quede sincronizado con
+      // el stock real — antes, al anular, el stock se devolvía pero el egreso
+      // original seguía contando en el Kardex, inflando el total "egresado".
+      var stockAcumuladoAnul = {};
+      var movIdDevolucion = uid();
       (a.materiales||[]).forEach(function(m){
-        var cur=getStock(a.cuadrillaId,m.matId);
-        updates['stocks/'+a.cuadrillaId+'/'+m.matId]=cur+m.qty;
+        var curStock = stockAcumuladoAnul.hasOwnProperty(m.matId) ? stockAcumuladoAnul[m.matId] : getStock(a.cuadrillaId, m.matId);
+        var nuevoStock = curStock + m.qty;
+        stockAcumuladoAnul[m.matId] = nuevoStock;
+        updates['stocks/'+a.cuadrillaId+'/'+m.matId]=nuevoStock;
+        var kid=uid();
+        updates['kardex/'+kid]={
+          fecha: nowISO(), tsRegistro: Date.now(), movId: movIdDevolucion,
+          tipo: 'ingreso', matId: m.matId, qty: m.qty,
+          ref: 'DEVOLUCIÓN ANULACIÓN:'+(a.cliente||asigId), resp: currentUser.nombre||currentUser.username||'',
+          obs: 'Reverso automático por anulación de asignación (OT '+(a.ot||'—')+')',
+          cuadrillaId: a.cuadrillaId, saldo: nuevoStock
+        };
       });
       // Marcar como anulada
       updates['asignaciones/'+asigId+'/anulada']=true;
       updates['asignaciones/'+asigId+'/fechaAnulacion']=nowISO();
       updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
-        toast('Asignación anulada y stock restaurado','success');
+        toast('Asignación anulada, stock restaurado y reverso registrado en Kardex','success');
         renderHistorial();
       });
     }
