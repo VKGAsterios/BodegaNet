@@ -579,8 +579,32 @@ select option{background:var(--bg3);color:var(--ink);}
 
         <!-- Vista CUADRILLA: solo total de materiales -->
         <div id="dash-cuad-view" style="display:none;">
-          <!-- KPI cuadrilla: total de materiales en bodega -->
+          <!-- KPI cuadrilla: total de materiales en bodega + rendimiento del día -->
           <div class="kpi-grid" id="kpi-grid-cuad"></div>
+
+          <!-- RENDIMIENTO DEL DÍA -->
+          <div class="card" style="margin-bottom:.75rem;">
+            <div class="card-header" style="margin-bottom:.5rem;">
+              <h3 style="font-size:14px;">📊 Rendimiento de hoy</h3>
+              <span style="font-size:12px;color:var(--ink3);" id="dash-cuad-rend-fecha"></span>
+            </div>
+            <div id="dash-cuad-rend-lista"></div>
+          </div>
+
+          <!-- PREVIEW DE INVENTARIO -->
+          <div class="card">
+            <div class="card-header" style="margin-bottom:.5rem;">
+              <h3 style="font-size:14px;">📦 Inventario actual</h3>
+              <button class="btn btn-sm" onclick="showSection('inventario')">Ver completo →</button>
+            </div>
+            <p style="font-size:12px;color:var(--ink3);margin-bottom:.5rem;">Materiales con menor existencia primero</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Material</th><th>Stock</th><th>Mínimo</th><th>Estado</th></tr></thead>
+                <tbody id="dash-cuad-inv-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -808,10 +832,16 @@ select option{background:var(--bg3);color:var(--ink);}
       <section class="section" id="sec-inventario">
         <div class="page-header">
           <div><h2>Inventario</h2><p id="inv-subtitle">Stock disponible</p></div>
-          <button class="btn" id="btn-pdf-inventario" style="display:none;border-color:var(--red);color:var(--red);" onclick="generarInformePDF('inventario')">
-            <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-            Informe PDF
-          </button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn" onclick="descargarPDFInventarioFisico()">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              PDF para conteo físico
+            </button>
+            <button class="btn" id="btn-pdf-inventario" style="display:none;border-color:var(--red);color:var(--red);" onclick="generarInformePDF('inventario')">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              Informe PDF
+            </button>
+          </div>
         </div>
         <!-- Selector de bodega — solo visible para admin/superadmin -->
         <div id="inv-bodega-bar" style="display:none;margin-bottom:1rem;">
@@ -1787,6 +1817,12 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="field"><label>Hora de inicio *</label>
               <input type="time" id="em-hora-inicio">
             </div>
+            <div class="field"><label># de Ticket (OT)</label>
+              <input type="text" id="em-ot" placeholder="Ej: 418904">
+            </div>
+            <div class="field"><label>ID de Cliente</label>
+              <input type="text" id="em-idcliente" placeholder="Ej: 108256">
+            </div>
           </div>
           <div class="field">
             <label>Materiales asignados</label>
@@ -1797,6 +1833,25 @@ select option{background:var(--bg3);color:var(--ink);}
           <div class="btn-row" style="margin-top:1rem;">
             <button class="btn btn-ghost" onclick="closeModal('modal-editar-materiales')">Cancelar</button>
             <button class="btn btn-accent" onclick="guardarEdicionMateriales()">Guardar cambios</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Editar # de orden de Red Interna -->
+      <div class="modal-overlay" id="modal-editar-orden-ri">
+        <div class="modal" style="max-width:400px;">
+          <button class="modal-close" onclick="closeModal('modal-editar-orden-ri')">✕</button>
+          <h3 style="margin-bottom:.25rem;">✏️ Editar # de orden</h3>
+          <p id="eor-info" style="font-size:13px;color:var(--ink3);margin-bottom:1rem;"></p>
+          <div class="field">
+            <label># de Orden</label>
+            <input type="text" id="eor-orden" placeholder="Ej: RI-20240523-001">
+          </div>
+          <input type="hidden" id="eor-ri-id">
+          <input type="hidden" id="eor-asig-id">
+          <div class="btn-row" style="margin-top:1rem;">
+            <button class="btn btn-ghost" onclick="closeModal('modal-editar-orden-ri')">Cancelar</button>
+            <button class="btn btn-accent" onclick="guardarOrdenRI()">Guardar</button>
           </div>
         </div>
       </div>
@@ -6066,10 +6121,7 @@ function renderRiMaterialRows() {
   }
   cont.innerHTML = riMaterialRows.map(function(row) {
     var mat = row.matId ? getMat(row.matId) : null;
-    var mats = materialesList();
-    var opts = mats.map(function(m){
-      return '<option value="'+m.id+'"'+(row.matId===m.id?' selected':'')+'>'+esc(m.nombre)+'</option>';
-    }).join('');
+    var label = mat ? mat.nombre : '— Seleccionar material —';
     var needsMAC   = mat && (mat.requireMAC || mat.requireMac);
     var needsSerie = mat && mat.requireSerie;
     var needsUnits = needsMAC || needsSerie;
@@ -6111,9 +6163,16 @@ function renderRiMaterialRows() {
       unidadesHTML+='</div>';
     }
     return '<div class="mat-row" style="grid-template-columns:1fr 70px auto;margin-bottom:6px;">'
-      +'<select onchange="setRiMat(\''+row.uid+'\',this.value)" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;color:var(--ink);">'
-      +'<option value="">-- Seleccionar material --</option>'+opts
-      +'</select>'
+      +'<div style="position:relative;">'
+        +'<div onclick="abrirBuscadorFila(\'ri\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
+          +'<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(label)+'</span>'
+          +'<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">▼</span>'
+        +'</div>'
+        +'<div id="drop-ri-'+row.uid+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 8px 8px;z-index:300;box-shadow:0 6px 16px rgba(0,0,0,.18);">'
+          +'<input type="text" placeholder="Buscar material..." oninput="buscarEnFila(\'ri\',\''+row.uid+'\',this.value)" onclick="event.stopPropagation()" style="width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;">'
+          +'<div id="drop-ri-'+row.uid+'-list" style="max-height:180px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;"></div>'
+        +'</div>'
+      +'</div>'
       +'<input type="number" min="1" value="'+row.qty+'" onchange="setRiQty(\''+row.uid+'\',this.value)" style="width:64px;">'
       +'<button class="remove-row-btn" onclick="removeRiMaterialRow(\''+row.uid+'\')">✕</button>'
       +'</div>'+unidadesHTML;
@@ -6240,6 +6299,18 @@ function guardarRedInterna() {
   });
   if(riMacErrs.length){ toast('Completá los campos requeridos:<br>'+riMacErrs.slice(0,3).join('<br>'), 'error'); return; }
 
+  var cid = currentUser.cuadrillaId;
+
+  // Validar que haya stock suficiente — antes esto no se validaba y el
+  // stock podía quedar en negativo (clamp a 0) de forma silenciosa,
+  // dejando "rebajar" materiales que la bodega nunca recibió.
+  var riStockErrs = [];
+  riMaterialRows.filter(function(r){ return r.matId && r.qty > 0; }).forEach(function(r){
+    var s = getStock(cid, r.matId), m = getMat(r.matId);
+    if (s < r.qty) riStockErrs.push((m?m.nombre:'?')+' (disp: '+s+')');
+  });
+  if (riStockErrs.length) { toast('Stock insuficiente: '+riStockErrs.join(', '),'error'); return; }
+
   // Materiales como array estándar incluyendo unidades con MAC/Serie
   var matsArray = riMaterialRows
     .filter(function(r){ return r.matId && r.qty > 0; })
@@ -6252,7 +6323,6 @@ function guardarRedInterna() {
       return entry;
     });
 
-  var cid        = currentUser.cuadrillaId;
   var fechaLocal = nowISOLocal();
   var updates    = {};
 
@@ -8171,7 +8241,7 @@ function renderDashboard() {
     renderEfectividad();
 
   } else {
-    // ── Vista CUADRILLA: solo total de materiales en bodega ──
+    // ── Vista CUADRILLA: KPIs de bodega + rendimiento del día + preview inventario ──
     document.getElementById('dash-admin-view').style.display = 'none';
     document.getElementById('dash-cuad-view').style.display = 'block';
     document.getElementById('dash-acciones').style.display = 'flex';
@@ -8180,10 +8250,70 @@ function renderDashboard() {
     var dashBarCuad = document.getElementById('dash-bodega-bar');
     if (dashBarCuad) dashBarCuad.style.display = 'none';
 
-    // KPI cuadrilla: únicamente total de materiales registrados en bodega
     var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
+    var bajoCuad = matsCuad.filter(function(m){ return getStock(cid,m.id) < m.min; }).length;
+
+    // Rendimiento del día: asignaciones a clientes, trabajos de red interna y movimientos de kardex
+    var asigsHoyCuad = asigListFiltrada().filter(function(a){
+      return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today && a.tipoRegistro!=='redInterna';
+    });
+    var riHoyCuad = asigListFiltrada().filter(function(a){
+      return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today && a.tipoRegistro==='redInterna';
+    });
+    var movHoyCuad = kardexListFiltrada().filter(function(k){ return k.cuadrillaId===cid && fmtDate(k.fecha)===today; });
+    var ingresosHoy = movHoyCuad.filter(function(k){ return k.tipo==='ingreso'; }).length;
+    var egresosHoy  = movHoyCuad.filter(function(k){ return k.tipo==='egreso'; }).length;
+    var materialesEntregadosHoy = asigsHoyCuad.concat(riHoyCuad).reduce(function(sum,a){
+      return sum + (a.materiales||[]).reduce(function(s,m){ return s + (parseInt(m.qty)||0); }, 0);
+    }, 0);
+
     document.getElementById('kpi-grid-cuad').innerHTML =
-      kpi('Materiales en bodega', matsCuad.length, 'tipos de material registrados', 'c-accent');
+      kpi('Materiales en bodega', matsCuad.length, 'tipos de material registrados', 'c-accent') +
+      kpi('Stock bajo', bajoCuad, 'materiales bajo el mínimo', bajoCuad>0?'c-red':'c-green') +
+      kpi('Clientes atendidos hoy', asigsHoyCuad.length, 'asignaciones del día', 'c-green') +
+      kpi('Unidades entregadas hoy', materialesEntregadosHoy, 'entre clientes y red interna', '');
+
+    var fechaEl = document.getElementById('dash-cuad-rend-fecha');
+    if (fechaEl) fechaEl.textContent = new Date().toLocaleDateString('es-HN',{weekday:'long',day:'numeric',month:'long'});
+
+    var rendEl = document.getElementById('dash-cuad-rend-lista');
+    if (rendEl) {
+      var todosHoyCuad = asigsHoyCuad.concat(riHoyCuad).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
+      rendEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:.75rem;">'
+        + '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--accent);">'+asigsHoyCuad.length+'</div><div style="font-size:11px;color:var(--ink3);">Clientes</div></div>'
+        + '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--accent);">'+riHoyCuad.length+'</div><div style="font-size:11px;color:var(--ink3);">Red interna</div></div>'
+        + '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--green);">'+ingresosHoy+'</div><div style="font-size:11px;color:var(--ink3);">Ingresos</div></div>'
+        + '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:var(--red);">'+egresosHoy+'</div><div style="font-size:11px;color:var(--ink3);">Egresos</div></div>'
+        + '</div>'
+        + (!todosHoyCuad.length ? empty('Sin trabajos registrados hoy todavía')
+          : todosHoyCuad.slice(0,6).map(function(a){
+              var esRIrow = a.tipoRegistro === 'redInterna';
+              return '<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:8px 0;border-bottom:1px solid var(--border);">'
+                + '<div><strong style="font-size:13px;">'+esc(a.cliente||'')+'</strong>'
+                + '<p style="font-size:11px;color:var(--ink3);">'+(esRIrow?'🖧 Red interna':'👤 Cliente')+' · OT:'+esc(a.ot||'—')+' · '+fmtDT(a.fecha)+'</p></div>'
+                + '</div>';
+            }).join(''));
+    }
+
+    // Preview de inventario: materiales con menor stock relativo primero
+    var invTbody = document.getElementById('dash-cuad-inv-tbody');
+    if (invTbody) {
+      var previewMats = matsCuad.map(function(m){
+        var stk = getStock(cid, m.id);
+        return { m: m, stk: stk, ratio: m.min>0 ? stk/m.min : (stk>0?99:0) };
+      }).sort(function(a,b){ return a.ratio - b.ratio; }).slice(0,10);
+      invTbody.innerHTML = !previewMats.length ? '<tr><td colspan="4">'+empty('Sin materiales registrados en esta bodega')+'</td></tr>'
+        : previewMats.map(function(p){
+            var color = p.stk===0 ? 'var(--red)' : p.stk<p.m.min ? 'var(--amber)' : 'var(--green)';
+            var estado = p.stk===0 ? 'Agotado' : p.stk<p.m.min ? 'Bajo' : 'Disponible';
+            return '<tr>'
+              + '<td style="font-size:12px;">'+esc(p.m.nombre)+'</td>'
+              + '<td style="font-weight:600;">'+p.stk+' '+esc(p.m.unidad)+'</td>'
+              + '<td>'+p.m.min+'</td>'
+              + '<td><span class="badge" style="background:'+color+';color:#fff;">'+estado+'</span></td>'
+              + '</tr>';
+          }).join('');
+    }
   }
 }
 
@@ -8322,6 +8452,97 @@ function descargarPDFDia() {
   toast('PDF del día generado ('+asigs.length+' asignaciones)','success');
 }
 
+// ══════════════════════════════════════════════════════
+// PDF de inventario para comparativa con conteo físico.
+// A diferencia de "Informe PDF" (solo SuperAdmin), esta versión está
+// disponible para cuadrilla y admin — deja columnas en blanco para anotar
+// el conteo físico real y la diferencia, a mano o durante el conteo.
+// ══════════════════════════════════════════════════════
+function descargarPDFInventarioFisico() {
+  if (!window.jspdf) { toast('Cargando motor PDF, intenta en un momento...', 'info'); return; }
+  var {jsPDF} = window.jspdf;
+
+  // Determinar qué bodega(s) incluir
+  var bodegasAIncluir;
+  if (currentUser.tipo === 'cuadrilla') {
+    bodegasAIncluir = [currentUser.cuadrillaId];
+  } else {
+    bodegasAIncluir = adminBodegaVista ? [adminBodegaVista] : getCuadrillasFiltradas().map(function(c){ return c.id; });
+  }
+  if (!bodegasAIncluir.length) { toast('No hay bodegas para incluir en el PDF','info'); return; }
+
+  var doc = new jsPDF({unit:'mm',format:'a4'});
+  var L = 15, y = 20;
+  var hoy = fmtDate(new Date());
+  var PAGE_LIMIT = 275;
+
+  function pintarHeader(cuadNombre){
+    doc.setFillColor(30,30,30); doc.rect(0,0,210,26,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(15);
+    doc.text('BodegaNet — Inventario para conteo físico', L, 12);
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text('Bodega: '+cuadNombre+'  ·  Generado: '+hoy, L, 19);
+    y = 33;
+  }
+  function pintarEncabezadoTabla(){
+    doc.setFillColor(235,236,240);
+    doc.rect(L, y, 180, 8, 'F');
+    doc.setTextColor(40,40,40); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+    doc.text('Material', L+2, y+5.5);
+    doc.text('Stock sistema', L+95, y+5.5);
+    doc.text('Conteo físico', L+128, y+5.5);
+    doc.text('Diferencia', L+162, y+5.5);
+    y += 8;
+    doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+  }
+  function checkPageBreak(cuadNombre, neededH){
+    if (y + neededH > PAGE_LIMIT) {
+      doc.addPage();
+      pintarHeader(cuadNombre);
+      pintarEncabezadoTabla();
+    }
+  }
+
+  bodegasAIncluir.forEach(function(cid, idx){
+    var cuad = getCuad(cid);
+    var nombreCuad = cuad ? cuad.nombre : cid;
+    if (idx > 0) doc.addPage();
+    pintarHeader(nombreCuad);
+    pintarEncabezadoTabla();
+
+    var mats = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); })
+      .sort(function(a,b){ return (a.nombre||'').localeCompare(b.nombre||''); });
+
+    if (!mats.length) {
+      doc.setTextColor(140,140,140); doc.setFontSize(10);
+      doc.text('Sin materiales registrados en esta bodega', L+2, y+6);
+      y += 12;
+      return;
+    }
+
+    mats.forEach(function(m){
+      var stk = getStock(cid, m.id);
+      checkPageBreak(nombreCuad, 8);
+      doc.setDrawColor(225,226,230); doc.line(L, y, L+180, y);
+      doc.setFontSize(8.5); doc.setTextColor(30,30,30);
+      var nombreLine = doc.splitTextToSize(m.nombre+(m.codigo?' ('+m.codigo+')':''), 88)[0];
+      doc.text(nombreLine, L+2, y+5.5);
+      doc.text(String(stk)+' '+(m.unidad||''), L+95, y+5.5);
+      // Casillas en blanco para llenar a mano
+      doc.setDrawColor(180,180,180);
+      doc.rect(L+126, y+1.5, 30, 5.5);
+      doc.rect(L+160, y+1.5, 18, 5.5);
+      y += 7;
+    });
+    y += 4;
+    doc.setFontSize(8); doc.setTextColor(120,120,120);
+    doc.text('Total de tipos de material: '+mats.length, L+2, y);
+  });
+
+  doc.save('inventario_fisico_'+hoy.replace(/\//g,'-')+'.pdf');
+  toast('PDF de inventario generado','success');
+}
+
 function getStockVis(cid, mid) {
   if (cid) return getStock(cid, mid);
   return Object.values(cache.stocks).reduce(function(s,c){return s+((c||{})[mid]||0);},0);
@@ -8429,8 +8650,9 @@ function buscarEnFila(ctx, rowUid, q) {
 
   var mats = materialesList();
 
-  // Solo filtrar en Asignacion (ar). En Kardex (km) y Retiros (ret) mostrar TODOS siempre.
-  if (ctx === 'ar' && cid) {
+  // Solo filtrar por existencia en Asignación (ar) y Red Interna (ri).
+  // En Kardex (km) y Retiros (ret) mostrar TODOS siempre.
+  if ((ctx === 'ar' || ctx === 'ri') && cid) {
     mats = mats.filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
   }
 
@@ -8503,8 +8725,8 @@ function elegirMatFila(ctx, rowUid, matId) {
   // Kardex (km): SIN NINGUNA restricción — admin y cuadrilla pueden
   // ingresar o egresar cualquier material, incluso con stock 0.
 
-  // Asignación (ar): solo bloquear si está agotado al momento de asignar
-  if (ctx === 'ar' && cid) {
+  // Asignación (ar) y Red Interna (ri): solo bloquear si está agotado al momento de asignar
+  if ((ctx === 'ar' || ctx === 'ri') && cid) {
     var stk = getStock(cid, matId);
     if (stk <= 0) {
       toast('⚠ ' + (mat ? mat.nombre : 'Material') + ' está agotado. Registra un ingreso en Kardex primero.', 'error');
@@ -8521,6 +8743,9 @@ function elegirMatFila(ctx, rowUid, matId) {
   } else if (ctx === 'em') {
     var r = editMatRows.find(function(x){ return x.uid === rowUid; });
     if (r) { r.matId = matId; renderEmRows(); }
+  } else if (ctx === 'ri') {
+    var r = riMaterialRows.find(function(x){ return x.uid === rowUid; });
+    if (r) { r.matId = matId; r.unidades = []; renderRiMaterialRows(); }
   } else if (ctx === 'repl') {
     setReplMat(rowUid, matId);
   } else {
@@ -9682,6 +9907,10 @@ function abrirModalEditarMateriales(asigId) {
   }
   var horaEl = document.getElementById('em-hora-inicio');
   if (horaEl) horaEl.value = asig.horaInicio || '';
+  var otEl = document.getElementById('em-ot');
+  if (otEl) otEl.value = asig.ot || '';
+  var idClienteEl = document.getElementById('em-idcliente');
+  if (idClienteEl) idClienteEl.value = asig.idCliente || '';
 
   editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
     return { uid: uid(), matId: m.matId, qty: m.qty };
@@ -9720,6 +9949,10 @@ function abrirModalEditarMaterialesAdmin(asigId) {
   }
   var horaElAdm = document.getElementById('em-hora-inicio');
   if (horaElAdm) horaElAdm.value = asig.horaInicio || '';
+  var otElAdm = document.getElementById('em-ot');
+  if (otElAdm) otElAdm.value = asig.ot || '';
+  var idClienteElAdm = document.getElementById('em-idcliente');
+  if (idClienteElAdm) idClienteElAdm.value = asig.idCliente || '';
 
   editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
     return { uid: uid(), matId: m.matId, qty: m.qty };
@@ -9780,9 +10013,13 @@ function guardarEdicionMateriales() {
   var nuevoTipo = (document.getElementById('em-tipo')||{value:''}).value;
   var nuevaHora = (document.getElementById('em-hora-inicio')||{value:''}).value;
   if (!nuevaHora) { toast('La hora de inicio es obligatoria','error'); return; }
+  var nuevoOT = (document.getElementById('em-ot')||{value:''}).value.trim();
+  var nuevoIdCliente = (document.getElementById('em-idcliente')||{value:''}).value.trim();
 
   var cambioTipo = nuevoTipo !== (asig.tipo||'');
   var cambioHora = nuevaHora !== (asig.horaInicio||'');
+  var cambioOT = nuevoOT !== (asig.ot||'');
+  var cambioIdCliente = nuevoIdCliente !== (asig.idCliente||'');
 
   var nuevos = editMatRows.filter(function(r){ return r.matId && r.qty > 0; });
   var cid = asig.cuadrillaId;
@@ -9815,7 +10052,7 @@ function guardarEdicionMateriales() {
   });
   if (errs.length) { toast('Stock insuficiente para el cambio: '+errs.join(', '),'error'); return; }
 
-  if (!Object.keys(diffs).length && !cambioTipo && !cambioHora) {
+  if (!Object.keys(diffs).length && !cambioTipo && !cambioHora && !cambioOT && !cambioIdCliente) {
     toast('No hay cambios para guardar','info');
     closeModal('modal-editar-materiales');
     return;
@@ -9830,6 +10067,8 @@ function guardarEdicionMateriales() {
   }
   if (cambioTipo) resumenPartes.push('Tipo de trabajo: '+(asig.tipo||'—')+' → '+(nuevoTipo||'—'));
   if (cambioHora) resumenPartes.push('Hora de inicio: '+(asig.horaInicio||'—')+' → '+nuevaHora);
+  if (cambioOT) resumenPartes.push('OT: '+(asig.ot||'—')+' → '+(nuevoOT||'—'));
+  if (cambioIdCliente) resumenPartes.push('ID Cliente: '+(asig.idCliente||'—')+' → '+(nuevoIdCliente||'—'));
   var resumenCambios = resumenPartes.join(' · ');
 
   showConfirm(
@@ -9859,6 +10098,8 @@ function guardarEdicionMateriales() {
       }
       if (cambioTipo) updates['asignaciones/'+asigId+'/tipo'] = nuevoTipo;
       if (cambioHora) updates['asignaciones/'+asigId+'/horaInicio'] = nuevaHora;
+      if (cambioOT) updates['asignaciones/'+asigId+'/ot'] = nuevoOT;
+      if (cambioIdCliente) updates['asignaciones/'+asigId+'/idCliente'] = nuevoIdCliente;
       // Auditoría: visible solo para admin (no se muestra en la vista de cuadrilla)
       updates['asignaciones/'+asigId+'/editadoPor'] = currentUser.nombre || currentUser.username || '';
       updates['asignaciones/'+asigId+'/fechaEdicion'] = nowISOLocal();
@@ -11150,6 +11391,7 @@ function renderHistorial(){
         botonesDetalle += '<button class="btn btn-sm" onclick="abrirModalEditarMaterialesAdmin(\''+a.id+'\');event.stopPropagation();">✏️ Editar asignación</button>';
         botonesDetalle += '<button class="btn btn-sm btn-red" onclick="anularAsignacion(\''+a.id+'\');event.stopPropagation();">Anular</button>';
       } else {
+        botonesDetalle += '<button class="btn btn-sm" onclick="abrirEditarOrdenRI(\''+a.id+'\');event.stopPropagation();">✏️ Editar # orden</button>';
         botonesDetalle += '<button class="btn btn-sm btn-red" onclick="eliminarRIDesdeHistorial(\''+a.id+'\');event.stopPropagation();">🗑️ Eliminar</button>';
       }
       botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button></div>';
@@ -11185,6 +11427,36 @@ function renderHistorial(){
 // 1b. Eliminar un registro de Red Interna desde Historial (admin).
 // Elimina tanto la entrada espejo en asignaciones/ (que es la que muestra Historial)
 // como el registro original en redInterna/, y restaura el stock consumido.
+// Edición rápida del # de orden de un trabajo de Red Interna — no toca
+// materiales ni stock, solo el campo de referencia (orden/ticket), tanto en
+// el registro original de redInterna/ como en el espejo dentro de asignaciones/
+// (de donde lo lee el Historial).
+function abrirEditarOrdenRI(asigId) {
+  var asig = cache.asignaciones[asigId];
+  if (!asig) { toast('Registro no encontrado','error'); return; }
+  document.getElementById('eor-asig-id').value = asigId;
+  document.getElementById('eor-ri-id').value = asig.redInternaId || '';
+  document.getElementById('eor-info').textContent = (asig.cliente||'Nodo') + ' · ' + fmtDT(asig.fecha);
+  document.getElementById('eor-orden').value = asig.ot || '';
+  openModal('modal-editar-orden-ri');
+}
+
+function guardarOrdenRI() {
+  var asigId = document.getElementById('eor-asig-id').value;
+  var riId = document.getElementById('eor-ri-id').value;
+  var nuevaOrden = document.getElementById('eor-orden').value.trim();
+  if (!nuevaOrden) { toast('Ingresa el # de orden','error'); return; }
+  var updates = {};
+  updates['asignaciones/'+asigId+'/ot'] = nuevaOrden;
+  if (riId) updates['redInterna/'+riId+'/orden'] = nuevaOrden;
+  updates['_lastUpdate'] = Date.now();
+  db.ref().update(updates).then(function(){
+    toast('# de orden actualizado','success');
+    closeModal('modal-editar-orden-ri');
+    renderHistorial();
+  }).catch(function(e){ toast('Error: '+e.message,'error'); });
+}
+
 function eliminarRIDesdeHistorial(asigId){
   var a = cache.asignaciones[asigId];
   if (!a || a.tipoRegistro !== 'redInterna') return;
