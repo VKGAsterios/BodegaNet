@@ -266,6 +266,9 @@ select option{background:var(--bg3);color:var(--ink);}
 .herr-card-body{padding:0 14px 14px;border-top:1px solid var(--border);}
 .herr-historial-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;}
 .herr-historial-row:last-child{border-bottom:none;}
+.herr-unit-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.herr-unit-row:last-child{border-bottom:none;}
+.herr-mini-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;display:inline-block;}
 .kherr-tipo-lbl.sel{border-color:var(--accent)!important;background:var(--accent-light)!important;color:var(--accent)!important;}
 .herr-kpi-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 14px;text-align:center;}
 .herr-kpi-num{font-size:22px;font-weight:700;line-height:1;}
@@ -837,6 +840,10 @@ select option{background:var(--bg3);color:var(--ink);}
               <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
               PDF para conteo físico
             </button>
+            <button class="btn" id="btn-reiniciar-inv" style="border-color:var(--red);color:var(--red);" onclick="abrirModalReiniciarInventario()">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4v5h5M16 16v-5h-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.6 9a6.5 6.5 0 0111.4-3M15.4 11a6.5 6.5 0 01-11.4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Reiniciar inventario (auditoría)
+            </button>
             <button class="btn" id="btn-pdf-inventario" style="display:none;border-color:var(--red);color:var(--red);" onclick="generarInformePDF('inventario')">
               <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8H4V4z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
               Informe PDF
@@ -865,7 +872,38 @@ select option{background:var(--bg3);color:var(--ink);}
             <tbody id="inv-tbody"></tbody>
           </table></div>
         </div>
+
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-title" style="margin-bottom:.5rem;">📋 Auditorías físicas registradas</div>
+          <p style="font-size:12px;color:var(--ink3);margin-bottom:.75rem;">Reinicios de inventario hechos tras un conteo físico</p>
+          <div id="auditorias-fisicas-lista"></div>
+        </div>
       </section>
+
+      <!-- MODAL: Reiniciar inventario por auditoría física -->
+      <div class="modal-overlay" id="modal-reiniciar-inventario">
+        <div class="modal" style="max-width:480px;">
+          <button class="modal-close" onclick="closeModal('modal-reiniciar-inventario')">✕</button>
+          <h3 style="margin-bottom:.25rem;color:var(--red);">🔄 Reiniciar inventario</h3>
+          <p id="ria-bodega-info" style="font-size:13px;color:var(--ink3);margin-bottom:1rem;"></p>
+          <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:10px 12px;font-size:12px;color:var(--ink2);margin-bottom:1rem;">
+            ⚠️ Esto pone en <strong>cero</strong> el stock de todos los materiales de esta bodega. Se registra un egreso en Kardex por cada material que tenía existencia, para no perder el rastro. Después del reinicio, recarga el stock con los ingresos de Kardex según el conteo físico real.
+          </div>
+          <div id="ria-preview" style="font-size:13px;font-weight:600;margin-bottom:1rem;"></div>
+          <div class="form-grid g1">
+            <div class="field"><label>Fecha de la auditoría física *</label>
+              <input type="date" id="ria-fecha">
+            </div>
+            <div class="field"><label>Observación (opcional)</label>
+              <textarea id="ria-obs" rows="2" placeholder="Ej: Conteo físico de fin de mes, responsable Juan Pérez..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;"></textarea>
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top:1rem;">
+            <button class="btn btn-ghost" onclick="closeModal('modal-reiniciar-inventario')">Cancelar</button>
+            <button class="btn" style="background:var(--red);color:#fff;" onclick="confirmarReiniciarInventario()">Reiniciar inventario</button>
+          </div>
+        </div>
+      </div>
 
       <!-- ALERTAS -->
       <section class="section" id="sec-alertas">
@@ -2070,6 +2108,7 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="field"><label>Cuadrilla</label>
               <select id="hadm-cuadrilla" onchange="renderAdminHerramientas()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
                 <option value="">Todas las cuadrillas</option>
+                <option value="ALMACEN">🏬 Almacén (sin asignar)</option>
               </select>
             </div>
             <div class="field"><label>Estado</label>
@@ -2088,6 +2127,10 @@ select option{background:var(--bg3);color:var(--ink);}
                 <option value="invalido">Kardex inválido ✗</option>
               </select>
             </div>
+          </div>
+          <div id="hadm-bulk-bar" style="display:none;margin-top:.75rem;padding:10px 12px;background:var(--bg3);border-radius:var(--r);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+            <span style="font-size:13px;color:var(--ink2);" id="hadm-bulk-texto"></span>
+            <button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="confirmarRegresarTodoAlmacen()">🏬 Devolver todas al almacén</button>
           </div>
         </div>
         <div class="card">
@@ -3083,7 +3126,8 @@ var cache = {
   motivos_vf: {},        // {id: {nombre, orden}} — motivos de visita fallida
   retiros: {},           // {id: {cliente, numTrabajo, fecha, cuadrillaId, tsRegistro,
                           //       equipos:[{equipoId, matId, nombreRef, cantidad, estado, numCuadre, fechaCuadre}]}}
-  tiemposDefault: {}     // {sectorId: {tipo: minutos}} — tiempos estimados por defecto por tipo y sector
+  tiemposDefault: {},    // {sectorId: {tipo: minutos}} — tiempos estimados por defecto por tipo y sector
+  auditoriasFisicas: {}  // {id: {cuadrillaId, fechaAuditoria, fechaRegistro, responsable, obs, materiales:[{matId,stockAnterior}]}}
 };
 
 // ── Helpers ──
@@ -5405,6 +5449,11 @@ function initFirebaseListeners() {
     cache.retiros = snap.val() || {};
     if (currentUser && currentUser.tipo === 'cuadrilla' && currentSection === 'retiros') renderRetiros();
   });
+  // Auditorías físicas de inventario (reinicios de stock a cero)
+  db.ref('auditoriasFisicas').on('value', function(snap) {
+    cache.auditoriasFisicas = snap.val() || {};
+    if (currentUser && currentSection === 'inventario') renderAuditoriasFisicas();
+  });
   // Tiempos por defecto por tipo de trabajo (configurados por admin por sector)
   db.ref('config/tiemposDefault').on('value', function(snap) {
     cache.tiemposDefault = snap.val() || {};
@@ -6938,50 +6987,115 @@ function renderHerramientas() {
     return;
   }
 
-  lista.innerHTML = items.map(function(h) {
-    var ult   = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
-    var icon  = ICON_HERR[h.categoria] || '📦';
-    var bgCol = BG_HERR[h.estado]      || 'rgba(100,100,100,.08)';
-    var hist  = (h.historial || []).slice().reverse();
+  lista.innerHTML = renderHerrGrupos(items);
+}
 
-    return '<div class="herr-card" id="hcard-'+h.id+'">'
-      + '<div class="herr-card-header" onclick="toggleHerrCard(\''+h.id+'\')">'
-      + '<div class="herr-card-icon" style="background:'+bgCol+'">'+icon+'</div>'
+// Agrupa las herramientas por nombre (tipo). Si un tipo tiene una sola unidad
+// se comporta como antes (tarjeta simple que se expande a su propio historial).
+// Si tiene varias unidades, el clic despliega la lista de unidades con su
+// estado, último cambio, y acceso al historial de cada una.
+function renderHerrGrupos(items) {
+  var grupos = {};
+  var orden = [];
+  items.forEach(function(h){
+    var key = h.nombre || '(sin nombre)';
+    if (!grupos[key]) { grupos[key] = []; orden.push(key); }
+    grupos[key].push(h);
+  });
+
+  return orden.map(function(nombre){
+    var unidades = grupos[nombre];
+    var icon  = ICON_HERR[unidades[0].categoria] || '📦';
+    var categoria = unidades[0].categoria || '';
+
+    if (unidades.length === 1) {
+      return renderHerrCardIndividual(unidades[0], icon, categoria);
+    }
+
+    var groupKey = 'g-' + nombre.replace(/[^a-zA-Z0-9]/g,'_');
+    // Resumen de estados para el encabezado del grupo (conteo por estado)
+    var conteoEstados = {};
+    unidades.forEach(function(u){ conteoEstados[u.estado] = (conteoEstados[u.estado]||0) + 1; });
+    var dotsHTML = Object.keys(conteoEstados).map(function(est){
+      var color = est==='Buen Estado' ? '#22c55e' : est==='Mal Estado' ? '#f59e0b' : est==='Dañada' ? '#ef4444' : '#9ca3af';
+      return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink3);margin-right:8px;">'
+        + '<span class="herr-mini-dot" style="background:'+color+';"></span>'+conteoEstados[est]+'</span>';
+    }).join('');
+
+    var unitRowsHTML = unidades.slice().sort(function(a,b){ return (a.serie||'').localeCompare(b.serie||''); }).map(function(h){
+      var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
+      return '<div class="herr-unit-row">'
+        + '<div style="flex:1;min-width:0;">'
+        +   '<div style="font-size:12px;font-family:monospace;color:var(--ink2);">'+esc(h.serie||'Sin serie')+'</div>'
+        +   '<div style="font-size:11px;color:var(--ink3);">🕐 Último cambio: <strong style="color:var(--ink2);">'+(ult?fmtDate(ult.fecha):'Nunca')+'</strong>'
+        +     (ult && ult.responsable ? ' · 👤 '+esc(ult.responsable) : '')+'</div>'
+        + '</div>'
+        + '<span class="badge '+(BADGE_HERR[h.estado]||'badge-gray')+'">'+esc(h.estado)+'</span>'
+        + '<button class="btn btn-sm btn-accent" onclick="event.stopPropagation();abrirModalCambioEstado(\''+h.id+'\')">Cambiar</button>'
+        + '<button class="btn btn-sm" onclick="event.stopPropagation();verHistorialHerr(\''+h.id+'\')" title="Historial">🕐</button>'
+        + '</div>';
+    }).join('');
+
+    return '<div class="herr-card" id="hcard-'+groupKey+'">'
+      + '<div class="herr-card-header" onclick="toggleHerrCard(\''+groupKey+'\')">'
+      + '<div class="herr-card-icon" style="background:rgba(100,100,100,.08)">'+icon+'</div>'
       + '<div style="flex:1;min-width:0;">'
-      +   '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(h.nombre)+'</div>'
-      +   '<div style="font-size:11px;color:var(--ink3);font-family:monospace;">'+esc(h.serie||'Sin serie')+(h.categoria?' &nbsp;·&nbsp; '+esc(h.categoria):'')+'</div>'
+      +   '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(nombre)+'</div>'
+      +   '<div style="font-size:11px;color:var(--ink3);">'+(categoria?esc(categoria)+' &nbsp;·&nbsp; ':'')+unidades.length+' unidades</div>'
       + '</div>'
-      + '<span class="badge '+(BADGE_HERR[h.estado]||'badge-gray')+'">'+esc(h.estado)+'</span>'
-      + '<button class="btn btn-sm btn-accent" style="flex-shrink:0;margin-left:4px;" onclick="event.stopPropagation();abrirModalCambioEstado(\''+h.id+'\')">'
-      +   '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      +   ' Cambiar estado</button>'
-      + '<button class="btn btn-sm" onclick="event.stopPropagation();verHistorialHerr(\''+h.id+'\')" title="Historial de cambios" style="flex-shrink:0;margin-left:4px;">🕐 Historial</button>'
+      + '<div style="display:flex;align-items:center;">'+dotsHTML+'</div>'
+      + '<span style="font-size:11px;color:var(--ink3);flex-shrink:0;">▼</span>'
       + '</div>'
-      + '<div class="herr-card-body" id="hbody-'+h.id+'" style="display:none;">'
-      +   '<div style="display:flex;gap:10px;font-size:11px;color:var(--ink3);margin:10px 0 6px;flex-wrap:wrap;">'
-      +     '<span>🕐 Último cambio: <strong style="color:var(--ink2);">'+(ult ? fmtDate(ult.fecha) : 'Nunca')+'</strong></span>'
-      +     (ult && ult.responsable ? '<span>👤 <strong style="color:var(--ink2);">'+esc(ult.responsable)+'</strong></span>' : '')
-      +   '</div>'
-      +   (hist.length
-            ? '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px;">Historial de movimientos</div>'
-              + hist.slice(0,5).map(function(mv){
-                  return '<div class="herr-historial-row">'
-                    + '<span style="font-family:monospace;font-size:10px;color:var(--ink3);flex-shrink:0;margin-top:1px;">'+fmtDate(mv.fecha)+'</span>'
-                    + '<div style="flex:1;">'
-                    +   '<span class="badge '+(BADGE_HERR[mv.estadoAnterior]||'badge-gray')+'" style="font-size:9px;">'+esc(mv.estadoAnterior||'?')+'</span>'
-                    +   ' → '
-                    +   '<span class="badge '+(BADGE_HERR[mv.estadoNuevo]||'badge-gray')+'" style="font-size:9px;">'+esc(mv.estadoNuevo||'?')+'</span>'
-                    +   (mv.tipo ? ' <span style="font-size:10px;color:var(--ink3);">· '+esc(mv.tipo)+'</span>' : '')
-                    +   (mv.responsable ? ' <span style="font-size:10px;color:var(--ink3);">· '+esc(mv.responsable)+'</span>' : '')
-                    +   (mv.obs ? '<div style="font-size:11px;color:var(--ink3);margin-top:2px;">'+esc(mv.obs)+'</div>' : '')
-                    +   (mv.kardexRef ? '<div style="font-size:10px;font-family:monospace;color:var(--accent);">Kardex: '+esc(mv.kardexRef)+'</div>' : '')
-                    + '</div>'
-                    + '</div>';
-                }).join('')
-            : '<p style="font-size:12px;color:var(--ink3);">Sin movimientos registrados aún.</p>')
+      + '<div class="herr-card-body" id="hbody-'+groupKey+'" style="display:none;">'
+      +   '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:10px 0 2px;">Unidades de este tipo</div>'
+      +   unitRowsHTML
       + '</div>'
       + '</div>';
   }).join('');
+}
+
+function renderHerrCardIndividual(h, icon, categoria) {
+  var ult   = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
+  var bgCol = BG_HERR[h.estado] || 'rgba(100,100,100,.08)';
+  var hist  = (h.historial || []).slice().reverse();
+
+  return '<div class="herr-card" id="hcard-'+h.id+'">'
+    + '<div class="herr-card-header" onclick="toggleHerrCard(\''+h.id+'\')">'
+    + '<div class="herr-card-icon" style="background:'+bgCol+'">'+icon+'</div>'
+    + '<div style="flex:1;min-width:0;">'
+    +   '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(h.nombre)+'</div>'
+    +   '<div style="font-size:11px;color:var(--ink3);font-family:monospace;">'+esc(h.serie||'Sin serie')+(categoria?' &nbsp;·&nbsp; '+esc(categoria):'')+'</div>'
+    + '</div>'
+    + '<span class="badge '+(BADGE_HERR[h.estado]||'badge-gray')+'">'+esc(h.estado)+'</span>'
+    + '<button class="btn btn-sm btn-accent" style="flex-shrink:0;margin-left:4px;" onclick="event.stopPropagation();abrirModalCambioEstado(\''+h.id+'\')">'
+    +   '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    +   ' Cambiar estado</button>'
+    + '<button class="btn btn-sm" onclick="event.stopPropagation();verHistorialHerr(\''+h.id+'\')" title="Historial de cambios" style="flex-shrink:0;margin-left:4px;">🕐 Historial</button>'
+    + '</div>'
+    + '<div class="herr-card-body" id="hbody-'+h.id+'" style="display:none;">'
+    +   '<div style="display:flex;gap:10px;font-size:11px;color:var(--ink3);margin:10px 0 6px;flex-wrap:wrap;">'
+    +     '<span>🕐 Último cambio: <strong style="color:var(--ink2);">'+(ult ? fmtDate(ult.fecha) : 'Nunca')+'</strong></span>'
+    +     (ult && ult.responsable ? '<span>👤 <strong style="color:var(--ink2);">'+esc(ult.responsable)+'</strong></span>' : '')
+    +   '</div>'
+    +   (hist.length
+          ? '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px;">Historial de movimientos</div>'
+            + hist.slice(0,5).map(function(mv){
+                return '<div class="herr-historial-row">'
+                  + '<span style="font-family:monospace;font-size:10px;color:var(--ink3);flex-shrink:0;margin-top:1px;">'+fmtDate(mv.fecha)+'</span>'
+                  + '<div style="flex:1;">'
+                  +   '<span class="badge '+(BADGE_HERR[mv.estadoAnterior]||'badge-gray')+'" style="font-size:9px;">'+esc(mv.estadoAnterior||'?')+'</span>'
+                  +   ' → '
+                  +   '<span class="badge '+(BADGE_HERR[mv.estadoNuevo]||'badge-gray')+'" style="font-size:9px;">'+esc(mv.estadoNuevo||'?')+'</span>'
+                  +   (mv.tipo ? ' <span style="font-size:10px;color:var(--ink3);">· '+esc(mv.tipo)+'</span>' : '')
+                  +   (mv.responsable ? ' <span style="font-size:10px;color:var(--ink3);">· '+esc(mv.responsable)+'</span>' : '')
+                  +   (mv.obs ? '<div style="font-size:11px;color:var(--ink3);margin-top:2px;">'+esc(mv.obs)+'</div>' : '')
+                  +   (mv.kardexRef ? '<div style="font-size:10px;font-family:monospace;color:var(--accent);">Kardex: '+esc(mv.kardexRef)+'</div>' : '')
+                  + '</div>'
+                  + '</div>';
+              }).join('')
+          : '<p style="font-size:12px;color:var(--ink3);">Sin movimientos registrados aún.</p>')
+    + '</div>'
+    + '</div>';
 }
 
 function toggleHerrCard(id) {
@@ -7703,56 +7817,185 @@ function guardarRecepcionHerramientas() {
 // ── VISTA ADMIN ──────────────────────────────────────
 function renderAdminHerramientas() {
   if (!currentUser || currentUser.tipo !== 'admin') return;
-  // Poblar filtro de cuadrillas
+  // Poblar filtro de cuadrillas (conservando la opción de Almacén)
   var selC = document.getElementById('hadm-cuadrilla');
   if (selC) {
     var valC = selC.value;
-    selC.innerHTML = '<option value="">Todas las cuadrillas</option>';
+    selC.innerHTML = '<option value="">Todas las cuadrillas</option><option value="ALMACEN">🏬 Almacén (sin asignar)</option>';
     getCuadrillasFiltradas().forEach(function(cu) {
       var o = document.createElement('option'); o.value = cu.id; o.textContent = cu.nombre;
       if (cu.id === valC) o.selected = true;
       selC.appendChild(o);
     });
+    if (valC === 'ALMACEN') selC.value = 'ALMACEN';
   }
   var filtroCuad   = (document.getElementById('hadm-cuadrilla')||{value:''}).value;
   var filtroEstado = (document.getElementById('hadm-estado')||{value:''}).value;
   var filtroVerif  = (document.getElementById('hadm-verificado')||{value:''}).value;
+
   var items = herrList().filter(function(h) {
-    var cuad = getCuad(h.cuadrillaId);
-    var cuadDelSector = getCuadrillasFiltradas().find(function(c){ return c.id === h.cuadrillaId; });
-    if (!cuadDelSector) return false; // no pertenece al sector del admin
-    if (filtroCuad   && h.cuadrillaId !== filtroCuad)   return false;
+    if (h.cuadrillaId === 'ALMACEN') {
+      // Herramientas en almacén: visibles para superadmin, o para el admin del sector de origen
+      if (currentUser.rol !== 'superadmin' && h.sectorAlmacen !== currentUser.sector) return false;
+    } else {
+      var cuadDelSector = getCuadrillasFiltradas().find(function(c){ return c.id === h.cuadrillaId; });
+      if (!cuadDelSector) return false; // no pertenece al sector del admin
+    }
+    if (filtroCuad === 'ALMACEN' && h.cuadrillaId !== 'ALMACEN') return false;
+    if (filtroCuad && filtroCuad !== 'ALMACEN' && h.cuadrillaId !== filtroCuad) return false;
     if (filtroEstado && h.estado !== filtroEstado)       return false;
     if (filtroVerif  && (h.verificacion||'pendiente') !== filtroVerif) return false;
     return true;
   });
+
+  // Barra de devolución masiva: solo aparece si se filtró a UNA cuadrilla específica
+  // (no "todas" ni "almacén") y hay herramientas asignadas a ella.
+  var bulkBar = document.getElementById('hadm-bulk-bar');
+  var bulkTexto = document.getElementById('hadm-bulk-texto');
+  if (bulkBar) {
+    if (filtroCuad && filtroCuad !== 'ALMACEN' && items.length) {
+      var cuadBulk = getCuad(filtroCuad);
+      bulkBar.style.display = 'flex';
+      bulkTexto.textContent = '📦 ' + items.length + ' herramienta(s) asignada(s) a ' + (cuadBulk?cuadBulk.nombre:'esta cuadrilla') + '. Útil cuando la cuadrilla sale de vacaciones y devuelve todo el equipo.';
+    } else {
+      bulkBar.style.display = 'none';
+    }
+  }
+
   var lista = document.getElementById('hadm-lista');
   if (!lista) return;
   if (!items.length) { lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin herramientas para mostrar.</p>'; return; }
-  lista.innerHTML = '<div class="table-wrap"><table>'
-    + '<thead><tr><th>Herramienta</th><th>Cuadrilla</th><th>Estado</th><th>Verificaci\u00f3n</th><th>\u00daltimo cambio</th><th></th></tr></thead>'
-    + '<tbody>'
-    + items.map(function(h) {
-        var cuad = getCuad(h.cuadrillaId);
-        var verif = h.verificacion || 'pendiente';
-        var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
-        var verifBadge = verif==='verificado' ? 'badge-green' : verif==='invalido' ? 'badge-red' : 'badge-amber';
-        var verifLabel = verif==='verificado' ? '\u2713 Verificado' : verif==='invalido' ? '\u2717 Inv\u00e1lido' : '\u23f3 Pendiente';
-        return '<tr>'
-          + '<td><strong>' + esc(h.nombre) + '</strong>' + (h.serie ? '<br><span style="font-family:monospace;font-size:11px;color:var(--ink3);">' + esc(h.serie) + '</span>' : '') + '</td>'
-          + '<td>' + (cuad ? cuad.nombre : '\u2014') + '</td>'
-          + '<td><span class="badge ' + (BADGE_HERR[h.estado]||'badge-gray') + '">' + (h.estado||'\u2014') + '</span></td>'
-          + '<td><span class="badge ' + verifBadge + '">' + verifLabel + '</span></td>'
-          + '<td style="font-size:12px;">' + (ult ? fmtDate(ult.fecha) + '<br><span style="font-family:monospace;font-size:11px;">Ref: ' + (ult.kardexRef||'\u2014') + (ult.kardexValido ? ' \u2705' : ' \u26a0') + '</span>' : '\u2014') + '</td>'
-          + '<td style="display:flex;gap:6px;flex-wrap:wrap;">'
-          + '<button class="btn btn-sm" onclick="verHistorialHerramienta(\'' + h.id + '\')">Historial</button>'
-          + (ult && (!ult.kardexValido || h.verificacion === 'invalido') ? '<button class="btn btn-sm btn-green" onclick="verificarKardexManual(\'' + h.id + '\')">Verificar</button>' : '')
-          + '<button class="btn btn-sm" onclick="editarHerramienta(\'' + h.id + '\')">Editar</button>'
-          + '<button class="btn btn-sm btn-red" onclick="eliminarHerramienta(\'' + h.id + '\')">Eliminar</button>'
-          + '</td></tr>';
-      }).join('')
-    + '</tbody></table></div>'
+
+  lista.innerHTML = renderHerrGruposAdmin(items)
     + '<div style="margin-top:.8rem;">' + '<button class="btn btn-accent" onclick="abrirModalNuevaHerramienta()">+ Nueva herramienta</button></div>';
+}
+
+// Vista agrupada por nombre de herramienta para el panel de administrador —
+// mismo criterio que la vista de cuadrilla, pero cada unidad muestra también
+// la cuadrilla (o "Almacén") y las acciones de administración.
+function renderHerrGruposAdmin(items) {
+  var grupos = {}; var orden = [];
+  items.forEach(function(h){
+    var key = h.nombre || '(sin nombre)';
+    if (!grupos[key]) { grupos[key] = []; orden.push(key); }
+    grupos[key].push(h);
+  });
+
+  return orden.map(function(nombre){
+    var unidades = grupos[nombre];
+    var icon = ICON_HERR[unidades[0].categoria] || '📦';
+    var groupKey = 'ga-' + nombre.replace(/[^a-zA-Z0-9]/g,'_');
+
+    var conteoEstados = {};
+    var pendientesVerif = 0;
+    unidades.forEach(function(u){
+      conteoEstados[u.estado] = (conteoEstados[u.estado]||0) + 1;
+      if ((u.verificacion||'pendiente') !== 'verificado') pendientesVerif++;
+    });
+    var dotsHTML = Object.keys(conteoEstados).map(function(est){
+      var color = est==='Buen Estado' ? '#22c55e' : est==='Mal Estado' ? '#f59e0b' : est==='Dañada' ? '#ef4444' : '#9ca3af';
+      return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink3);margin-right:8px;">'
+        + '<span class="herr-mini-dot" style="background:'+color+';"></span>'+conteoEstados[est]+'</span>';
+    }).join('');
+
+    var filasHTML = unidades.slice().sort(function(a,b){
+      var ca = a.cuadrillaId==='ALMACEN'?'':(getCuad(a.cuadrillaId)||{}).nombre||'';
+      var cb = b.cuadrillaId==='ALMACEN'?'':(getCuad(b.cuadrillaId)||{}).nombre||'';
+      return ca.localeCompare(cb);
+    }).map(function(h){
+      var enAlmacen = h.cuadrillaId === 'ALMACEN';
+      var cuad = enAlmacen ? null : getCuad(h.cuadrillaId);
+      var verif = h.verificacion || 'pendiente';
+      var verifBadge = verif==='verificado' ? 'badge-green' : verif==='invalido' ? 'badge-red' : 'badge-amber';
+      var verifLabel = verif==='verificado' ? '✓ Verificado' : verif==='invalido' ? '✗ Inválido' : '⏳ Pendiente';
+      var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
+      return '<div class="herr-unit-row" style="flex-wrap:wrap;">'
+        + '<div style="flex:1;min-width:160px;">'
+        +   '<div style="font-size:12px;'+(enAlmacen?'color:var(--accent);font-weight:600;':'')+'">'+(enAlmacen?'🏬 En almacén':esc(cuad?cuad.nombre:'—'))+'</div>'
+        +   (h.serie ? '<div style="font-size:11px;font-family:monospace;color:var(--ink3);">'+esc(h.serie)+'</div>' : '')
+        +   '<div style="font-size:11px;color:var(--ink3);">Último cambio: '+(ult?fmtDate(ult.fecha):'—')+'</div>'
+        + '</div>'
+        + '<span class="badge '+(BADGE_HERR[h.estado]||'badge-gray')+'">'+esc(h.estado||'—')+'</span>'
+        + '<span class="badge '+verifBadge+'">'+verifLabel+'</span>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        +   '<button class="btn btn-sm" onclick="verHistorialHerramienta(\''+h.id+'\')">Historial</button>'
+        +   (ult && (!ult.kardexValido || h.verificacion === 'invalido') ? '<button class="btn btn-sm btn-green" onclick="verificarKardexManual(\''+h.id+'\')">Verificar</button>' : '')
+        +   '<button class="btn btn-sm" onclick="editarHerramienta(\''+h.id+'\')">Editar</button>'
+        +   (!enAlmacen ? '<button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="confirmarRegresarHerramientaAlmacen(\''+h.id+'\')">🏬 Regresar</button>' : '')
+        +   '<button class="btn btn-sm btn-red" onclick="eliminarHerramienta(\''+h.id+'\')">Eliminar</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    return '<div class="herr-card" id="hcard-'+groupKey+'" style="margin-bottom:.6rem;">'
+      + '<div class="herr-card-header" onclick="toggleHerrCard(\''+groupKey+'\')">'
+      + '<div class="herr-card-icon" style="background:rgba(100,100,100,.08)">'+icon+'</div>'
+      + '<div style="flex:1;min-width:0;">'
+      +   '<div style="font-weight:600;font-size:14px;">'+esc(nombre)+'</div>'
+      +   '<div style="font-size:11px;color:var(--ink3);">'+unidades.length+' unidad(es)'+(pendientesVerif?' · '+pendientesVerif+' por verificar':'')+'</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;">'+dotsHTML+'</div>'
+      + '<span style="font-size:11px;color:var(--ink3);flex-shrink:0;">▼</span>'
+      + '</div>'
+      + '<div class="herr-card-body" id="hbody-'+groupKey+'" style="display:none;">'
+      +   '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:10px 0 2px;">Unidades de este tipo</div>'
+      +   filasHTML
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+// Devolver UNA herramienta al almacén (sin asignar a ninguna cuadrilla)
+function confirmarRegresarHerramientaAlmacen(id) {
+  var h = cache.herramientas[id]; if (!h) return;
+  var cuad = getCuad(h.cuadrillaId);
+  showConfirm(
+    'Regresar herramienta a almacén',
+    '¿Regresar <strong>'+esc(h.nombre)+'</strong>'+(h.serie?' ('+esc(h.serie)+')':'')+' de <strong>'+esc(cuad?cuad.nombre:'—')+'</strong> al almacén?<br><br>'
+    +'Dejará de aparecer en el inventario de esa cuadrilla y quedará disponible para reasignar a cualquier otra.',
+    function(){ regresarHerramientasAlmacen([id], cuad); }
+  );
+}
+
+// Devolver TODAS las herramientas de la cuadrilla actualmente filtrada
+// (uso típico: la cuadrilla sale de vacaciones y devuelve todo el equipo)
+function confirmarRegresarTodoAlmacen() {
+  var filtroCuad = (document.getElementById('hadm-cuadrilla')||{value:''}).value;
+  if (!filtroCuad || filtroCuad === 'ALMACEN') return;
+  var cuad = getCuad(filtroCuad);
+  var idsAll = herrList().filter(function(h){ return h.cuadrillaId === filtroCuad; }).map(function(h){ return h.id; });
+  if (!idsAll.length) { toast('No hay herramientas asignadas a esa cuadrilla','info'); return; }
+  showConfirm(
+    'Devolver todas las herramientas al almacén',
+    'Se regresarán <strong>'+idsAll.length+' herramienta(s)</strong> de <strong>'+esc(cuad?cuad.nombre:'—')+'</strong> al almacén central.<br><br>'
+    +'Úsalo cuando la cuadrilla sale de vacaciones/receso y entrega todo su equipo. Cada herramienta queda con su historial intacto y disponible para reasignar después. ¿Confirmas?',
+    function(){ regresarHerramientasAlmacen(idsAll, cuad); }
+  );
+}
+
+function regresarHerramientasAlmacen(ids, cuadOrigen) {
+  var sectorOrigen = cuadOrigen ? (cuadOrigen.sectorId || cuadOrigen.sector || '1') : (currentUser.sector||'1');
+  var updates = {};
+  ids.forEach(function(id){
+    var h = cache.herramientas[id]; if (!h) return;
+    var historial = (h.historial||[]).slice();
+    historial.push({
+      fecha: nowISO(), ts: Date.now(), tipo: 'Devolución a almacén',
+      estadoAnterior: h.estado, estadoNuevo: h.estado,
+      responsable: currentUser.nombre||currentUser.username||'',
+      cuadrillaNombre: cuadOrigen ? cuadOrigen.nombre : '',
+      obs: 'Herramienta regresada al almacén desde '+(cuadOrigen?cuadOrigen.nombre:'su cuadrilla'),
+      kardexValido: true
+    });
+    updates['herramientas/'+id+'/cuadrillaId']   = 'ALMACEN';
+    updates['herramientas/'+id+'/sectorAlmacen'] = sectorOrigen;
+    updates['herramientas/'+id+'/historial']     = historial;
+  });
+  updates['_lastUpdate'] = Date.now();
+  db.ref().update(updates).then(function(){
+    toast(ids.length>1 ? ids.length+' herramientas regresadas al almacén' : 'Herramienta regresada al almacén', 'success');
+    renderAdminHerramientas();
+  }).catch(function(e){ toast('Error: '+e.message,'error'); });
 }
 
 function abrirModalNuevaHerramienta() {
@@ -7889,9 +8132,10 @@ function verHistorialHerramienta(herrId) {
 function exportarHerramientasCSV() {
   var rows = [['Herramienta','Serie','Cuadrilla','Estado','Verificaci\u00f3n','Fecha \u00falt. cambio','Ref. Kardex','Obs.']];
   herrList().forEach(function(h) {
-    var cuad = getCuad(h.cuadrillaId);
+    var cuad = h.cuadrillaId === 'ALMACEN' ? null : getCuad(h.cuadrillaId);
+    var cuadNombre = h.cuadrillaId === 'ALMACEN' ? 'Almacén (sin asignar)' : (cuad?cuad.nombre:'');
     var ult = (h.historial && h.historial.length) ? h.historial[h.historial.length-1] : null;
-    rows.push([h.nombre, h.serie||'', cuad?cuad.nombre:'', h.estado||'',
+    rows.push([h.nombre, h.serie||'', cuadNombre, h.estado||'',
       h.verificacion||'pendiente', ult?fmtDate(ult.fecha):'', ult?(ult.kardexRef||''):'', ult?(ult.obs||''):'']);
   });
   var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'\"')+'"'; }).join(','); }).join('\n');
@@ -8541,6 +8785,112 @@ function descargarPDFInventarioFisico() {
 
   doc.save('inventario_fisico_'+hoy.replace(/\//g,'-')+'.pdf');
   toast('PDF de inventario generado','success');
+}
+
+// ══════════════════════════════════════════════════════
+// REINICIAR INVENTARIO TRAS AUDITORÍA FÍSICA
+// Pone en cero el stock de una bodega completa, dejando un asiento de egreso
+// en Kardex por cada material que tenía existencia (para no perder rastro) y
+// un registro en auditoriasFisicas/ con la fecha del conteo físico real.
+// Disponible tanto para cuadrilla (su propia bodega) como para admin (la
+// bodega que tenga seleccionada en el visor).
+// ══════════════════════════════════════════════════════
+function _cidObjetivoInventario() {
+  return currentUser.tipo === 'admin' ? adminBodegaVista : currentUser.cuadrillaId;
+}
+
+function abrirModalReiniciarInventario() {
+  var cid = _cidObjetivoInventario();
+  if (!cid) { toast('Selecciona primero una bodega específica','info'); return; }
+  var cuad = getCuad(cid);
+  var mats = materialesList().filter(function(m){ return getStock(cid, m.id) > 0; });
+  var totalUnidades = mats.reduce(function(s,m){ return s + getStock(cid,m.id); }, 0);
+
+  document.getElementById('ria-bodega-info').textContent = 'Bodega: ' + (cuad?cuad.nombre:'—');
+  document.getElementById('ria-preview').innerHTML = mats.length
+    ? '📦 Se pondrán en cero <strong>'+mats.length+' material(es)</strong> con existencia (total '+totalUnidades+' unidades).'
+    : 'Esta bodega ya está en cero — puedes registrar la auditoría igual, solo para dejar constancia de la fecha.';
+  var fechaEl = document.getElementById('ria-fecha');
+  fechaEl.value = new Date().toISOString().slice(0,10);
+  fechaEl.max = new Date().toISOString().slice(0,10);
+  document.getElementById('ria-obs').value = '';
+  openModal('modal-reiniciar-inventario');
+}
+
+function confirmarReiniciarInventario() {
+  var cid = _cidObjetivoInventario();
+  if (!cid) { toast('Selecciona primero una bodega específica','info'); return; }
+  var fecha = document.getElementById('ria-fecha').value;
+  if (!fecha) { toast('Ingresa la fecha de la auditoría física','error'); return; }
+  var obs = document.getElementById('ria-obs').value.trim();
+  var cuad = getCuad(cid);
+
+  var mats = materialesList().filter(function(m){ return getStock(cid, m.id) > 0; });
+
+  closeModal('modal-reiniciar-inventario');
+  showConfirm(
+    '⚠️ Confirmar reinicio de inventario',
+    'Estás por poner en <strong>cero</strong> el stock de <strong>'+(cuad?cuad.nombre:'esta bodega')+'</strong>'
+    +(mats.length ? ' ('+mats.length+' material(es), '+mats.reduce(function(s,m){return s+getStock(cid,m.id);},0)+' unidades en total)' : '')
+    +'.<br><br>Fecha de auditoría: <strong>'+fmtDate(fecha)+'</strong>'+(obs?'<br>Observación: '+esc(obs):'')
+    +'<br><br>Esta acción <strong>no se puede deshacer</strong> — el stock anterior solo quedará visible en el historial de Kardex. '
+    +'Después deberás recargar el stock real registrando ingresos según el conteo físico. ¿Confirmas?',
+    function(){
+      var updates = {};
+      var movId = uid();
+      var materialesAfectados = [];
+      mats.forEach(function(m){
+        var stkActual = getStock(cid, m.id);
+        materialesAfectados.push({ matId: m.id, stockAnterior: stkActual });
+        var kid = uid();
+        updates['kardex/'+kid] = {
+          fecha: nowISO(), tsRegistro: Date.now(), movId: movId,
+          tipo: 'egreso', matId: m.id, qty: stkActual,
+          ref: 'REINICIO POR AUDITORÍA FÍSICA', resp: currentUser.nombre||currentUser.username||'',
+          obs: 'Auditoría física del '+fmtDate(fecha)+(obs?' — '+obs:''),
+          cuadrillaId: cid, saldo: 0
+        };
+        updates['stocks/'+cid+'/'+m.id] = 0;
+      });
+      var auditId = uid();
+      updates['auditoriasFisicas/'+auditId] = {
+        cuadrillaId: cid, fechaAuditoria: fecha, fechaRegistro: nowISO(),
+        responsable: currentUser.nombre||currentUser.username||'', obs: obs,
+        materiales: materialesAfectados, totalMateriales: materialesAfectados.length,
+        totalUnidades: materialesAfectados.reduce(function(s,m){return s+m.stockAnterior;},0)
+      };
+      updates['_lastUpdate'] = Date.now();
+      db.ref().update(updates).then(function(){
+        toast('Inventario reiniciado — registra los ingresos del conteo físico en Kardex','success');
+        renderInventario();
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
+}
+
+function renderAuditoriasFisicas() {
+  var cont = document.getElementById('auditorias-fisicas-lista');
+  if (!cont) return;
+  var cid = _cidObjetivoInventario();
+  var lista = Object.entries(cache.auditoriasFisicas||{})
+    .map(function(e){ return Object.assign({id:e[0]}, e[1]); })
+    .filter(function(a){ return cid ? a.cuadrillaId === cid : !!getCuadrillasFiltradas().find(function(c){return c.id===a.cuadrillaId;}); })
+    .sort(function(a,b){ return new Date(b.fechaRegistro) - new Date(a.fechaRegistro); });
+
+  if (!lista.length) {
+    cont.innerHTML = empty(cid ? 'Sin auditorías físicas registradas para esta bodega' : 'Selecciona una bodega para ver sus auditorías, o revisa cada cuadrilla');
+    return;
+  }
+  cont.innerHTML = lista.map(function(a){
+    var cuad = getCuad(a.cuadrillaId);
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
+      + '<div>'
+      +   '<div style="font-size:13px;font-weight:600;">🗓️ Auditoría del '+fmtDate(a.fechaAuditoria)+(cid?'':' — '+esc(cuad?cuad.nombre:'—'))+'</div>'
+      +   '<div style="font-size:11px;color:var(--ink3);">'+(a.totalMateriales||0)+' material(es) reiniciado(s) · '+(a.totalUnidades||0)+' unidades · Registrado por '+esc(a.responsable||'—')+' el '+fmtDT(a.fechaRegistro)+'</div>'
+      +   (a.obs ? '<div style="font-size:11px;color:var(--ink3);margin-top:2px;">📝 '+esc(a.obs)+'</div>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 function getStockVis(cid, mid) {
@@ -12147,6 +12497,8 @@ function renderInventario(){
     }
   }
   updateBodegaBadge('inv-bodega-badge', cid);
+  var btnReiniciar = document.getElementById('btn-reiniciar-inv');
+  if (btnReiniciar) btnReiniciar.style.display = cid ? '' : 'none';
   // Actualizar subtítulo
   var sub = document.getElementById('inv-subtitle');
   if (sub) sub.textContent = cid ? ('Bodega: ' + (getCuad(cid)||{nombre:'?'}).nombre) : 'Stock disponible';
@@ -12169,6 +12521,7 @@ function renderInventario(){
   var tbody=document.getElementById('inv-tbody');
   if(!mats.length){
     tbody.innerHTML='<tr><td colspan="7">'+empty(cid?'Sin materiales asignados a esta bodega aún':'Sin materiales')+'</td></tr>';
+    renderAuditoriasFisicas();
     return;
   }
   tbody.innerHTML=mats.map(function(m){
@@ -12187,6 +12540,7 @@ function renderInventario(){
       +'<td><span class="badge '+badge+'">'+(stk===0?'Agotado':stk<m.min?'Stock bajo':'Disponible')+'</span></td>'
       +'</tr>';
   }).join('');
+  renderAuditoriasFisicas();
 }
 
 // ══════════════════════════════════════════════════════
