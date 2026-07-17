@@ -4399,6 +4399,34 @@ function calcDuracionMin(horaInicio, horaFin){
   return diff>0?diff:null; // ignora si fin <= inicio
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// VALIDACIÓN DE DURACIÓN RAZONABLE
+// Compara la duración real de un trabajo contra el tiempo estimado configurado
+// (Tiempos por defecto, por sector y tipo) más un margen de tolerancia. Sirve
+// para atrapar errores de captura donde se selecciona una hora equivocada
+// (ej: 08:00 en vez de 18:00) y el "ticket" queda con 10 horas de más.
+// Si el tipo no tiene tiempo estimado configurado para el sector, no se aplica
+// límite (no hay una base razonable contra qué comparar).
+// Retorna null si está OK, o un string con el mensaje de error si excede.
+// ══════════════════════════════════════════════════════════════════════════
+var TOLERANCIA_DURACION_MIN = 30;
+
+function validarDuracionRazonable(tipo, minutosReales) {
+  if (minutosReales === null || minutosReales === undefined) return null;
+  var sector = getSectorActivo();
+  if (!sector) return null;
+  var config = cache.tiemposDefault[sector] || {};
+  var estimado = config[tipo||''];
+  if (!estimado) return null; // sin tiempo estimado configurado para este tipo — no se valida
+  var maxPermitido = estimado + TOLERANCIA_DURACION_MIN;
+  if (minutosReales > maxPermitido) {
+    return 'La duración calculada es de <strong>'+fmtDuracion(minutosReales)+'</strong>, pero "'+esc(tipo)+'" tiene un tiempo esperado de ~'+fmtDuracion(estimado)
+      +' (máximo permitido '+fmtDuracion(maxPermitido)+' con el margen de '+TOLERANCIA_DURACION_MIN+' min). '
+      +'Revisa que la hora de inicio y de fin sean correctas.';
+  }
+  return null;
+}
+
 function fmtDuracion(min){
   if(min===null) return '—';
   var h=Math.floor(min/60), m=min%60;
@@ -6251,6 +6279,11 @@ function guardarRedInterna() {
   // Hora fin fija al momento real de guardado (campo readonly)
   var ahora = new Date();
   var fin = String(ahora.getHours()).padStart(2,'0')+':'+String(ahora.getMinutes()).padStart(2,'0');
+
+  // Validar duración razonable: si la hora de inicio quedó mal seleccionada
+  // (ej: 08:00 en vez de 18:00), la duración calculada contra "ahora" se dispara.
+  var errDuracionRI = validarDuracionRazonable(tipo, calcDuracionMin(ini, fin));
+  if (errDuracionRI) { toast(errDuracionRI, 'error'); return; }
 
   // Validar MAC/Serie requeridos antes de guardar
   var riMacErrs = [];
@@ -9754,6 +9787,15 @@ function registrarAsignacion(){
   validos.forEach(function(r){var s=getStock(cid,r.matId),m=getMat(r.matId);if(s<r.qty)errs.push((m?m.nombre:'?')+' (disp:'+s+')');});
   if(errs.length){toast('Stock insuficiente: '+errs.join(', '),'error');return;}
 
+  // Validar duración razonable: horaFin se autocompleta con la hora actual al
+  // guardar, así que si horaInicio quedó mal seleccionada (ej: 08:00 en vez de
+  // 18:00), la duración calculada se dispara. Se compara contra el tiempo
+  // estimado configurado para el tipo de trabajo + 30 min de margen.
+  var horaFinPreview = (function(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');})();
+  var tipoTrabajoSel = document.getElementById('cli-tipo').value;
+  var errDuracion = validarDuracionRazonable(tipoTrabajoSel, calcDuracionMin(horaInicio, horaFinPreview));
+  if (errDuracion) { toast(errDuracion, 'error'); return; }
+
   var resumen = validos.length
     ? validos.map(function(r){var m=getMat(r.matId);return(m?m.nombre:'?')+' × '+r.qty;}).join(', ')
     : '<em style="color:var(--ink3);">Sin materiales — trabajo de servicio/tiempo</em>';
@@ -10059,6 +10101,12 @@ function guardarEdicionMateriales() {
   var cambioHora = nuevaHora !== (asig.horaInicio||'');
   var cambioOT = nuevoOT !== (asig.ot||'');
   var cambioIdCliente = nuevoIdCliente !== (asig.idCliente||'');
+
+  // Validar duración razonable si cambió la hora de inicio o el tipo de trabajo
+  if ((cambioHora || cambioTipo) && asig.horaFin) {
+    var errDuracionEdit = validarDuracionRazonable(nuevoTipo||asig.tipo, calcDuracionMin(nuevaHora, asig.horaFin));
+    if (errDuracionEdit) { toast(errDuracionEdit, 'error'); return; }
+  }
 
   var nuevos = editMatRows.filter(function(r){ return r.matId && r.qty > 0; });
   var cid = asig.cuadrillaId;
