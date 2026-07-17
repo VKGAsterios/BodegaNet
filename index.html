@@ -670,10 +670,6 @@ select option{background:var(--bg3);color:var(--ink);}
                 <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:12px;pointer-events:none;">MAC</span>
               </div>
               <button class="btn btn-accent" onclick="buscarPorMAC()">Buscar</button>
-              <button class="btn" style="border-color:var(--accent);color:var(--accent);" onclick="abrirScanner('search',null)" title="Escanear MAC con cámara">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M2 7V4a1 1 0 011-1h3M2 17v3a1 1 0 001 1h3M22 7V4a1 1 0 00-1-1h-3M22 17v3a1 1 0 01-1 1h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="7" y="7" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
-                Escanear
-              </button>
               <button class="btn btn-ghost" onclick="limpiarBusquedaMAC()">✕ Limpiar</button>
             </div>
             <div id="mac-search-result" style="display:none;margin-top:1rem;"></div>
@@ -706,6 +702,16 @@ select option{background:var(--bg3);color:var(--ink);}
         </div>
 
         <div class="card">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
+            <div class="field" style="margin:0;min-width:140px;"><label style="font-size:11px;">Desde</label>
+              <input type="date" id="kardex-fecha-desde" onchange="renderKardex()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">
+            </div>
+            <div class="field" style="margin:0;min-width:140px;"><label style="font-size:11px;">Hasta</label>
+              <input type="date" id="kardex-fecha-hasta" onchange="renderKardex()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">
+            </div>
+            <button class="btn btn-sm" onclick="toggleKardexOrden()" id="btn-kardex-orden" title="Cambiar orden">↓ Más recientes primero</button>
+            <button class="btn btn-sm btn-ghost" onclick="limpiarFiltroFechaKardex()">✕ Limpiar fechas</button>
+          </div>
           <div class="tabs">
             <button class="tab-btn active" onclick="switchKardexTab('todos',this)">Todos</button>
             <button class="tab-btn" onclick="switchKardexTab('ingreso',this)">Ingresos</button>
@@ -952,8 +958,8 @@ select option{background:var(--bg3);color:var(--ink);}
             </div>
             <button class="btn btn-sm" onclick="filtrarHistAdminHoy()" style="white-space:nowrap;">Hoy</button>
             <div class="field" style="flex:1;min-width:220px;margin-bottom:0;">
-              <label>Buscar (cliente, MAC, OT o material)</label>
-              <input type="text" id="hist-admin-search" oninput="renderHistorial()" placeholder="Ej: Juan Pérez, 80F1A855F46E, OT-0001..."
+              <label>Buscar (cliente, MAC, Serie, OT o material)</label>
+              <input type="text" id="hist-admin-search" oninput="renderHistorial()" placeholder="Ej: Juan Pérez, 80F1A855F46E, OT-0001, número de serie..."
                 style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
             </div>
             <button class="btn btn-sm btn-ghost" onclick="limpiarFiltrosHistAdmin()" style="white-space:nowrap;">Limpiar filtros</button>
@@ -2801,90 +2807,6 @@ select option{background:var(--bg3);color:var(--ink);}
       <button class="btn btn-accent" onclick="guardarHerramientaPropia()">
         <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Guardar herramienta
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MODAL ESCÁNER MAC — OCR ══ -->
-<div class="modal-overlay" id="modal-scanner">
-  <div class="modal" style="max-width:460px;">
-    <button class="modal-close" onclick="cerrarScanner()">✕</button>
-    <h3>📷 Escanear MAC — OCR</h3>
-    <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">
-      Encuadra la etiqueta del equipo dentro del recuadro y toma la foto. El sistema leerá la MAC automáticamente.
-    </p>
-
-    <!-- Selector de cámara -->
-    <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
-      <label style="font-size:12px;font-weight:600;color:var(--ink2);white-space:nowrap;">Cámara:</label>
-      <select id="scanner-cam-sel" onchange="cambiarCamaraScanner(this.value)"
-        style="flex:1;padding:7px 10px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg3);color:var(--ink);outline:none;"></select>
-    </div>
-
-    <!-- Visor de cámara -->
-    <div id="scanner-video-wrap" style="position:relative;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:10px;aspect-ratio:4/3;">
-      <video id="scanner-video" style="width:100%;height:100%;object-fit:cover;" playsinline muted></video>
-      <canvas id="scanner-canvas" style="display:none;"></canvas>
-      <!-- Guía de encuadre -->
-      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-        <div style="width:80%;height:28%;border:2px solid rgba(59,130,246,.9);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.4);position:relative;">
-          <div style="position:absolute;top:0;left:0;width:18px;height:18px;border-top:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:3px 0 0 0;"></div>
-          <div style="position:absolute;top:0;right:0;width:18px;height:18px;border-top:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 3px 0 0;"></div>
-          <div style="position:absolute;bottom:0;left:0;width:18px;height:18px;border-bottom:3px solid #3b82f6;border-left:3px solid #3b82f6;border-radius:0 0 0 3px;"></div>
-          <div style="position:absolute;bottom:0;right:0;width:18px;height:18px;border-bottom:3px solid #3b82f6;border-right:3px solid #3b82f6;border-radius:0 0 3px 0;"></div>
-        </div>
-      </div>
-      <!-- Línea de escaneo animada -->
-      <div id="scanner-scan-line" style="display:none;position:absolute;left:10%;width:80%;height:2px;background:linear-gradient(90deg,transparent,#3b82f6,transparent);animation:ocr-scan 1.8s ease-in-out infinite;pointer-events:none;"></div>
-      <!-- Estado -->
-      <div id="scanner-status" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);color:#fff;text-align:center;padding:7px;font-size:12px;">
-        Iniciando cámara...
-      </div>
-    </div>
-
-    <!-- Foto capturada (se muestra tras tomar foto) -->
-    <div id="scanner-capture-wrap" style="display:none;margin-bottom:10px;">
-      <img id="scanner-captured-img" src="" alt="Foto capturada"
-        style="width:100%;border-radius:var(--r);border:1.5px solid var(--border2);">
-    </div>
-
-    <!-- Botón tomar foto -->
-    <div style="margin-bottom:10px>
-      <button id="scanner-capture-btn" onclick="ocrCapturar()"
-        style="width:100%;padding:11px;border-radius:var(--r);border:2px solid #3b82f6;background:rgba(59,130,246,.1);color:#3b82f6;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .15s;"
-        onmouseover="this.style.background='rgba(59,130,246,.2)'" onmouseout="this.style.background='rgba(59,130,246,.1)'"
-        disabled>
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2"/></svg>
-        Tomar foto y analizar
-      </button>
-    </div>
-
-    <!-- Resultado OCR -->
-    <div id="scanner-result-box" style="display:none;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.4);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;color:var(--green-dark);margin-bottom:4px;">✓ MAC detectada por OCR</div>
-      <div id="scanner-result-val" style="font-family:monospace;font-size:15px;font-weight:700;color:var(--ink);word-break:break-all;letter-spacing:.05em;"></div>
-    </div>
-
-    <!-- Entrada manual -->
-    <div style="margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">
-        Editar o escribir la MAC manualmente
-      </label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="scanner-manual-input" placeholder="AA:BB:CC:DD:EE:FF"
-          maxlength="17" autocomplete="off" spellcheck="false"
-          oninput="formatearMACManual(this)"
-          style="flex:1;padding:9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:monospace;background:var(--bg3);color:var(--ink);outline:none;">
-        <button class="btn btn-accent" onclick="confirmarMACManual()">Usar</button>
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-ghost" onclick="cerrarScanner()">Cancelar</button>
-      <button id="scanner-retry-btn" class="btn" style="display:none;" onclick="ocrReintentar()">↩ Nueva foto</button>
-      <button class="btn btn-accent" id="scanner-confirm-btn" style="display:none;" onclick="confirmarScan()">
-        ✓ Confirmar MAC
       </button>
     </div>
   </div>
@@ -9207,6 +9129,19 @@ function switchKardexTab(t,btn){
   renderKardex();
 }
 
+var kardexSortAsc = false; // false = más recientes primero (por defecto, como siempre fue)
+
+function toggleKardexOrden() {
+  kardexSortAsc = !kardexSortAsc;
+  renderKardex();
+}
+
+function limpiarFiltroFechaKardex() {
+  document.getElementById('kardex-fecha-desde').value = '';
+  document.getElementById('kardex-fecha-hasta').value = '';
+  renderKardex();
+}
+
 function renderKardex(){
   var esAdmin = currentUser.tipo==='admin';
   var cid = esAdmin ? adminBodegaVista : currentUser.cuadrillaId;
@@ -9222,8 +9157,15 @@ function renderKardex(){
   if (adminTools) adminTools.style.display = esAdmin ? 'block' : 'none';
 
   // Entradas filtradas por bodega y tipo
+  var fDesde = (document.getElementById('kardex-fecha-desde')||{value:''}).value;
+  var fHasta = (document.getElementById('kardex-fecha-hasta')||{value:''}).value;
   var entradas = kardexListFiltrada().filter(function(k){
-    return (cid===null||k.cuadrillaId===cid) && (kardexFilter==='todos'||k.tipo===kardexFilter);
+    if (cid!==null && k.cuadrillaId!==cid) return false;
+    if (kardexFilter!=='todos' && k.tipo!==kardexFilter) return false;
+    var fk = (k.fecha||'').slice(0,10);
+    if (fDesde && fk < fDesde) return false;
+    if (fHasta && fk > fHasta) return false;
+    return true;
   });
 
   // ── Agrupar por movId (registros nuevos) o tsRegistro (históricos sin movId) ──
@@ -9243,10 +9185,12 @@ function renderKardex(){
     grupos[grupoKey].items.push({ matId:k.matId, qty:k.qty, mac:k.mac||'', saldo:k.saldo, id:k.id });
   });
 
-  // Ordenar grupos por fecha descendente
+  // Ordenar grupos según la dirección elegida (por defecto: más recientes primero)
   var gruposOrdenados = Object.values(grupos).sort(function(a,b){
-    return new Date(b.fecha) - new Date(a.fecha);
+    return kardexSortAsc ? new Date(a.fecha) - new Date(b.fecha) : new Date(b.fecha) - new Date(a.fecha);
   });
+  var btnOrden = document.getElementById('btn-kardex-orden');
+  if (btnOrden) btnOrden.textContent = kardexSortAsc ? '↑ Más antiguos primero' : '↓ Más recientes primero';
 
   var tbody = document.getElementById('kardex-tbody');
   if (!gruposOrdenados.length) {
@@ -9522,9 +9466,11 @@ function buscarPorMAC() {
     return k.mac && k.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1;
   });
 
-  // Buscar en asignaciones (materiales con MAC)
+  // Buscar en asignaciones (materiales con MAC por unidad)
   var enAsigs = asigListFiltrada().filter(function(a) {
-    return (a.materiales||[]).some(function(m){ return m.mac && m.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1; });
+    return (a.materiales||[]).some(function(m){
+      return (m.unidades||[]).some(function(u){ return u.mac && u.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1; });
+    });
   });
 
   if (!enKardex.length && !enAsigs.length) {
@@ -9541,22 +9487,25 @@ function buscarPorMAC() {
   if (enAsigs.length) {
     html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Asignado a cliente</div>';
     html += '<div class="table-wrap" style="margin-bottom:1rem;"><table><thead><tr>'
-      + '<th>Fecha</th><th>Cliente</th><th>Dirección</th><th>OT</th><th>Material</th><th>MAC</th>'
+      + '<th>Fecha</th><th>Cliente</th><th>Dirección</th><th>OT</th><th>Material</th><th>MAC</th><th>Serie</th>'
       + (currentUser.tipo==='admin'?'<th>Cuadrilla</th>':'')
       + '</tr></thead><tbody>';
     enAsigs.forEach(function(a){
-      (a.materiales||[]).filter(function(m){ return m.mac && m.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q)>-1; }).forEach(function(m){
+      (a.materiales||[]).forEach(function(m){
         var mat = getMat(m.matId);
-        html += '<tr>'
-          + '<td style="font-size:11px;white-space:nowrap">' + fmtDate(a.fecha) + '</td>'
-          + '<td><strong>' + esc(a.cliente||'—') + '</strong>'
-            + (a.telefono?'<br><span style="font-size:10px;color:var(--ink3);">'+esc(a.telefono)+'</span>':'') + '</td>'
-          + '<td style="font-size:11px;">' + esc((a.direccion||'')+(a.municipio?', '+a.municipio:'')+(a.idCliente?' · ID:'+a.idCliente:'')+(a.ip?' · IP:'+a.ip:'')) + '</td>'
-          + '<td style="font-size:11px;">' + esc(a.ot||'—') + '</td>'
-          + '<td style="font-size:12px;">' + esc(mat?mat.nombre:'—') + '</td>'
-          + '<td style="font-family:monospace;font-size:11px;color:var(--accent);">' + esc(m.mac) + '</td>'
-          + (currentUser.tipo==='admin'?'<td><span class="badge badge-gray">'+esc(getCuad(a.cuadrillaId)?getCuad(a.cuadrillaId).nombre:'—')+'</span></td>':'')
-          + '</tr>';
+        (m.unidades||[]).filter(function(u){ return u.mac && u.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q)>-1; }).forEach(function(u){
+          html += '<tr>'
+            + '<td style="font-size:11px;white-space:nowrap">' + fmtDate(a.fecha) + '</td>'
+            + '<td><strong>' + esc(a.cliente||'—') + '</strong>'
+              + (a.telefono?'<br><span style="font-size:10px;color:var(--ink3);">'+esc(a.telefono)+'</span>':'') + '</td>'
+            + '<td style="font-size:11px;">' + esc((a.direccion||'')+(a.municipio?', '+a.municipio:'')+(a.idCliente?' · ID:'+a.idCliente:'')+(a.ip?' · IP:'+a.ip:'')) + '</td>'
+            + '<td style="font-size:11px;">' + esc(a.ot||'—') + '</td>'
+            + '<td style="font-size:12px;">' + esc(mat?mat.nombre:'—') + '</td>'
+            + '<td style="font-family:monospace;font-size:11px;color:var(--accent);">' + esc(u.mac) + '</td>'
+            + '<td style="font-family:monospace;font-size:11px;color:var(--ink3);">' + esc(u.serie||'—') + '</td>'
+            + (currentUser.tipo==='admin'?'<td><span class="badge badge-gray">'+esc(getCuad(a.cuadrillaId)?getCuad(a.cuadrillaId).nombre:'—')+'</span></td>':'')
+            + '</tr>';
+        });
       });
     });
     html += '</tbody></table></div>';
@@ -9595,266 +9544,6 @@ function limpiarBusquedaMAC() {
   if (res) { res.style.display = 'none'; res.innerHTML = ''; }
 }
 
-// ══════════════════════════════════════════════════════
-// ESCÁNER MAC — OCR con Tesseract.js
-// ══════════════════════════════════════════════════════
-var scannerCtx       = null;
-var scannerRowUid    = null;
-var scannerStream    = null;
-var scannerResult    = null;
-var scannerTesseract = null; // worker precargado
-
-// ── Normalizar texto OCR → MAC XX:XX:XX:XX:XX:XX ──
-function ocrNormalizarMAC(texto) {
-  var raw = texto.replace(/\s/g, '');
-  // Patrón con separadores : o -
-  var m = raw.match(/([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}/);
-  if (m) return m[0].toUpperCase().replace(/-/g, ':');
-  // 12 hex sin separador
-  var m2 = raw.match(/[0-9A-Fa-f]{12}/);
-  if (m2) {
-    var h = m2[0].toUpperCase();
-    return h.slice(0,2)+':'+h.slice(2,4)+':'+h.slice(4,6)+':'+h.slice(6,8)+':'+h.slice(8,10)+':'+h.slice(10,12);
-  }
-  // Intentar con todos los hex chars consecutivos del texto completo
-  var hexOnly = texto.replace(/[^0-9A-Fa-f]/g, '');
-  if (hexOnly.length >= 12) {
-    var h2 = hexOnly.slice(0,12).toUpperCase();
-    return h2.slice(0,2)+':'+h2.slice(2,4)+':'+h2.slice(4,6)+':'+h2.slice(6,8)+':'+h2.slice(8,10)+':'+h2.slice(10,12);
-  }
-  return '';
-}
-
-function ocrSetStatus(msg) {
-  var el = document.getElementById('scanner-status');
-  if (el) el.textContent = msg;
-}
-
-// ── Precargar worker Tesseract (lo hace en background al abrir) ──
-async function ocrPrecargarWorker() {
-  if (scannerTesseract) return;
-  try {
-    scannerTesseract = await Tesseract.createWorker('eng', 1, { logger: function(){} });
-    await scannerTesseract.setParameters({
-      tessedit_char_whitelist: '0123456789ABCDEFabcdef:- .'
-    });
-  } catch(e) { console.warn('Tesseract preload:', e); }
-}
-
-function abrirScanner(ctx, rowUid) {
-  scannerCtx    = ctx;
-  scannerRowUid = rowUid;
-  scannerResult = null;
-
-  // Reset UI
-  document.getElementById('scanner-result-box').style.display   = 'none';
-  document.getElementById('scanner-confirm-btn').style.display  = 'none';
-  document.getElementById('scanner-retry-btn').style.display    = 'none';
-  document.getElementById('scanner-capture-btn').style.display  = 'flex';
-  document.getElementById('scanner-capture-btn').disabled       = true;
-  document.getElementById('scanner-manual-input').value         = '';
-  document.getElementById('scanner-capture-wrap').style.display = 'none';
-  document.getElementById('scanner-video-wrap').style.display   = 'block';
-  document.getElementById('scanner-scan-line').style.display    = 'none';
-  ocrSetStatus('Iniciando cámara...');
-  openModal('modal-scanner');
-
-  iniciarCamaraScanner();
-  ocrPrecargarWorker(); // precarga en paralelo
-}
-
-function iniciarCamaraScanner() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    ocrSetStatus('⚠ Cámara no disponible en este dispositivo.');
-    return;
-  }
-  navigator.mediaDevices.enumerateDevices().then(function(devices) {
-    var cams = devices.filter(function(d){ return d.kind === 'videoinput'; });
-    var sel  = document.getElementById('scanner-cam-sel');
-    sel.innerHTML = cams.map(function(c, i){
-      return '<option value="'+c.deviceId+'">'+(c.label || 'Cámara '+(i+1))+'</option>';
-    }).join('');
-    var backCam = cams.find(function(c){ return /back|rear|trasera|environment/i.test(c.label); });
-    if (backCam) sel.value = backCam.deviceId;
-    iniciarStreamCamara(sel.value || (cams[0] && cams[0].deviceId) || null);
-  }).catch(function(){ iniciarStreamCamara(null); });
-}
-
-function iniciarStreamCamara(deviceId) {
-  detenerStreamCamara();
-  var constraints = {
-    video: deviceId
-      ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-      : { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-  };
-  navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
-    scannerStream = stream;
-    var video = document.getElementById('scanner-video');
-    video.srcObject = stream;
-    video.play();
-    video.onloadedmetadata = function() {
-      document.getElementById('scanner-capture-btn').disabled = false;
-      ocrSetStatus('📷 Listo — encuadra la etiqueta y toma la foto');
-    };
-  }).catch(function(err) {
-    var msg = err.name === 'NotAllowedError'
-      ? '🔒 Permiso de cámara denegado. Actívalo en ajustes del navegador.'
-      : '⚠ No se pudo acceder a la cámara: ' + err.message;
-    ocrSetStatus(msg);
-  });
-}
-
-function cambiarCamaraScanner(deviceId) { iniciarStreamCamara(deviceId); }
-
-// ── Capturar foto + preprocesar + OCR ──
-async function ocrCapturar() {
-  var video  = document.getElementById('scanner-video');
-  var canvas = document.getElementById('scanner-canvas');
-
-  // Capturar frame completo
-  canvas.width  = video.videoWidth  || 1280;
-  canvas.height = video.videoHeight || 720;
-  var ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  // Recortar zona del recuadro guía (80% ancho, 28% alto, centrado)
-  var cx = Math.floor(canvas.width  * 0.10);
-  var cy = Math.floor(canvas.height * 0.36);
-  var cw = Math.floor(canvas.width  * 0.80);
-  var ch = Math.floor(canvas.height * 0.28);
-
-  var cropCanvas = document.createElement('canvas');
-  cropCanvas.width = cw; cropCanvas.height = ch;
-  cropCanvas.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
-
-  // Escalar 3× para mejor OCR
-  var SCALE = 3;
-  var scaled = document.createElement('canvas');
-  scaled.width  = cw * SCALE;
-  scaled.height = ch * SCALE;
-  var sCtx = scaled.getContext('2d');
-  sCtx.imageSmoothingEnabled = false;
-  sCtx.drawImage(cropCanvas, 0, 0, scaled.width, scaled.height);
-
-  // Binarizar (blanco/negro) para maximizar contraste en texto
-  var imgData = sCtx.getImageData(0, 0, scaled.width, scaled.height);
-  for (var i = 0; i < imgData.data.length; i += 4) {
-    var gray = 0.299*imgData.data[i] + 0.587*imgData.data[i+1] + 0.114*imgData.data[i+2];
-    var val  = gray > 128 ? 255 : 0;
-    imgData.data[i] = imgData.data[i+1] = imgData.data[i+2] = val;
-  }
-  sCtx.putImageData(imgData, 0, 0);
-
-  // Mostrar preview de la foto capturada (sin binarizar, más amigable)
-  document.getElementById('scanner-captured-img').src = cropCanvas.toDataURL('image/jpeg', 0.92);
-
-  // Detener video y mostrar preview
-  detenerStreamCamara();
-  document.getElementById('scanner-video-wrap').style.display   = 'none';
-  document.getElementById('scanner-capture-wrap').style.display = 'block';
-  document.getElementById('scanner-capture-btn').style.display  = 'none';
-  document.getElementById('scanner-scan-line').style.display    = 'none';
-
-  ocrSetStatus('🔍 Analizando imagen con OCR...');
-
-  // Ejecutar OCR
-  try {
-    var worker = scannerTesseract;
-    var tempWorker = false;
-    if (!worker) {
-      worker = await Tesseract.createWorker('eng', 1, { logger: function(){} });
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFabcdef:- .' });
-      tempWorker = true;
-    }
-
-    var result = await worker.recognize(scaled.toDataURL());
-    if (tempWorker) { worker.terminate(); }
-
-    var mac = ocrNormalizarMAC(result.data.text);
-
-    if (mac) {
-      scannerResult = mac;
-      document.getElementById('scanner-result-val').textContent   = mac;
-      document.getElementById('scanner-result-box').style.display = 'block';
-      document.getElementById('scanner-manual-input').value       = mac;
-      document.getElementById('scanner-confirm-btn').style.display = 'inline-flex';
-      ocrSetStatus('✓ MAC detectada: ' + mac);
-      if (navigator.vibrate) navigator.vibrate(120);
-    } else {
-      ocrSetStatus('⚠ No se detectó MAC. Edita el campo manual o reintenta.');
-    }
-  } catch(e) {
-    ocrSetStatus('⚠ Error OCR: ' + e.message + ' — usa la entrada manual.');
-    console.error('Tesseract error:', e);
-  }
-
-  document.getElementById('scanner-retry-btn').style.display = 'inline-flex';
-}
-
-function ocrReintentar() {
-  document.getElementById('scanner-result-box').style.display   = 'none';
-  document.getElementById('scanner-confirm-btn').style.display  = 'none';
-  document.getElementById('scanner-retry-btn').style.display    = 'none';
-  document.getElementById('scanner-capture-wrap').style.display = 'none';
-  document.getElementById('scanner-capture-btn').style.display  = 'flex';
-  document.getElementById('scanner-capture-btn').disabled       = true;
-  document.getElementById('scanner-video-wrap').style.display   = 'block';
-  document.getElementById('scanner-manual-input').value         = '';
-  scannerResult = null;
-  ocrSetStatus('Iniciando cámara...');
-  iniciarCamaraScanner();
-}
-
-function formatearMACManual(input) {
-  var raw = input.value.replace(/[^0-9a-fA-F]/g,'').slice(0,12);
-  var fmt = raw.match(/.{1,2}/g) || [];
-  input.value = fmt.join(':').toUpperCase();
-  if (raw.length === 12) {
-    scannerResult = input.value;
-    document.getElementById('scanner-result-val').textContent    = input.value;
-    document.getElementById('scanner-result-box').style.display  = 'block';
-    document.getElementById('scanner-confirm-btn').style.display = 'inline-flex';
-  }
-}
-
-function confirmarMACManual() {
-  var val = document.getElementById('scanner-manual-input').value.trim();
-  var raw = val.replace(/[^0-9a-fA-F]/g,'');
-  if (raw.length < 6) { toast('Ingresa al menos 6 caracteres de la MAC', 'error'); return; }
-  aplicarResultadoScanner(raw.match(/.{1,2}/g).join(':').toUpperCase());
-}
-
-function confirmarScan() {
-  if (!scannerResult) { toast('No hay MAC detectada aún', 'info'); return; }
-  aplicarResultadoScanner(scannerResult);
-}
-
-function aplicarResultadoScanner(mac) {
-  if (scannerCtx === 'km' && scannerRowUid) {
-    var r = kardexRows.find(function(x){ return x.uid === scannerRowUid; });
-    if (r) { r.mac = mac; renderKardexRows(); }
-  } else if (scannerCtx === 'ar' && scannerRowUid) {
-    var r2 = asigRows.find(function(x){ return x.uid === scannerRowUid; });
-    if (r2) { r2.mac = mac; renderAsigRows(); }
-  } else if (scannerCtx === 'search') {
-    var inp = document.getElementById('mac-search-input');
-    if (inp) { inp.value = mac; buscarPorMAC(); }
-  }
-  toast('MAC aplicada: ' + mac, 'success');
-  cerrarScanner();
-}
-
-function detenerStreamCamara() {
-  if (scannerStream) { scannerStream.getTracks().forEach(function(t){ t.stop(); }); scannerStream = null; }
-  var video = document.getElementById('scanner-video');
-  if (video) video.srcObject = null;
-}
-
-function cerrarScanner() {
-  detenerStreamCamara();
-  closeModal('modal-scanner');
-  scannerCtx = null; scannerRowUid = null; scannerResult = null;
-}
 
 // Cerrar dropdowns al hacer clic fuera
 document.addEventListener('click', function(e) {
@@ -11681,11 +11370,27 @@ function renderHistorial(){
       if (fIni && diaAsig < fIni) return false;
       if (fFin && diaAsig > fFin) return false;
       if (fSearch) {
+        var macSerieTexto = (a.materiales||[]).map(function(m){
+          return (m.unidades||[]).map(function(u){ return (u.mac||'')+' '+(u.serie||''); }).join(' ');
+        }).join(' ');
         var hayTexto = (
           (a.cliente||'') + ' ' + (a.ot||'') + ' ' + (a.tecnico||'') + ' ' +
           (a.idCliente||'') + ' ' +
-          (a.materiales||[]).map(function(m){ var mt=getMat(m.matId); return mt?mt.nombre:''; }).join(' ')
+          (a.materiales||[]).map(function(m){ var mt=getMat(m.matId); return mt?mt.nombre:''; }).join(' ') + ' ' +
+          macSerieTexto
         ).toLowerCase().indexOf(fSearch) > -1;
+        // Si no hubo match directo, intentar coincidencia de MAC ignorando separadores
+        // (ej: buscar "80F1A855" encuentra "80:F1:A8:55:FF:DE")
+        if (!hayTexto) {
+          var fSearchMacNorm = fSearch.replace(/[^0-9a-f]/gi,'');
+          if (fSearchMacNorm.length >= 4) {
+            hayTexto = (a.materiales||[]).some(function(m){
+              return (m.unidades||[]).some(function(u){
+                return (u.mac||'').replace(/[^0-9a-f]/gi,'').toLowerCase().indexOf(fSearchMacNorm.toLowerCase()) > -1;
+              });
+            });
+          }
+        }
         if (!hayTexto) return false;
       }
       return true;
