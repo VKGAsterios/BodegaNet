@@ -269,6 +269,13 @@ select option{background:var(--bg3);color:var(--ink);}
 .herr-unit-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
 .herr-unit-row:last-child{border-bottom:none;}
 .herr-mini-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;display:inline-block;}
+.cuad-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;}
+.cuad-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;transition:border-color .15s,box-shadow .15s;position:relative;}
+.cuad-card:hover{border-color:var(--accent);box-shadow:0 4px 16px rgba(0,0,0,.06);}
+.cuad-avatar{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#6366f1);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;}
+.cuad-cred-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:8px;font-size:12px;font-family:monospace;}
+.form-section-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:18px 0 10px;padding-top:16px;border-top:1px solid var(--border);}
+.form-section-label:first-child{margin-top:0;padding-top:0;border-top:none;}
 .kherr-tipo-lbl.sel{border-color:var(--accent)!important;background:var(--accent-light)!important;color:var(--accent)!important;}
 .herr-kpi-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 14px;text-align:center;}
 .herr-kpi-num{font-size:22px;font-weight:700;line-height:1;}
@@ -582,6 +589,9 @@ select option{background:var(--bg3);color:var(--ink);}
 
         <!-- Vista CUADRILLA: solo total de materiales -->
         <div id="dash-cuad-view" style="display:none;">
+          <!-- ACCESOS RÁPIDOS -->
+          <div id="dash-quick-actions" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem;"></div>
+
           <!-- KPI cuadrilla: total de materiales en bodega + rendimiento del día -->
           <div class="kpi-grid" id="kpi-grid-cuad"></div>
 
@@ -743,6 +753,7 @@ select option{background:var(--bg3);color:var(--ink);}
         </div>
         <div class="card">
           <div class="card-title">Datos del cliente</div>
+          <div class="form-section-label">👤 Identificación del cliente</div>
           <div class="form-grid">
             <div class="field"><label>Nombre del cliente *</label><input type="text" id="cli-nombre" placeholder="Nombre completo"></div>
             <div class="field"><label>Teléfono</label><input type="tel" id="cli-tel" placeholder="0000-0000"></div>
@@ -756,6 +767,8 @@ select option{background:var(--bg3);color:var(--ink);}
                previa en los últimos 2 meses, para que el técnico refuerce la atención y evite
                que esta se convierta en una 3ra o 4ta visita por el mismo problema. -->
           <div id="cli-alerta-reincidencia" style="display:none;margin-bottom:1rem;"></div>
+
+          <div class="form-section-label">🔧 Datos técnicos de la visita</div>
           <div class="form-grid">
             <div class="field"><label>Orden de trabajo (OT)</label><input type="text" id="cli-ot" placeholder="OT-0001"></div>
             <div class="field"><label>CTO <span style="font-size:10px;color:var(--ink3);font-weight:400;">opcional</span></label><input type="text" id="cli-cto" placeholder="Ej: CTO-Norte-04"></div>
@@ -774,6 +787,8 @@ select option{background:var(--bg3);color:var(--ink);}
                 oninput="this.value=this.value.replace(/[^0-9.\-]/g,'')">
             </div>
           </div>
+
+          <div class="form-section-label">🛠️ Trabajo realizado</div>
           <div class="form-grid">
             <div class="field"><label>Tipo de trabajo</label>
               <select id="cli-tipo"><option>Instalaciones</option>
@@ -867,16 +882,15 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
         <div class="card">
-          <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
             <input type="text" id="inv-search" placeholder="Buscar material..." style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;outline:none;flex:1;min-width:140px;" oninput="renderInventario()">
             <select id="inv-cat-filter" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;outline:none;" onchange="renderInventario()">
               <option value="">Todas las categorías</option>
             </select>
+            <button class="btn btn-sm btn-ghost" onclick="toggleTodosGruposInv(true)">Expandir todo</button>
+            <button class="btn btn-sm btn-ghost" onclick="toggleTodosGruposInv(false)">Colapsar todo</button>
           </div>
-          <div class="table-wrap"><table>
-            <thead><tr><th>Código</th><th>Material</th><th>Categoría</th><th>Unidad</th><th>Stock</th><th>Mínimo</th><th>Estado</th></tr></thead>
-            <tbody id="inv-tbody"></tbody>
-          </table></div>
+          <div id="inv-groups"></div>
         </div>
 
         <div class="card" style="margin-top:1rem;">
@@ -963,6 +977,9 @@ select option{background:var(--bg3);color:var(--ink);}
                 style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
             </div>
             <button class="btn btn-sm btn-ghost" onclick="limpiarFiltrosHistAdmin()" style="white-space:nowrap;">Limpiar filtros</button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);white-space:nowrap;padding-bottom:9px;">
+              <input type="checkbox" id="hist-admin-solo-exceso" onchange="renderHistorial()"> ⏱ Solo con exceso de tiempo
+            </label>
           </div>
           <div id="hist-admin-conteo" style="font-size:12px;color:var(--ink3);margin-top:10px;"></div>
         </div>
@@ -1005,13 +1022,14 @@ select option{background:var(--bg3);color:var(--ink);}
       <!-- ADMIN CUADRILLAS -->
       <section class="section" id="sec-admin-cuadrillas">
         <div class="page-header">
-          <div><h2>Gestionar cuadrillas</h2><p>Hasta 30 cuadrillas con contraseña propia</p></div>
+          <div><h2>Gestionar cuadrillas</h2><p id="admin-cuad-subtitulo">Hasta 30 cuadrillas con contraseña propia</p></div>
           <button class="btn btn-accent" onclick="openCuadrillaModal()">+ Nueva cuadrilla</button>
         </div>
-        <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Nombre</th><th>Responsable</th><th>Zona</th><th>Sector</th><th>Meta/día</th><th>Usuario</th><th>Contraseña</th><th>Estado</th><th>Acciones</th></tr></thead>
-          <tbody id="admin-cuad-tbody"></tbody>
-        </table></div></div>
+        <div class="card" style="margin-bottom:1rem;">
+          <input type="text" id="admin-cuad-buscar" oninput="renderAdminCuadrillas()" placeholder="🔎 Buscar por nombre, responsable, zona o usuario..."
+            style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+        </div>
+        <div class="cuad-grid" id="admin-cuad-grid"></div>
       </section>
 
       <!-- ADMIN REPORTES -->
@@ -1834,8 +1852,12 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="modal-close" onclick="closeModal('modal-tiempos-default')">✕</button>
           <h3 style="margin-bottom:.25rem;">⚙ Tiempos por defecto</h3>
           <p style="font-size:13px;color:var(--ink3);margin-bottom:1rem;">
-            Si un trabajo no tiene hora de fin registrada, se aplicará este tiempo estimado para el cálculo de duración. Los trabajos con tiempo estimado quedan marcados con un badge ámbar en los reportes.
+            Se usa para estimar la duración cuando falta hora de fin, y para validar que la duración registrada no se dispare por un error de captura (máx. tiempo estimado + 30 min).
           </p>
+          <div class="tabs" style="margin-bottom:.75rem;">
+            <button class="tab-btn active" id="tmd-tab-cliente" onclick="switchTmDefaultTab('cliente')">Trabajos de cliente</button>
+            <button class="tab-btn" id="tmd-tab-ri" onclick="switchTmDefaultTab('ri')">Red Interna</button>
+          </div>
           <div id="tm-default-sector-label" style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:.75rem;"></div>
           <div id="tm-default-rows" style="max-height:360px;overflow-y:auto;"></div>
           <div class="btn-row" style="margin-top:1rem;">
@@ -2417,6 +2439,7 @@ select option{background:var(--bg3);color:var(--ink);}
         <div class="modal" style="max-width:560px;">
           <button class="modal-close" onclick="closeModal('modal-red-interna')">&#x2715;</button>
           <h3 id="ri-modal-title" style="margin-bottom:1rem;">🖧 Nuevo trabajo en red</h3>
+          <div class="form-section-label">📋 Datos del trabajo</div>
           <div class="form-grid">
             <div class="field"><label># de Orden *</label>
               <input type="text" id="ri-orden" placeholder="Ej: RI-20240523-001" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
@@ -2448,7 +2471,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <!-- Materiales usados -->
           <div style="margin-top:.75rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
-              <label style="font-size:13px;font-weight:600;">Materiales utilizados</label>
+              <div class="form-section-label" style="margin:0;padding:0;border:none;">📦 Materiales usados</div>
               <button class="btn btn-sm" onclick="addRiMaterialRow()">+ Agregar</button>
             </div>
             <div id="ri-materiales-rows"></div>
@@ -2716,6 +2739,7 @@ select option{background:var(--bg3);color:var(--ink);}
     <button class="modal-close" onclick="closeModal('modal-visita-fallida')">✕</button>
     <h3 style="margin-bottom:.25rem;">🚫 Registrar visita fallida</h3>
     <p style="font-size:12px;color:var(--ink3);margin-bottom:1rem;" id="vf-modal-sub">Documenta el trabajo no completado</p>
+    <div class="form-section-label">👤 Datos de la visita</div>
     <div class="form-grid">
       <div class="field"><label>Cuadrilla</label>
         <select id="vf-cuad-sel" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
@@ -2733,6 +2757,7 @@ select option{background:var(--bg3);color:var(--ink);}
       </div>
     </div>
     <!-- Hora inicio / fin -->
+    <div class="form-section-label">⏱ Duración</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:.75rem;">
       <div class="field" style="margin:0;">
         <label>Hora inicio *</label>
@@ -2747,6 +2772,7 @@ select option{background:var(--bg3);color:var(--ink);}
         <div id="vf-minutos-display" style="padding:10px 12px;background:rgba(249,115,22,.1);border:1.5px solid rgba(249,115,22,.35);border-radius:var(--r);font-size:14px;font-weight:700;color:#ea580c;min-height:42px;display:flex;align-items:center;">—</div>
       </div>
     </div>
+    <div class="form-section-label">🚫 Motivo y observación</div>
     <div class="form-grid g1">
       <div class="field"><label>Motivo de falla *</label>
         <select id="vf-motivo" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
@@ -3049,6 +3075,7 @@ var cache = {
   retiros: {},           // {id: {cliente, numTrabajo, fecha, cuadrillaId, tsRegistro,
                           //       equipos:[{equipoId, matId, nombreRef, cantidad, estado, numCuadre, fechaCuadre}]}}
   tiemposDefault: {},    // {sectorId: {tipo: minutos}} — tiempos estimados por defecto por tipo y sector
+  tiemposDefaultRI: {},  // {sectorId: {tipoRI: minutos}} — igual, pero para tipos de Red Interna
   auditoriasFisicas: {}  // {id: {cuadrillaId, fechaAuditoria, fechaRegistro, responsable, obs, materiales:[{matId,stockAnterior}]}}
 };
 
@@ -4312,42 +4339,76 @@ var TIPOS_TRABAJO = [
   'Estudio de Cobertura','Cambio Contraseña','Retiros Traslado','Retiro de equipo cliente'
 ];
 
+var tmDefaultCategoria = 'cliente'; // 'cliente' | 'ri'
+
 function abrirModalTiemposDefault() {
   var sector = getSectorActivo();
   if (!sector) { toast('No hay sector activo seleccionado','error'); return; }
+  tmDefaultCategoria = 'cliente';
+  document.getElementById('tmd-tab-cliente').classList.add('active');
+  document.getElementById('tmd-tab-ri').classList.remove('active');
   var label = document.getElementById('tm-default-sector-label');
   if (label) label.textContent = 'Sector: ' + sector;
-  var config = (cache.tiemposDefault[sector]) || {};
-  var rows = document.getElementById('tm-default-rows');
-  rows.innerHTML = tiposTrabajoActivos().map(function(tipo) {
-    var val = config[tipo] || '';
-    return '<div style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">'
-      +'<label style="font-size:13px;color:var(--ink);">'+esc(tipo)+'</label>'
-      +'<div style="display:flex;align-items:center;gap:6px;">'
-        +'<input type="number" min="1" max="480" placeholder="min" value="'+val+'" '
-          +'id="tdm-'+tipo.replace(/[^a-zA-Z0-9]/g,'_')+'" '
-          +'style="width:72px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">'
-        +'<span style="font-size:11px;color:var(--ink3);">min</span>'
-      +'</div>'
-    +'</div>';
-  }).join('');
+  renderTmDefaultRows();
   openModal('modal-tiempos-default');
+}
+
+function switchTmDefaultTab(cat) {
+  tmDefaultCategoria = cat;
+  document.getElementById('tmd-tab-cliente').classList.toggle('active', cat==='cliente');
+  document.getElementById('tmd-tab-ri').classList.toggle('active', cat==='ri');
+  renderTmDefaultRows();
+}
+
+function _tiposParaCategoria(cat) {
+  if (cat === 'ri') {
+    var custom = tiposRIList();
+    return custom.length ? custom.map(function(t){ return t.nombre; }) : TIPOS_RI_DEFAULT;
+  }
+  return tiposTrabajoActivos();
+}
+
+function renderTmDefaultRows() {
+  var sector = getSectorActivo();
+  if (!sector) return;
+  var esRI = tmDefaultCategoria === 'ri';
+  var config = (esRI ? cache.tiemposDefaultRI[sector] : cache.tiemposDefault[sector]) || {};
+  var prefijo = esRI ? 'tdmri-' : 'tdm-';
+  var rows = document.getElementById('tm-default-rows');
+  var tipos = _tiposParaCategoria(tmDefaultCategoria);
+  rows.innerHTML = !tipos.length
+    ? '<p style="font-size:12px;color:var(--ink3);">'+(esRI?'No hay tipos de Red Interna configurados aún.':'No hay tipos de trabajo configurados aún.')+'</p>'
+    : tipos.map(function(tipo) {
+        var val = config[tipo] || '';
+        return '<div style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">'
+          +'<label style="font-size:13px;color:var(--ink);">'+esc(tipo)+'</label>'
+          +'<div style="display:flex;align-items:center;gap:6px;">'
+            +'<input type="number" min="1" max="480" placeholder="min" value="'+val+'" '
+              +'id="'+prefijo+tipo.replace(/[^a-zA-Z0-9]/g,'_')+'" '
+              +'style="width:72px;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">'
+            +'<span style="font-size:11px;color:var(--ink3);">min</span>'
+          +'</div>'
+        +'</div>';
+      }).join('');
 }
 
 function guardarTiemposDefault() {
   var sector = getSectorActivo();
   if (!sector) { toast('No hay sector activo','error'); return; }
+  var esRI = tmDefaultCategoria === 'ri';
+  var prefijo = esRI ? 'tdmri-' : 'tdm-';
+  var nodo = esRI ? 'tiemposDefaultRI' : 'tiemposDefault';
   var config = {};
-  tiposTrabajoActivos().forEach(function(tipo) {
-    var inputId = 'tdm-'+tipo.replace(/[^a-zA-Z0-9]/g,'_');
+  _tiposParaCategoria(tmDefaultCategoria).forEach(function(tipo) {
+    var inputId = prefijo+tipo.replace(/[^a-zA-Z0-9]/g,'_');
     var el = document.getElementById(inputId);
     if (el && el.value && parseInt(el.value) > 0) {
       config[tipo] = parseInt(el.value);
     }
   });
-  db.ref('config/tiemposDefault/'+sector).set(config)
+  db.ref('config/'+nodo+'/'+sector).set(config)
     .then(function() {
-      toast('Tiempos por defecto guardados para el sector','success');
+      toast('Tiempos por defecto guardados ('+(esRI?'Red Interna':'Trabajos de cliente')+')','success');
       closeModal('modal-tiempos-default');
       renderTiemposTrabajo();
     })
@@ -4411,18 +4472,26 @@ function calcDuracionMin(horaInicio, horaFin){
 // ══════════════════════════════════════════════════════════════════════════
 var TOLERANCIA_DURACION_MIN = 30;
 
-function validarDuracionRazonable(tipo, minutosReales) {
+// categoria: 'cliente' (default) | 'ri' — cada una tiene su propia tabla de
+// tiempos estimados por sector, porque los tipos de trabajo de cliente y los
+// de Red Interna son catálogos distintos.
+// Retorna null si no aplica o está dentro de lo esperado, o un objeto
+// { mensaje, estimadoMin, realMin, excesoMin } si excede el margen permitido.
+function validarDuracionRazonable(tipo, minutosReales, categoria) {
   if (minutosReales === null || minutosReales === undefined) return null;
   var sector = getSectorActivo();
   if (!sector) return null;
-  var config = cache.tiemposDefault[sector] || {};
+  var fuente = categoria === 'ri' ? cache.tiemposDefaultRI : cache.tiemposDefault;
+  var config = fuente[sector] || {};
   var estimado = config[tipo||''];
   if (!estimado) return null; // sin tiempo estimado configurado para este tipo — no se valida
   var maxPermitido = estimado + TOLERANCIA_DURACION_MIN;
   if (minutosReales > maxPermitido) {
-    return 'La duración calculada es de <strong>'+fmtDuracion(minutosReales)+'</strong>, pero "'+esc(tipo)+'" tiene un tiempo esperado de ~'+fmtDuracion(estimado)
-      +' (máximo permitido '+fmtDuracion(maxPermitido)+' con el margen de '+TOLERANCIA_DURACION_MIN+' min). '
-      +'Revisa que la hora de inicio y de fin sean correctas.';
+    return {
+      estimadoMin: estimado, realMin: minutosReales, excesoMin: minutosReales - estimado,
+      mensaje: 'La duración calculada es de <strong>'+fmtDuracion(minutosReales)+'</strong>, pero "'+esc(tipo)+'" tiene un tiempo esperado de ~'+fmtDuracion(estimado)
+        +' (máximo permitido '+fmtDuracion(maxPermitido)+' con el margen de '+TOLERANCIA_DURACION_MIN+' min).'
+    };
   }
   return null;
 }
@@ -5408,6 +5477,9 @@ function initFirebaseListeners() {
   db.ref('config/tiemposDefault').on('value', function(snap) {
     cache.tiemposDefault = snap.val() || {};
   });
+  db.ref('config/tiemposDefaultRI').on('value', function(snap) {
+    cache.tiemposDefaultRI = snap.val() || {};
+  });
   // Sectores dinamicos
   db.ref('sectores').on('value', function(snap) {
     cache.sectores = snap.val() || {};
@@ -6282,9 +6354,11 @@ function guardarRedInterna() {
 
   // Validar duración razonable: si la hora de inicio quedó mal seleccionada
   // (ej: 08:00 en vez de 18:00), la duración calculada contra "ahora" se dispara.
-  var errDuracionRI = validarDuracionRazonable(tipo, calcDuracionMin(ini, fin));
-  if (errDuracionRI) { toast(errDuracionRI, 'error'); return; }
+  // No se bloquea (puede ser un trabajo real que tomó más tiempo): se advierte
+  // con confirmación y, si se continúa, queda marcado para revisar en Historial.
+  var infoDuracionRI = validarDuracionRazonable(tipo, calcDuracionMin(ini, fin), 'ri');
 
+  function procederGuardarRI() {
   // Validar MAC/Serie requeridos antes de guardar
   var riMacErrs = [];
   riMaterialRows.filter(function(r){ return r.matId && r.qty > 0; }).forEach(function(r){
@@ -6340,7 +6414,10 @@ function guardarRedInterna() {
     cuadrillaId: cid,
     fecha: fechaLocal.slice(0,10),
     tsRegistro: Date.now(),
-    creadoEn: fechaLocal
+    creadoEn: fechaLocal,
+    excedeTiempo: !!infoDuracionRI,
+    tiempoEstimadoMin: infoDuracionRI ? infoDuracionRI.estimadoMin : null,
+    tiempoExcesoMin: infoDuracionRI ? infoDuracionRI.excesoMin : null
   };
   updates['redInterna/'+newId] = registro;
 
@@ -6374,7 +6451,10 @@ function guardarRedInterna() {
       obs: obs,
       materiales: matsArray,
       cuadrillaId: cid,
-      redInternaId: newId
+      redInternaId: newId,
+      excedeTiempo: !!infoDuracionRI,
+      tiempoEstimadoMin: infoDuracionRI ? infoDuracionRI.estimadoMin : null,
+      tiempoExcesoMin: infoDuracionRI ? infoDuracionRI.excesoMin : null
     };
   }
 
@@ -6440,6 +6520,17 @@ function guardarRedInterna() {
     aplicarExitoRI();
     toast('Sin conexión: guardado localmente. Se sincronizará automáticamente ✅','info');
   });
+  } // fin procederGuardarRI
+
+  if (infoDuracionRI) {
+    showConfirm(
+      '⚠️ Duración fuera de lo esperado',
+      infoDuracionRI.mensaje + '<br><br>¿Confirmas que la hora es correcta y deseas continuar? Quedará marcado para revisar en Historial.',
+      procederGuardarRI
+    );
+  } else {
+    procederGuardarRI();
+  }
 }
 
 function eliminarRI(id) {
@@ -8452,6 +8543,29 @@ function renderDashboard() {
     var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
     var bajoCuad = matsCuad.filter(function(m){ return getStock(cid,m.id) < m.min; }).length;
 
+    // Accesos rápidos: solo muestra Red Interna / Retiros si la cuadrilla los tiene habilitados
+    // (mismo criterio que ya decide si esos ítems aparecen en el menú lateral).
+    var quickActions = document.getElementById('dash-quick-actions');
+    if (quickActions) {
+      var navRI = document.getElementById('nav-red-interna');
+      var navRet = document.getElementById('nav-retiros-cuad');
+      var accesos = [
+        { icon:'📝', label:'Nueva asignación', color:'var(--accent)', fn:"showSection('asignar')" },
+        { icon:'📇', label:'Registrar Kardex', color:'#22c55e', fn:"showSection('kardex')" }
+      ];
+      if (navRI && navRI.style.display !== 'none') accesos.push({ icon:'🖧', label:'Red Interna', color:'#6366f1', fn:"showSection('red-interna')" });
+      if (navRet && navRet.style.display !== 'none') accesos.push({ icon:'♻️', label:'Retiros', color:'#f59e0b', fn:"showSection('retiros')" });
+      accesos.push({ icon:'⚠️', label:'Visita fallida', color:'#f97316', fn:"showSection('visitas-fallidas-cuad')" });
+
+      quickActions.innerHTML = accesos.map(function(a){
+        return '<button onclick="'+a.fn+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:14px 10px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--bg2);cursor:pointer;transition:border-color .12s,transform .1s;" '
+          +'onmouseover="this.style.borderColor=\''+a.color+'\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+          +'<span style="font-size:22px;">'+a.icon+'</span>'
+          +'<span style="font-size:12px;font-weight:600;color:var(--ink);">'+a.label+'</span>'
+          +'</button>';
+      }).join('');
+    }
+
     // Rendimiento del día: asignaciones a clientes, trabajos de red interna y movimientos de kardex
     var asigsHoyCuad = asigListFiltrada().filter(function(a){
       return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today && a.tipoRegistro!=='redInterna';
@@ -9791,18 +9905,24 @@ function registrarAsignacion(){
   // guardar, así que si horaInicio quedó mal seleccionada (ej: 08:00 en vez de
   // 18:00), la duración calculada se dispara. Se compara contra el tiempo
   // estimado configurado para el tipo de trabajo + 30 min de margen.
+  // No se bloquea el guardado (puede ser un trabajo real que tomó más tiempo):
+  // se advierte y, si se confirma, queda marcado para revisar en Historial.
   var horaFinPreview = (function(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');})();
   var tipoTrabajoSel = document.getElementById('cli-tipo').value;
-  var errDuracion = validarDuracionRazonable(tipoTrabajoSel, calcDuracionMin(horaInicio, horaFinPreview));
-  if (errDuracion) { toast(errDuracion, 'error'); return; }
+  var infoDuracion = validarDuracionRazonable(tipoTrabajoSel, calcDuracionMin(horaInicio, horaFinPreview), 'cliente');
 
   var resumen = validos.length
     ? validos.map(function(r){var m=getMat(r.matId);return(m?m.nombre:'?')+' × '+r.qty;}).join(', ')
     : '<em style="color:var(--ink3);">Sin materiales — trabajo de servicio/tiempo</em>';
   var cuad=getCuad(cid);
+  var avisoDuracion = infoDuracion
+    ? '<div style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);border-radius:var(--r);padding:8px 10px;margin-bottom:.75rem;font-size:12px;color:var(--ink2);">'
+      + '⚠️ '+infoDuracion.mensaje+' Se guardará marcado para revisión.</div>'
+    : '';
   showConfirm(
     'Confirmar asignación a cliente',
-    '<strong>Cliente:</strong> '+nombre+'<br>'
+    avisoDuracion
+    +'<strong>Cliente:</strong> '+nombre+'<br>'
     +'<strong>OT:</strong> '+(document.getElementById('cli-ot').value||'—')+'<br>'
     +'<strong>Cuadrilla:</strong> '+(cuad?cuad.nombre:'—')+'<br>'
     +'<strong>Materiales:</strong> '+resumen+'<br><br>'
@@ -9870,7 +9990,10 @@ function registrarAsignacion(){
         horaFin:horaFinReal,
         obs:document.getElementById('cli-obs').value,
         materiales:matsData,cuadrillaId:cid,
-        equiposReemplazados:equiposReemplazados.length?equiposReemplazados:null};
+        equiposReemplazados:equiposReemplazados.length?equiposReemplazados:null,
+        excedeTiempo: !!infoDuracion,
+        tiempoEstimadoMin: infoDuracion ? infoDuracion.estimadoMin : null,
+        tiempoExcesoMin: infoDuracion ? infoDuracion.excesoMin : null};
       updates['asignaciones/'+aid]=asig;
       updates['_lastUpdate']=Date.now();
 
@@ -10103,9 +10226,10 @@ function guardarEdicionMateriales() {
   var cambioIdCliente = nuevoIdCliente !== (asig.idCliente||'');
 
   // Validar duración razonable si cambió la hora de inicio o el tipo de trabajo
+  // (no bloquea: advierte y, si se confirma, queda marcado para revisar en Historial)
+  var infoDuracionEdit = null;
   if ((cambioHora || cambioTipo) && asig.horaFin) {
-    var errDuracionEdit = validarDuracionRazonable(nuevoTipo||asig.tipo, calcDuracionMin(nuevaHora, asig.horaFin));
-    if (errDuracionEdit) { toast(errDuracionEdit, 'error'); return; }
+    infoDuracionEdit = validarDuracionRazonable(nuevoTipo||asig.tipo, calcDuracionMin(nuevaHora, asig.horaFin), 'cliente');
   }
 
   var nuevos = editMatRows.filter(function(r){ return r.matId && r.qty > 0; });
@@ -10157,10 +10281,15 @@ function guardarEdicionMateriales() {
   if (cambioOT) resumenPartes.push('OT: '+(asig.ot||'—')+' → '+(nuevoOT||'—'));
   if (cambioIdCliente) resumenPartes.push('ID Cliente: '+(asig.idCliente||'—')+' → '+(nuevoIdCliente||'—'));
   var resumenCambios = resumenPartes.join(' · ');
+  var avisoDuracionEdit = infoDuracionEdit
+    ? '<div style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);border-radius:var(--r);padding:8px 10px;margin-bottom:.75rem;font-size:12px;color:var(--ink2);">'
+      + '⚠️ '+infoDuracionEdit.mensaje+' Se guardará marcado para revisión.</div>'
+    : '';
 
   showConfirm(
     'Confirmar edición de la asignación',
-    '<strong>Cliente:</strong> '+esc(asig.cliente||'—')+'<br>'
+    avisoDuracionEdit
+    +'<strong>Cliente:</strong> '+esc(asig.cliente||'—')+'<br>'
     +'<strong>Cambios:</strong> '+esc(resumenCambios)+'<br><br>'
     +(Object.keys(diffs).length ? 'El stock de la bodega se ajustará automáticamente. ' : '')+'¿Confirmas?',
     function(){
@@ -10187,6 +10316,11 @@ function guardarEdicionMateriales() {
       if (cambioHora) updates['asignaciones/'+asigId+'/horaInicio'] = nuevaHora;
       if (cambioOT) updates['asignaciones/'+asigId+'/ot'] = nuevoOT;
       if (cambioIdCliente) updates['asignaciones/'+asigId+'/idCliente'] = nuevoIdCliente;
+      if (infoDuracionEdit) {
+        updates['asignaciones/'+asigId+'/excedeTiempo'] = true;
+        updates['asignaciones/'+asigId+'/tiempoEstimadoMin'] = infoDuracionEdit.estimadoMin;
+        updates['asignaciones/'+asigId+'/tiempoExcesoMin'] = infoDuracionEdit.excesoMin;
+      }
       // Auditoría: visible solo para admin (no se muestra en la vista de cuadrilla)
       updates['asignaciones/'+asigId+'/editadoPor'] = currentUser.nombre || currentUser.username || '';
       updates['asignaciones/'+asigId+'/fechaEdicion'] = nowISOLocal();
@@ -11283,7 +11417,14 @@ function limpiarFiltrosHistAdmin(){
   document.getElementById('hist-admin-search').value='';
   document.getElementById('hist-admin-fecha-ini').value='';
   document.getElementById('hist-admin-fecha-fin').value='';
+  document.getElementById('hist-admin-solo-exceso').checked=false;
   renderHistorial();
+}
+
+function marcarTiempoRevisado(asigId) {
+  db.ref('asignaciones/'+asigId+'/tiempoRevisado').set(true)
+    .then(function(){ toast('Marcado como revisado','success'); renderHistorial(); })
+    .catch(function(e){ toast('Error: '+e.message,'error'); });
 }
 
 function renderHistorial(){
@@ -11334,6 +11475,11 @@ function renderHistorial(){
       var badgeHTML = esRI
         ? '<span class="badge badge-green" style="font-size:10px;">🖧 Red Interna</span>'
         : '<span class="badge badge-blue"  style="font-size:10px;">👤 Cliente</span>';
+      if (a.excedeTiempo) {
+        badgeHTML += a.tiempoRevisado
+          ? ' <span class="badge badge-gray" style="font-size:10px;" title="Ya revisado">⏱ Revisado</span>'
+          : ' <span class="badge" style="font-size:10px;background:var(--red);color:#fff;" title="Excede tiempo estimado por '+fmtDuracion(a.tiempoExcesoMin)+'">⏱ Excede tiempo</span>';
+      }
 
       // Materiales en panel expandido
       var matsDetalle = buildMatsDetalleHTML(a.materiales);
@@ -11365,6 +11511,9 @@ function renderHistorial(){
       var estimadoHTML = (efCuad && efCuad.estimado)
         ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(efCuad.minutos)+' (sin hora de fin registrada)</div>'
         : '';
+      if (a.excedeTiempo) {
+        estimadoHTML += '<div style="margin-top:6px;font-size:11px;color:#fff;background:var(--red);border-radius:4px;padding:4px 8px;display:inline-block;">⏱ Excede el tiempo esperado (~'+fmtDuracion(a.tiempoEstimadoMin)+') por '+fmtDuracion(a.tiempoExcesoMin)+'</div>';
+      }
 
       return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
         +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
@@ -11410,6 +11559,7 @@ function renderHistorial(){
     var fSearch = ((document.getElementById('hist-admin-search')||{value:''}).value||'').trim().toLowerCase();
     var fIni    = (document.getElementById('hist-admin-fecha-ini')||{value:''}).value;
     var fFin    = (document.getElementById('hist-admin-fecha-fin')||{value:''}).value;
+    var soloExceso = (document.getElementById('hist-admin-solo-exceso')||{checked:false}).checked;
 
     var asigs = asigListFiltrada().filter(function(a){
       if (a.anulada) return false;
@@ -11441,6 +11591,7 @@ function renderHistorial(){
         }
         if (!hayTexto) return false;
       }
+      if (soloExceso && !a.excedeTiempo) return false;
       return true;
     }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
 
@@ -11464,6 +11615,11 @@ function renderHistorial(){
       var badgeHTML = esRI
         ? '<span class="badge badge-green" style="font-size:10px;">🖧 Red Interna</span>'
         : '<span class="badge badge-blue"  style="font-size:10px;">👤 Cliente</span>';
+      if (a.excedeTiempo) {
+        badgeHTML += a.tiempoRevisado
+          ? ' <span class="badge badge-gray" style="font-size:10px;" title="Ya revisado">⏱ Revisado</span>'
+          : ' <span class="badge" style="font-size:10px;background:var(--red);color:#fff;" title="Excede tiempo estimado por '+fmtDuracion(a.tiempoExcesoMin)+'">⏱ Excede tiempo</span>';
+      }
 
       // Materiales para el panel expandido (con MAC/Serie por unidad)
       var matsDetalle = buildMatsDetalleHTML(a.materiales);
@@ -11497,7 +11653,11 @@ function renderHistorial(){
         botonesDetalle += '<button class="btn btn-sm" onclick="abrirEditarOrdenRI(\''+a.id+'\');event.stopPropagation();">✏️ Editar # orden</button>';
         botonesDetalle += '<button class="btn btn-sm btn-red" onclick="eliminarRIDesdeHistorial(\''+a.id+'\');event.stopPropagation();">🗑️ Eliminar</button>';
       }
-      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button></div>';
+      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>';
+      if (a.excedeTiempo && !a.tiempoRevisado) {
+        botonesDetalle += '<button class="btn btn-sm" style="border-color:var(--green);color:var(--green);" onclick="marcarTiempoRevisado(\''+a.id+'\');event.stopPropagation();">✓ Marcar como revisado</button>';
+      }
+      botonesDetalle += '</div>';
 
       return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
         +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
@@ -11517,6 +11677,7 @@ function renderHistorial(){
               +'<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES ENTREGADOS</div>'
               +matsDetalle+auditHTML+reemplazadosDetalleAdmin
               +(function(){ var ef=getTiempoEfectivo(a); return (ef&&ef.estimado) ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(ef.minutos)+'</div>' : ''; })()
+              +(a.excedeTiempo ? '<div style="margin-top:6px;font-size:11px;color:#fff;background:var(--red);border-radius:4px;padding:4px 8px;display:inline-block;">⏱ Excede el tiempo esperado (~'+fmtDuracion(a.tiempoEstimadoMin)+') por '+fmtDuracion(a.tiempoExcesoMin)+(a.tiempoRevisado?' — ✓ ya revisado':'')+'</div>' : '')
             +'</div>'
             +'<div>'+(extraHTML||'<span style="font-size:12px;color:var(--ink3);">Sin datos adicionales</span>')+'</div>'
           +'</div>'
@@ -12085,33 +12246,73 @@ function deleteMat(id){
 // ══════════════════════════════════════════════════════
 function renderAdminCuadrillas(){
   if (!currentUser || currentUser.tipo !== 'admin') return;
-  var tbody=document.getElementById('admin-cuad-tbody');
+  var grid = document.getElementById('admin-cuad-grid');
   // Admin solo ve cuadrillas de su sector
   var cuads = getCuadrillasFiltradas();
-  if(!cuads.length){
+  var subEl = document.getElementById('admin-cuad-subtitulo');
+
+  var q = ((document.getElementById('admin-cuad-buscar')||{value:''}).value||'').trim().toLowerCase();
+  var visibles = cuads.filter(function(c){
+    if (!q) return true;
+    var texto = (c.nombre+' '+(c.responsable||'')+' '+(c.zona||'')+' '+(c.username||'')).toLowerCase();
+    return texto.indexOf(q) > -1;
+  }).sort(function(a,b){ return (a.nombre||'').localeCompare(b.nombre||''); });
+
+  if (subEl) subEl.textContent = cuads.length + ' cuadrilla(s) registrada(s) — hasta 30 con contraseña propia';
+
+  if (!cuads.length) {
     var esSuperAdmin = currentUser && currentUser.rol === 'superadmin';
     var msg = esSuperAdmin
       ? 'Sin cuadrillas. Agrega la primera.'
       : 'No tienes cuadrillas en tu sector aún. Crea la primera usando el botón "+ Nueva cuadrilla".';
-    tbody.innerHTML='<tr><td colspan="9">'+empty(msg)+'</td></tr>';
+    grid.innerHTML = empty(msg);
     return;
   }
-  tbody.innerHTML=cuads.map(function(c,i){
-    return '<tr><td style="font-family:monospace;font-size:12px">#'+String(i+1).padStart(2,'0')+'</td>'
-      +'<td><strong>'+esc(c.nombre)+'</strong></td>'
-      +'<td>'+esc(c.responsable||'')+'</td>'
-      +'<td>'+(c.zona?'<span class="badge badge-blue">'+esc(c.zona)+'</span>':'—')+'</td>'
-      +'<td>'
-        +(function(){ var s=getSector(c.sectorId||c.sector); return s?'<span class="badge badge-blue">'+s.nombre+'</span>':'<span class="badge badge-gray">'+(c.sectorId||c.sector||'—')+'</span>'; }())
-      +'</td>'
-      +'<td style="font-family:monospace;font-size:12px;background:var(--bg3);padding:3px 8px;border-radius:6px;">'+esc(c.username||'')+'</td>'
-      +'<td style="text-align:center;">'+(c.meta>0?'<span class="badge badge-green">'+c.meta+' trab.</span>':'<span style="color:var(--ink3);font-size:12px;">—</span>')+'</td>'
-      +'<td><span style="font-family:monospace;font-size:12px;background:var(--bg3);padding:3px 8px;border-radius:6px;">'
-        +(c.pass?'•••••• <span style="font-size:10px;color:var(--green)">✓</span>':'<span style="color:var(--red)">Sin contraseña</span>')+'</span>'
-        +' <button class="btn btn-sm" style="padding:3px 8px;font-size:11px;" onclick="editCuad(\''+c.id+'\')">Editar</button></td>'
-      +'<td><span class="badge badge-green">Activa</span></td>'
-      +'<td><button class="btn btn-sm btn-red" onclick="deleteCuadrilla(\''+c.id+'\')">Eliminar</button></td></tr>';
+  if (!visibles.length) { grid.innerHTML = empty('Sin resultados para "'+esc(q)+'"'); return; }
+
+  grid.innerHTML = visibles.map(function(c){
+    var iniciales = (c.nombre||'?').trim().split(/\s+/).slice(0,2).map(function(p){return p[0];}).join('').toUpperCase();
+    var sectorObj = getSector(c.sectorId||c.sector);
+    return '<div class="cuad-card">'
+      + '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;">'
+        + '<div class="cuad-avatar">'+esc(iniciales)+'</div>'
+        + '<div style="flex:1;min-width:0;">'
+          + '<div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(c.nombre)+'</div>'
+          + '<div style="font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(c.responsable?esc(c.responsable):'Sin responsable asignado')+'</div>'
+        + '</div>'
+        + '<span class="badge badge-green" style="flex-shrink:0;">Activa</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">'
+        + (c.zona ? '<span class="badge badge-blue">📍 '+esc(c.zona)+'</span>' : '')
+        + (sectorObj ? '<span class="badge badge-gray">'+esc(sectorObj.nombre)+'</span>' : '')
+        + (c.meta>0 ? '<span class="badge" style="background:rgba(34,197,94,.12);color:var(--green-dark);">🎯 '+c.meta+' trab./día</span>' : '')
+        + (c.redInterna ? '<span class="badge" style="background:rgba(99,102,241,.12);color:#6366f1;">🖧 Red Interna</span>' : '')
+      + '</div>'
+      + '<div class="cuad-cred-row" style="margin-bottom:6px;">'
+        + '<span>👤 '+esc(c.username||'—')+'</span>'
+      + '</div>'
+      + '<div class="cuad-cred-row" style="margin-bottom:14px;">'
+        + '<span id="cuad-pass-txt-'+c.id+'">'+(c.pass?'••••••••':'<span style="color:var(--red);font-family:inherit;">Sin contraseña</span>')+'</span>'
+        + (c.pass ? '<button onclick="togglePassCuad(\''+c.id+'\',\''+esc(c.pass)+'\')" style="background:none;border:none;cursor:pointer;color:var(--ink3);font-size:13px;padding:0;" title="Mostrar/ocultar">👁</button>' : '')
+      + '</div>'
+      + '<div style="display:flex;gap:8px;">'
+        + '<button class="btn btn-sm" style="flex:1;" onclick="editCuad(\''+c.id+'\')">✏️ Editar</button>'
+        + '<button class="btn btn-sm btn-red" onclick="deleteCuadrilla(\''+c.id+'\')">🗑️</button>'
+      + '</div>'
+      + '</div>';
   }).join('');
+}
+
+function togglePassCuad(id, pass) {
+  var el = document.getElementById('cuad-pass-txt-'+id);
+  if (!el) return;
+  if (el.dataset.shown === '1') {
+    el.textContent = '••••••••';
+    el.dataset.shown = '0';
+  } else {
+    el.textContent = pass;
+    el.dataset.shown = '1';
+  }
 }
 
 function populateSectorSelect(){
@@ -12244,8 +12445,8 @@ function renderInventario(){
     if (!cuads.length && currentUser.rol !== 'superadmin') {
       var sub2 = document.getElementById('inv-subtitle');
       if (sub2) sub2.textContent = 'Sin cuadrillas en tu sector';
-      var tbody2 = document.getElementById('inv-tbody');
-      if (tbody2) tbody2.innerHTML = '<tr><td colspan="7">' + empty('No tienes cuadrillas en tu sector. Crea cuadrillas para ver inventario.') + '</td></tr>';
+      var groups2 = document.getElementById('inv-groups');
+      if (groups2) groups2.innerHTML = empty('No tienes cuadrillas en tu sector. Crea cuadrillas para ver inventario.');
       return;
     }
   }
@@ -12271,29 +12472,91 @@ function renderInventario(){
   mats=mats.filter(function(m){
     return(!q||m.nombre.toLowerCase().includes(q)||(m.codigo||'').toLowerCase().includes(q))&&(!catF||m.cat===catF);
   });
-  var tbody=document.getElementById('inv-tbody');
+
+  var groups=document.getElementById('inv-groups');
   if(!mats.length){
-    tbody.innerHTML='<tr><td colspan="7">'+empty(cid?'Sin materiales asignados a esta bodega aún':'Sin materiales')+'</td></tr>';
+    groups.innerHTML=empty(cid?'Sin materiales asignados a esta bodega aún':'Sin materiales');
     renderAuditoriasFisicas();
     return;
   }
-  tbody.innerHTML=mats.map(function(m){
-    var stk=getStockVis(cid,m.id);
-    var pct=Math.min(100,Math.round(stk/Math.max(m.min*2,1)*100));
-    var color=stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
-    var badge=stk===0?'badge-red':stk<m.min?'badge-amber':'badge-green';
-    return '<tr>'
-      +'<td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
-      +'<td><strong>'+esc(m.nombre)+'</strong></td>'
-      +'<td><span class="badge badge-gray">'+esc(m.cat)+'</span></td>'
-      +'<td style="font-size:12px">'+esc(m.unidad)+'</td>'
-      +'<td><strong style="color:'+color+'">'+stk+'</strong>'
-      +'<div class="stock-bar"><div class="stock-fill" style="width:'+pct+'%;background:'+color+'"></div></div></td>'
-      +'<td style="color:var(--ink3)">'+m.min+'</td>'
-      +'<td><span class="badge '+badge+'">'+(stk===0?'Agotado':stk<m.min?'Stock bajo':'Disponible')+'</span></td>'
-      +'</tr>';
-  }).join('');
+  groups.innerHTML = renderInventarioGrupos(mats, cid, !!(q||catF));
   renderAuditoriasFisicas();
+}
+
+var ICON_CAT_MAT = {
+  'Fibra Óptica':'🧵', 'Cable Coaxial':'🔌', 'Wireless / Radio':'📶',
+  'Conectores':'🔗', 'Equipos Activos':'⚡', 'Herramientas':'🧰',
+  'Accesorios':'🧩', 'Otro':'📦'
+};
+
+// Agrupa el inventario por categoría en acordeones. Los grupos que tienen al
+// menos un material agotado o bajo mínimo se muestran expandidos por defecto
+// (para que los problemas salten a la vista); el resto queda colapsado.
+// Si hay búsqueda o filtro de categoría activo, todo se muestra expandido.
+function renderInventarioGrupos(mats, cid, forzarExpandido) {
+  var grupos = {}; var orden = [];
+  mats.forEach(function(m){
+    var key = m.cat || 'Otro';
+    if (!grupos[key]) { grupos[key] = []; orden.push(key); }
+    grupos[key].push(m);
+  });
+  orden.sort(function(a,b){ return a.localeCompare(b); });
+
+  return orden.map(function(cat){
+    var items = grupos[cat].slice().sort(function(a,b){ return (a.nombre||'').localeCompare(b.nombre||''); });
+    var icon = ICON_CAT_MAT[cat] || '📦';
+    var groupKey = 'inv-' + cat.replace(/[^a-zA-Z0-9]/g,'_');
+    var nAgotado=0, nBajo=0, nOk=0;
+    items.forEach(function(m){
+      var stk = getStockVis(cid, m.id);
+      if (stk===0) nAgotado++; else if (stk<m.min) nBajo++; else nOk++;
+    });
+    var expandir = forzarExpandido || nAgotado>0 || nBajo>0;
+    var dotsHTML = ''
+      + (nAgotado ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink3);margin-right:8px;"><span class="herr-mini-dot" style="background:#ef4444;"></span>'+nAgotado+'</span>' : '')
+      + (nBajo    ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink3);margin-right:8px;"><span class="herr-mini-dot" style="background:#f59e0b;"></span>'+nBajo+'</span>' : '')
+      + (nOk      ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink3);margin-right:8px;"><span class="herr-mini-dot" style="background:#22c55e;"></span>'+nOk+'</span>' : '');
+
+    var filasHTML = items.map(function(m){
+      var stk=getStockVis(cid,m.id);
+      var pct=Math.min(100,Math.round(stk/Math.max(m.min*2,1)*100));
+      var color=stk===0?'var(--red)':stk<m.min?'var(--amber)':'var(--green)';
+      var badge=stk===0?'badge-red':stk<m.min?'badge-amber':'badge-green';
+      return '<tr>'
+        +'<td style="font-family:monospace;font-size:12px">'+(m.codigo||'—')+'</td>'
+        +'<td><strong>'+esc(m.nombre)+'</strong></td>'
+        +'<td style="font-size:12px">'+esc(m.unidad)+'</td>'
+        +'<td><strong style="color:'+color+'">'+stk+'</strong>'
+        +'<div class="stock-bar"><div class="stock-fill" style="width:'+pct+'%;background:'+color+'"></div></div></td>'
+        +'<td style="color:var(--ink3)">'+m.min+'</td>'
+        +'<td><span class="badge '+badge+'">'+(stk===0?'Agotado':stk<m.min?'Stock bajo':'Disponible')+'</span></td>'
+        +'</tr>';
+    }).join('');
+
+    return '<div class="herr-card" id="hcard-'+groupKey+'" style="margin-bottom:.6rem;">'
+      + '<div class="herr-card-header" onclick="toggleHerrCard(\''+groupKey+'\')">'
+      + '<div class="herr-card-icon" style="background:rgba(100,100,100,.08)">'+icon+'</div>'
+      + '<div style="flex:1;min-width:0;">'
+      +   '<div style="font-weight:600;font-size:14px;">'+esc(cat)+'</div>'
+      +   '<div style="font-size:11px;color:var(--ink3);">'+items.length+' material(es)</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;">'+dotsHTML+'</div>'
+      + '<span style="font-size:11px;color:var(--ink3);flex-shrink:0;">▼</span>'
+      + '</div>'
+      + '<div class="herr-card-body" id="hbody-'+groupKey+'" style="display:'+(expandir?'block':'none')+';padding:0 14px 14px;">'
+      +   '<div class="table-wrap"><table>'
+      +     '<thead><tr><th>Código</th><th>Material</th><th>Unidad</th><th>Stock</th><th>Mínimo</th><th>Estado</th></tr></thead>'
+      +     '<tbody>'+filasHTML+'</tbody>'
+      +   '</table></div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function toggleTodosGruposInv(expandir) {
+  document.querySelectorAll('#inv-groups .herr-card-body').forEach(function(el){
+    el.style.display = expandir ? 'block' : 'none';
+  });
 }
 
 // ══════════════════════════════════════════════════════
