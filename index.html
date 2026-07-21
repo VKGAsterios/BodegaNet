@@ -276,6 +276,9 @@ select option{background:var(--bg3);color:var(--ink);}
 .cuad-cred-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:8px;font-size:12px;font-family:monospace;}
 .form-section-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:18px 0 10px;padding-top:16px;border-top:1px solid var(--border);}
 .form-section-label:first-child{margin-top:0;padding-top:0;border-top:none;}
+.time-select{padding:9px 6px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;font-variant-numeric:tabular-nums;}
+.time-picker-wrap[data-filled="0"] .time-select{border-color:var(--red);}
+.time-picker-wrap[data-filled="1"] .time-select{border-color:var(--green);}
 .kherr-tipo-lbl.sel{border-color:var(--accent)!important;background:var(--accent-light)!important;color:var(--accent)!important;}
 .herr-kpi-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 14px;text-align:center;}
 .herr-kpi-num{font-size:22px;font-weight:700;line-height:1;}
@@ -813,8 +816,17 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="field"><label>Técnico responsable <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automático para cuadrilla)</span></label><input type="text" id="cli-tecnico"></div>
           </div>
           <div class="form-grid">
-            <div class="field"><label>Hora de inicio de tarea <span style="color:var(--red);font-weight:700;">* Obligatorio</span></label><input type="time" id="cli-hora-inicio" required oninput="this.style.borderColor=this.value?'var(--green)':'var(--red)';" style="border-color:var(--red);"></div>
-            <div class="field"><label>Hora de finalización <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automática)</span></label><input type="time" id="cli-hora-fin" readonly style="background:var(--bg3);color:var(--ink2);cursor:not-allowed;"></div>
+            <div class="field"><label>Hora de inicio de tarea <span style="color:var(--red);font-weight:700;">* Obligatorio</span></label>
+              <div class="time-picker-wrap" id="cli-hora-inicio-wrap" data-filled="0" style="display:flex;align-items:center;gap:5px;">
+                <select id="cli-hora-inicio-hh" class="time-select" onchange="_syncTimeSelects('cli-hora-inicio')"></select>
+                <span style="font-weight:700;color:var(--ink3);">:</span>
+                <select id="cli-hora-inicio-mm" class="time-select" onchange="_syncTimeSelects('cli-hora-inicio')"></select>
+              </div>
+              <input type="hidden" id="cli-hora-inicio" required value="">
+            </div>
+            <div class="field"><label>Hora de finalización <span style="font-size:10px;color:var(--ink3);font-weight:400;">(automática)</span></label>
+              <input type="text" id="cli-hora-fin" readonly style="background:var(--bg3);color:var(--ink2);cursor:not-allowed;width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;">
+            </div>
           </div>
           <div class="field"><label>Observaciones</label><textarea id="cli-obs" placeholder="Notas..."></textarea></div>
         </div>
@@ -1881,7 +1893,12 @@ select option{background:var(--bg3);color:var(--ink);}
               <select id="em-tipo"></select>
             </div>
             <div class="field"><label>Hora de inicio *</label>
-              <input type="time" id="em-hora-inicio">
+              <div class="time-picker-wrap" id="em-hora-inicio-wrap" data-filled="0" style="display:flex;align-items:center;gap:5px;">
+                <select id="em-hora-inicio-hh" class="time-select" onchange="_syncTimeSelects('em-hora-inicio')"></select>
+                <span style="font-weight:700;color:var(--ink3);">:</span>
+                <select id="em-hora-inicio-mm" class="time-select" onchange="_syncTimeSelects('em-hora-inicio')"></select>
+              </div>
+              <input type="hidden" id="em-hora-inicio" value="">
             </div>
             <div class="field"><label># de Ticket (OT)</label>
               <input type="text" id="em-ot" placeholder="Ej: 418904">
@@ -2456,10 +2473,15 @@ select option{background:var(--bg3);color:var(--ink);}
               <input type="text" id="ri-tecnico" readonly style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink2);outline:none;cursor:not-allowed;">
             </div>
             <div class="field"><label>Hora de inicio *</label>
-              <input type="time" id="ri-hora-ini" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+              <div class="time-picker-wrap" id="ri-hora-ini-wrap" data-filled="0" style="display:flex;align-items:center;gap:5px;">
+                <select id="ri-hora-ini-hh" class="time-select" onchange="_syncTimeSelects('ri-hora-ini')"></select>
+                <span style="font-weight:700;color:var(--ink3);">:</span>
+                <select id="ri-hora-ini-mm" class="time-select" onchange="_syncTimeSelects('ri-hora-ini')"></select>
+              </div>
+              <input type="hidden" id="ri-hora-ini" value="">
             </div>
             <div class="field"><label>Hora de fin <span style="font-size:11px;color:var(--ink3);">(automática)</span></label>
-              <input type="time" id="ri-hora-fin" readonly style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink2);outline:none;cursor:not-allowed;">
+              <input type="text" id="ri-hora-fin" readonly style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink2);outline:none;cursor:not-allowed;">
               <span id="ri-duracion" style="font-size:11px;color:var(--ink3);margin-top:2px;"></span>
             </div>
           </div>
@@ -2761,11 +2783,21 @@ select option{background:var(--bg3);color:var(--ink);}
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:.75rem;">
       <div class="field" style="margin:0;">
         <label>Hora inicio *</label>
-        <input type="time" id="vf-hora-ini" onchange="calcMinutosVF()" style="width:100%;padding:10px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+        <div class="time-picker-wrap" id="vf-hora-ini-wrap" data-filled="0" style="display:flex;align-items:center;gap:5px;">
+          <select id="vf-hora-ini-hh" class="time-select" onchange="_syncTimeSelects('vf-hora-ini')"></select>
+          <span style="font-weight:700;color:var(--ink3);">:</span>
+          <select id="vf-hora-ini-mm" class="time-select" onchange="_syncTimeSelects('vf-hora-ini')"></select>
+        </div>
+        <input type="hidden" id="vf-hora-ini" onchange="calcMinutosVF()" value="">
       </div>
       <div class="field" style="margin:0;">
         <label>Hora fin *</label>
-        <input type="time" id="vf-hora-fin" onchange="calcMinutosVF()" style="width:100%;padding:10px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+        <div class="time-picker-wrap" id="vf-hora-fin-wrap" data-filled="0" style="display:flex;align-items:center;gap:5px;">
+          <select id="vf-hora-fin-hh" class="time-select" onchange="_syncTimeSelects('vf-hora-fin')"></select>
+          <span style="font-weight:700;color:var(--ink3);">:</span>
+          <select id="vf-hora-fin-mm" class="time-select" onchange="_syncTimeSelects('vf-hora-fin')"></select>
+        </div>
+        <input type="hidden" id="vf-hora-fin" onchange="calcMinutosVF()" value="">
       </div>
       <div class="field" style="margin:0;">
         <label>Tiempo perdido</label>
@@ -3291,8 +3323,8 @@ function abrirModalVF() {
   var now = new Date();
   var hh = String(now.getHours()).padStart(2,'0');
   var mm = String(now.getMinutes()).padStart(2,'0');
-  document.getElementById('vf-hora-ini').value = hh+':'+mm;
-  document.getElementById('vf-hora-fin').value = '';
+  setTimeSelects('vf-hora-ini', hh+':'+mm);
+  setTimeSelects('vf-hora-fin', '');
   document.getElementById('vf-minutos-display').textContent = '—';
   document.getElementById('vf-cliente').value = '';
   document.getElementById('vf-ot').value = '';
@@ -4450,6 +4482,66 @@ function getTmRango(){
   }
   return {ini:ini,fin:hoy};
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// SELECTOR DE HORA PERSONALIZADO (reemplaza <input type="time">)
+// El input nativo type="time" muestra formato 12h (AM/PM) o 24h según el
+// idioma/configuración regional del celular que se conecte, lo que provoca
+// selecciones accidentales de AM en vez de PM (o viceversa) y dispara la
+// duración calculada por horas. Este selector usa dos <select> (Hora 00-23,
+// Minuto 00-59): siempre en 24h, sin ambigüedad posible, en cualquier
+// dispositivo. El valor final se mantiene en un <input type="hidden"> con el
+// mismo id que tenía el campo original, para no tener que tocar el resto del
+// código que ya lee/escribe ese id con document.getElementById(id).value.
+// ══════════════════════════════════════════════════════════════════════════
+function _timeOptionsHH(){
+  var s = '<option value="">HH</option>';
+  for (var h=0; h<24; h++){ var v=String(h).padStart(2,'0'); s += '<option value="'+v+'">'+v+'</option>'; }
+  return s;
+}
+function _timeOptionsMM(){
+  var s = '<option value="">MM</option>';
+  for (var m=0; m<60; m++){ var v=String(m).padStart(2,'0'); s += '<option value="'+v+'">'+v+'</option>'; }
+  return s;
+}
+// Arma el HTML del selector. attrsHidden: atributos extra para el input oculto
+// (para conservar los onchange/onclick que ya tenía el campo original).
+function timePickerHTML(id, attrsHidden) {
+  return '<div class="time-picker-wrap" id="'+id+'-wrap" style="display:flex;align-items:center;gap:5px;">'
+    + '<select id="'+id+'-hh" class="time-select" onchange="_syncTimeSelects(\''+id+'\')">'+_timeOptionsHH()+'</select>'
+    + '<span style="font-weight:700;color:var(--ink3);">:</span>'
+    + '<select id="'+id+'-mm" class="time-select" onchange="_syncTimeSelects(\''+id+'\')">'+_timeOptionsMM()+'</select>'
+    + '</div>'
+    + '<input type="hidden" id="'+id+'" value="" '+(attrsHidden||'')+'>';
+}
+// Lee los <select> y actualiza el input oculto, disparando 'change'/'input'
+// para que cualquier handler ya existente sobre ese id (onchange="..." en el
+// hidden, o .oninput=fn asignado por JS) se siga ejecutando igual que antes.
+function _syncTimeSelects(id) {
+  var hh = (document.getElementById(id+'-hh')||{}).value || '';
+  var mm = (document.getElementById(id+'-mm')||{}).value || '';
+  var hidden = document.getElementById(id);
+  if (!hidden) return;
+  hidden.value = (hh !== '' && mm !== '') ? (hh+':'+mm) : '';
+  var wrap = document.getElementById(id+'-wrap');
+  if (wrap) wrap.dataset.filled = hidden.value ? '1' : '0';
+  hidden.dispatchEvent(new Event('input', {bubbles:true}));
+  hidden.dispatchEvent(new Event('change', {bubbles:true}));
+}
+// Fija un valor "HH:MM" en el selector (equivalente a hacer .value = 'HH:MM'
+// sobre el input original). Úsalo en vez de asignar .value directo al id,
+// para que los <select> visibles queden sincronizados con el valor real.
+function setTimeSelects(id, value) {
+  var hidden = document.getElementById(id);
+  if (hidden) hidden.value = value || '';
+  var partes = (value||'').split(':');
+  var hhEl = document.getElementById(id+'-hh'), mmEl = document.getElementById(id+'-mm');
+  if (hhEl) hhEl.value = partes[0] || '';
+  if (mmEl) mmEl.value = partes[1] || '';
+  var wrap = document.getElementById(id+'-wrap');
+  if (wrap) wrap.dataset.filled = value ? '1' : '0';
+}
+
 
 function calcDuracionMin(horaInicio, horaFin){
   if(!horaInicio||!horaFin) return null;
@@ -6095,7 +6187,7 @@ function renderRedInterna() {
   lista.innerHTML = '<div class="table-wrap"><table>'
     + '<thead><tr><th>Registrado</th><th>Tipo</th><th># Orden</th><th>Nodo/HE</th><th>Técnico</th><th>Inicio</th><th>Fin</th><th>Duración</th><th>Mat.</th><th></th></tr></thead>'
     + '<tbody>' + items.map(function(r) {
-        var mCount = r.materiales ? Object.keys(r.materiales).length : 0;
+        var mCount = r.materiales ? r.materiales.length : 0;
         var dur = riDuracion(r.horaIni, r.horaFin);
         var tsReg = r.tsRegistro
           ? new Date(r.tsRegistro).toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'})
@@ -6140,7 +6232,7 @@ function openModalRedInterna() {
   var ahora = new Date();
   var hh = String(ahora.getHours()).padStart(2,'0');
   var mm = String(ahora.getMinutes()).padStart(2,'0');
-  document.getElementById('ri-hora-ini').value = hh+':'+mm;
+  setTimeSelects('ri-hora-ini', hh+':'+mm);
   document.getElementById('ri-hora-fin').value = hh+':'+mm;
   document.getElementById('ri-duracion').textContent = '';
   // Listener solo en hora-ini (la única editable) para recalcular duración
@@ -6548,13 +6640,13 @@ function eliminarRI(id) {
 function copiarTextoRI(id) {
   var r = cache.redInterna[id]; if (!r) return;
   var cuad = getCuad(r.cuadrillaId);
-  var mats = r.materiales ? Object.entries(r.materiales).map(function(e){
-    var m = getMat(e[0]);
-    return '  \u2022 ' + (m?m.nombre:'?') + ' \xd7 ' + e[1] + (m?' '+m.unidad:'');
+  var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
+    var mat = getMat(m.matId);
+    return '  \u2022 ' + (mat?mat.nombre:'?') + ' \xd7 ' + m.qty + (mat?' '+mat.unidad:'');
   }).join('\n') : '  Sin materiales';
   var dur = riDuracion(r.horaIni, r.horaFin);
   var texto = [
-    '\U0001f5a7 Trabajo en Red Interna',
+    '🖧 Trabajo en Red Interna',
     '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
     '# Orden : ' + (r.orden||'\u2014'),
     'Tipo    : ' + (r.tipo||'\u2014'),
@@ -6580,9 +6672,9 @@ function copiarTextoRI(id) {
 function verDetalleRI(id) {
   var r = cache.redInterna[id]; if (!r) return;
   var cuad = getCuad(r.cuadrillaId);
-  var mats = r.materiales ? Object.entries(r.materiales).map(function(e){
-    var m = getMat(e[0]);
-    return (m?esc(m.nombre):'?') + ' \xd7 ' + e[1] + (m?' '+esc(m.unidad):'');
+  var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
+    var mat = getMat(m.matId);
+    return (mat?esc(mat.nombre):'?') + ' \xd7 ' + m.qty + (mat?' '+esc(mat.unidad):'');
   }).join('<br>') : '\u2014';
   var dur = riDuracion(r.horaIni, r.horaFin);
   var tsReg = r.tsRegistro ? fmtDT(r.tsRegistro) : (r.fecha||'\u2014');
@@ -6603,7 +6695,7 @@ function verDetalleRI(id) {
   var overlay = document.getElementById('confirm-overlay');
   var box = document.getElementById('confirm-box');
   if (overlay && box) {
-    box.innerHTML = '<h3 style="margin-bottom:.75rem;">\U0001f5a7 Detalle del registro</h3>' + html
+    box.innerHTML = '<h3 style="margin-bottom:.75rem;">🖧 Detalle del registro</h3>' + html
       + '<div class="btn-row" style="margin-top:1rem;">'
       + '<button class="btn btn-ghost" onclick="closeConfirm()">Cerrar</button>'
       + '<button class="btn btn-accent" onclick="copiarTextoRI(\''+id+'\');" style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><rect x="8" y="2" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="5" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="var(--bg)"/></svg> Copiar texto</button>'
@@ -6648,8 +6740,8 @@ function exportarRedInternaCSV() {
   var rows = [['Fecha Registro','Hora Registro','Cuadrilla','Tipo','# Orden','Nodo/HE','T\xe9cnico','Inicio','Fin','Duraci\xf3n','Materiales','Observaciones']];
   riListFiltrada().sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); }).forEach(function(r){
     var cuad = getCuad(r.cuadrillaId);
-    var mats = r.materiales ? Object.entries(r.materiales).map(function(e){
-      var m=getMat(e[0]); return (m?m.nombre:'?')+'x'+e[1];
+    var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
+      var mat=getMat(m.matId); return (mat?mat.nombre:'?')+'x'+m.qty;
     }).join('; ') : '';
     var tsReg = r.tsRegistro ? new Date(r.tsRegistro) : null;
     var fechaReg = tsReg ? tsReg.toLocaleDateString('es-HN') : (r.fecha||'');
@@ -7164,7 +7256,7 @@ function renderHerrKardex() {
   var el = document.getElementById('herr-kardex-lista');
   if (!el) return;
   if (!movs.length) {
-    el.innerHTML = '<div style="text-align:center;padding:2rem 1rem;"><div style="font-size:36px;margin-bottom:.5rem;">\U0001f4cb</div><p style="color:var(--ink3);font-size:13px;">Sin movimientos de herramientas registrados.</p></div>';
+    el.innerHTML = '<div style="text-align:center;padding:2rem 1rem;"><div style="font-size:36px;margin-bottom:.5rem;">📋</div><p style="color:var(--ink3);font-size:13px;">Sin movimientos de herramientas registrados.</p></div>';
     return;
   }
   el.innerHTML = '<div class="table-wrap"><table>'
@@ -7181,7 +7273,7 @@ function renderHerrKardex() {
           + '<td><span class="badge '+(BADGE_HERR[mv.estadoNuevo]||'badge-gray')+'" style="font-size:10px;">'+esc(mv.estadoNuevo||'\u2014')+'</span></td>'
           + '<td style="font-size:12px;">'+esc(mv.responsable||'\u2014')+'</td>'
           + '<td style="font-size:11px;color:var(--ink3);max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="'+esc(mv.obs||'')+'">'+esc(mv.obs||'\u2014')+'</td>'
-          + '<td><button class="btn btn-sm" onclick="verHistorialHerr(\''+mv.herrId+'\')" title="Ver historial completo">\U0001f550</button></td>'
+          + '<td><button class="btn btn-sm" onclick="verHistorialHerr(\''+mv.herrId+'\')" title="Ver historial completo">🕐</button></td>'
           + '</tr>';
       }).join('')
     + '</tbody></table></div>';
@@ -7191,7 +7283,7 @@ function renderHerrKardex() {
 function verHistorialHerr(herrId) {
   var h = cache.herramientas[herrId]; if (!h) return;
   var hist = (h.historial || []).slice().sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
-  var icon  = ICON_HERR[h.categoria] || '\U0001f4e6';
+  var icon  = ICON_HERR[h.categoria] || '📦';
   var badge = '<span class="badge '+(BADGE_HERR[h.estado]||'badge-gray')+'">'+esc(h.estado)+'</span>';
 
   var timelineHTML = !hist.length
@@ -7221,9 +7313,9 @@ function verHistorialHerr(herrId) {
           +     '<span class="badge '+(BADGE_HERR[mv.estadoNuevo]||'badge-gray')+'" style="font-size:10px;">'+esc(mv.estadoNuevo||'\u2014')+'</span>'
           +   '</div>'
           +   '<div style="font-size:11px;color:var(--ink3);display:flex;gap:12px;flex-wrap:wrap;">'
-          +     '<span>\U0001f4c5 <strong>'+tsDate+'</strong></span>'
-          +     (tsHora ? '<span>\U0001f550 <strong style="font-family:monospace;">'+tsHora+'</strong></span>' : '')
-          +     (mv.responsable ? '<span>\U0001f464 '+esc(mv.responsable)+'</span>' : '')
+          +     '<span>📅 <strong>'+tsDate+'</strong></span>'
+          +     (tsHora ? '<span>🕐 <strong style="font-family:monospace;">'+tsHora+'</strong></span>' : '')
+          +     (mv.responsable ? '<span>👤 '+esc(mv.responsable)+'</span>' : '')
           +   '</div>'
           +   (mv.obs ? '<div style="font-size:11px;color:var(--ink2);margin-top:4px;padding:5px 8px;background:var(--bg3);border-radius:var(--r);">'+esc(mv.obs)+'</div>' : '')
           + '</div>'
@@ -7248,7 +7340,7 @@ function verHistorialHerr(herrId) {
     + '</div>'
     + '<div style="border-top:1px solid var(--border);padding-top:.75rem;">'
     +   '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.75rem;">'
-    +     '\U0001f550 Historial completo ('+hist.length+' registro'+(hist.length!==1?'s':'')+')'
+    +     '🕐 Historial completo ('+hist.length+' registro'+(hist.length!==1?'s':'')+')'
     +   '</div>'
     +   '<div style="max-height:55vh;overflow-y:auto;padding-right:4px;">'+timelineHTML+'</div>'
     + '</div>'
@@ -10109,8 +10201,7 @@ function abrirModalEditarMateriales(asigId) {
       tipoEl.insertAdjacentHTML('beforeend', '<option selected>'+esc(asig.tipo)+'</option>');
     }
   }
-  var horaEl = document.getElementById('em-hora-inicio');
-  if (horaEl) horaEl.value = asig.horaInicio || '';
+  setTimeSelects('em-hora-inicio', asig.horaInicio || '');
   var otEl = document.getElementById('em-ot');
   if (otEl) otEl.value = asig.ot || '';
   var idClienteEl = document.getElementById('em-idcliente');
@@ -10151,8 +10242,7 @@ function abrirModalEditarMaterialesAdmin(asigId) {
       tipoElAdm.insertAdjacentHTML('beforeend', '<option selected>'+esc(asig.tipo)+'</option>');
     }
   }
-  var horaElAdm = document.getElementById('em-hora-inicio');
-  if (horaElAdm) horaElAdm.value = asig.horaInicio || '';
+  setTimeSelects('em-hora-inicio', asig.horaInicio || '');
   var otElAdm = document.getElementById('em-ot');
   if (otElAdm) otElAdm.value = asig.ot || '';
   var idClienteElAdm = document.getElementById('em-idcliente');
@@ -10445,9 +10535,7 @@ function limpiarAsignacion(){
   // La hora de inicio es obligatoria: se prellena con la hora actual para no obligar
   // al técnico a escribirla siempre manualmente; puede ajustarla si lo necesita.
   var now = new Date();
-  var horaInicioEl = document.getElementById('cli-hora-inicio');
-  horaInicioEl.value = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-  horaInicioEl.style.borderColor = 'var(--green)';
+  setTimeSelects('cli-hora-inicio', String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'));
   var alertaBox = document.getElementById('cli-alerta-reincidencia');
   if (alertaBox) { alertaBox.style.display = 'none'; alertaBox.innerHTML = ''; }
   asigRows=[{uid:uid(),matId:'',qty:1}];
@@ -12877,6 +12965,13 @@ document.querySelectorAll('.modal-overlay').forEach(function(ov){
 // ya terminaron de cargar antes de ejecutar cualquier firebase.* / db.*
 // ══════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', function() {
+
+// Llenar los <select> Hora/Minuto de todos los selectores de hora personalizados
+// (reemplazo de <input type="time">, ver función timePickerHTML más arriba)
+document.querySelectorAll('select.time-select').forEach(function(sel){
+  if (sel.id.slice(-3) === '-hh') sel.innerHTML = _timeOptionsHH();
+  else if (sel.id.slice(-3) === '-mm') sel.innerHTML = _timeOptionsMM();
+});
 
 var loadMsg = document.getElementById('loading-msg');
 loadMsg.textContent = 'Conectando con Firebase...';
