@@ -992,6 +992,7 @@ select option{background:var(--bg3);color:var(--ink);}
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);white-space:nowrap;padding-bottom:9px;">
               <input type="checkbox" id="hist-admin-solo-exceso" onchange="renderHistorial()"> ⏱ Solo con exceso de tiempo
             </label>
+            <button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent);white-space:nowrap;" onclick="recalcularTiemposExcedidos()" title="Revisa los registros antiguos (guardados antes de tener esta validación) y los marca si exceden el tiempo estimado configurado">🔁 Recalcular tiempos excedidos</button>
           </div>
           <div id="hist-admin-conteo" style="font-size:12px;color:var(--ink3);margin-top:10px;"></div>
         </div>
@@ -4569,9 +4570,12 @@ var TOLERANCIA_DURACION_MIN = 30;
 // de Red Interna son catálogos distintos.
 // Retorna null si no aplica o está dentro de lo esperado, o un objeto
 // { mensaje, estimadoMin, realMin, excesoMin } si excede el margen permitido.
-function validarDuracionRazonable(tipo, minutosReales, categoria) {
+// Núcleo reutilizable: recibe el sector explícito en vez de asumir el del
+// usuario logueado (getSectorActivo()), para poder recalcular en lote
+// registros de distintas cuadrillas/sectores sin depender de quién esté
+// actualmente logueado.
+function _validarDuracionCore(tipo, minutosReales, categoria, sector) {
   if (minutosReales === null || minutosReales === undefined) return null;
-  var sector = getSectorActivo();
   if (!sector) return null;
   var fuente = categoria === 'ri' ? cache.tiemposDefaultRI : cache.tiemposDefault;
   var config = fuente[sector] || {};
@@ -4586,6 +4590,10 @@ function validarDuracionRazonable(tipo, minutosReales, categoria) {
     };
   }
   return null;
+}
+
+function validarDuracionRazonable(tipo, minutosReales, categoria) {
+  return _validarDuracionCore(tipo, minutosReales, categoria, getSectorActivo());
 }
 
 function fmtDuracion(min){
@@ -5719,7 +5727,7 @@ function loginCuadrilla() {
     }
     clearLoginError('cuad');
     resetLoginAttempts();
-    currentUser = { tipo: 'cuadrilla', cuadrillaId: match.id };
+    currentUser = { tipo: 'cuadrilla', cuadrillaId: match.id, sector: match.sectorId || match.sector || '1' };
     registrarLog(match.nombre, 'cuadrilla', 'exitoso');
     resetSessionTimer();
     startApp();
@@ -11513,6 +11521,64 @@ function marcarTiempoRevisado(asigId) {
   db.ref('asignaciones/'+asigId+'/tiempoRevisado').set(true)
     .then(function(){ toast('Marcado como revisado','success'); renderHistorial(); })
     .catch(function(e){ toast('Error: '+e.message,'error'); });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// RECÁLCULO RETROACTIVO DE TIEMPOS EXCEDIDOS
+// Los registros guardados ANTES de que existiera la validación de duración
+// (o antes del fix que le daba sector a la sesión de cuadrilla) nunca pasaron
+// por validarDuracionRazonable, así que no tienen el campo excedeTiempo en
+// absoluto (ni true ni false — no existe). Esta herramienta los recorre,
+// recalcula la duración contra los tiempos estimados configurados por sector,
+// y marca los que correspondan — sin tocar los registros que ya fueron
+// evaluados (tengan o no exceso), para no pisar un "revisado" existente.
+// ══════════════════════════════════════════════════════════════════════════
+function recalcularTiemposExcedidos() {
+  var candidatos = asigListFiltrada().filter(function(a){
+    return !a.anulada && a.excedeTiempo === undefined && a.horaInicio && a.horaFin && a.tipo && a.cuadrillaId;
+  });
+  if (!candidatos.length) {
+    toast('No hay registros antiguos pendientes de recalcular en tu alcance','info');
+    return;
+  }
+
+  var paraMarcar = [];
+  candidatos.forEach(function(a){
+    var cuad = getCuad(a.cuadrillaId);
+    var sector = cuad ? (cuad.sectorId || cuad.sector || '1') : null;
+    if (!sector) return;
+    var categoria = a.tipoRegistro === 'redInterna' ? 'ri' : 'cliente';
+    var info = _validarDuracionCore(a.tipo, calcDuracionMin(a.horaInicio, a.horaFin), categoria, sector);
+    if (info) paraMarcar.push({ id: a.id, cliente: a.cliente, info: info });
+  });
+
+  showConfirm(
+    'Recalcular tiempos excedidos',
+    'Se revisaron <strong>'+candidatos.length+'</strong> registro(s) antiguo(s) sin evaluar todavía.<br><br>'
+    + (paraMarcar.length
+        ? '<strong>'+paraMarcar.length+' de ellos</strong> exceden el tiempo estimado configurado y se marcarán con el badge "⏱ Excede tiempo" en Historial.'
+        : 'Ninguno excede el tiempo estimado configurado — quedarán marcados como evaluados y no se les preguntará de nuevo.')
+    + '<br><br>Esta acción no modifica materiales, stock ni ningún otro dato de los registros. ¿Confirmas?',
+    function(){
+      var updates = {};
+      candidatos.forEach(function(a){
+        var marcado = paraMarcar.find(function(p){ return p.id === a.id; });
+        if (marcado) {
+          updates['asignaciones/'+a.id+'/excedeTiempo'] = true;
+          updates['asignaciones/'+a.id+'/tiempoEstimadoMin'] = marcado.info.estimadoMin;
+          updates['asignaciones/'+a.id+'/tiempoExcesoMin'] = marcado.info.excesoMin;
+        } else {
+          // Se marca como evaluado (false) para no volver a recorrerlo en la próxima corrida
+          updates['asignaciones/'+a.id+'/excedeTiempo'] = false;
+        }
+      });
+      updates['_lastUpdate'] = Date.now();
+      db.ref().update(updates).then(function(){
+        toast(paraMarcar.length+' registro(s) marcado(s) con exceso de tiempo, de '+candidatos.length+' revisados','success');
+        renderHistorial();
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
 }
 
 function renderHistorial(){
