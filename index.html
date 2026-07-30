@@ -663,17 +663,17 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
-        <!-- ── Búsqueda por MAC (admin/superadmin) ── -->
+        <!-- ── Búsqueda por MAC o Serie (admin/superadmin) ── -->
         <div id="kardex-admin-tools" style="display:none;">
           <div class="card" style="margin-bottom:1rem;">
             <div class="card-header" style="margin-bottom:.75rem;">
               <h3 style="font-size:14px;">
                 <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="vertical-align:middle;margin-right:4px;"><rect x="2" y="5" width="16" height="10" rx="2" stroke="var(--accent)" stroke-width="1.5"/><path d="M6 10h.01M10 10h.01M14 10h.01" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
-                Buscar por MAC
+                Buscar por MAC o Serie
               </h3>
               <span style="font-size:12px;color:var(--ink3);">¿A qué cliente fue asignado este equipo?</span>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
               <div style="position:relative;flex:1;min-width:200px;">
                 <input type="text" id="mac-search-input" placeholder="AA:BB:CC:DD:EE:FF"
                   maxlength="17" autocomplete="off" spellcheck="false"
@@ -682,7 +682,16 @@ select option{background:var(--bg3);color:var(--ink);}
                   style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:monospace;background:var(--bg3);color:var(--ink);outline:none;">
                 <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:12px;pointer-events:none;">MAC</span>
               </div>
-              <button class="btn btn-accent" onclick="buscarPorMAC()">Buscar</button>
+              <button class="btn btn-accent" onclick="buscarPorMAC()">Buscar MAC</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div style="position:relative;flex:1;min-width:200px;">
+                <input type="text" id="serie-search-input" placeholder="Número de serie"
+                  autocomplete="off" spellcheck="false"
+                  onkeydown="if(event.key==='Enter')buscarPorSerie()"
+                  style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:monospace;background:var(--bg3);color:var(--ink);outline:none;">
+              </div>
+              <button class="btn btn-accent" onclick="buscarPorSerie()">Buscar Serie</button>
               <button class="btn btn-ghost" onclick="limpiarBusquedaMAC()">✕ Limpiar</button>
             </div>
             <div id="mac-search-result" style="display:none;margin-top:1rem;"></div>
@@ -821,6 +830,7 @@ select option{background:var(--bg3);color:var(--ink);}
                 <select id="cli-hora-inicio-hh" class="time-select" onchange="_syncTimeSelects('cli-hora-inicio')"></select>
                 <span style="font-weight:700;color:var(--ink3);">:</span>
                 <select id="cli-hora-inicio-mm" class="time-select" onchange="_syncTimeSelects('cli-hora-inicio')"></select>
+                <span id="cli-hora-inicio-preview" style="font-size:11px;color:var(--ink3);white-space:nowrap;margin-left:2px;"></span>
               </div>
               <input type="hidden" id="cli-hora-inicio" required value="">
             </div>
@@ -990,9 +1000,9 @@ select option{background:var(--bg3);color:var(--ink);}
             </div>
             <button class="btn btn-sm btn-ghost" onclick="limpiarFiltrosHistAdmin()" style="white-space:nowrap;">Limpiar filtros</button>
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);white-space:nowrap;padding-bottom:9px;">
-              <input type="checkbox" id="hist-admin-solo-exceso" onchange="renderHistorial()"> ⏱ Solo con exceso de tiempo
+              <input type="checkbox" id="hist-admin-solo-exceso" onchange="renderHistorial()"> ⏱ Solo con duración sospechosa (excedida o muy corta)
             </label>
-            <button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent);white-space:nowrap;" onclick="recalcularTiemposExcedidos()" title="Revisa los registros antiguos (guardados antes de tener esta validación) y los marca si exceden el tiempo estimado configurado">🔁 Recalcular tiempos excedidos</button>
+            <button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent);white-space:nowrap;" onclick="recalcularTiemposExcedidos()" title="Revisa los registros antiguos (guardados antes de tener esta validación) y los marca si exceden o si son sospechosamente cortos según el tiempo estimado configurado">🔁 Recalcular tiempos sospechosos</button>
           </div>
           <div id="hist-admin-conteo" style="font-size:12px;color:var(--ink3);margin-top:10px;"></div>
         </div>
@@ -1898,6 +1908,7 @@ select option{background:var(--bg3);color:var(--ink);}
                 <select id="em-hora-inicio-hh" class="time-select" onchange="_syncTimeSelects('em-hora-inicio')"></select>
                 <span style="font-weight:700;color:var(--ink3);">:</span>
                 <select id="em-hora-inicio-mm" class="time-select" onchange="_syncTimeSelects('em-hora-inicio')"></select>
+                <span id="em-hora-inicio-preview" style="font-size:11px;color:var(--ink3);white-space:nowrap;margin-left:2px;"></span>
               </div>
               <input type="hidden" id="em-hora-inicio" value="">
             </div>
@@ -2478,6 +2489,7 @@ select option{background:var(--bg3);color:var(--ink);}
                 <select id="ri-hora-ini-hh" class="time-select" onchange="_syncTimeSelects('ri-hora-ini')"></select>
                 <span style="font-weight:700;color:var(--ink3);">:</span>
                 <select id="ri-hora-ini-mm" class="time-select" onchange="_syncTimeSelects('ri-hora-ini')"></select>
+                <span id="ri-hora-ini-preview" style="font-size:11px;color:var(--ink3);white-space:nowrap;margin-left:2px;"></span>
               </div>
               <input type="hidden" id="ri-hora-ini" value="">
             </div>
@@ -2788,6 +2800,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <select id="vf-hora-ini-hh" class="time-select" onchange="_syncTimeSelects('vf-hora-ini')"></select>
           <span style="font-weight:700;color:var(--ink3);">:</span>
           <select id="vf-hora-ini-mm" class="time-select" onchange="_syncTimeSelects('vf-hora-ini')"></select>
+          <span id="vf-hora-ini-preview" style="font-size:11px;color:var(--ink3);white-space:nowrap;margin-left:2px;"></span>
         </div>
         <input type="hidden" id="vf-hora-ini" onchange="calcMinutosVF()" value="">
       </div>
@@ -2797,6 +2810,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <select id="vf-hora-fin-hh" class="time-select" onchange="_syncTimeSelects('vf-hora-fin')"></select>
           <span style="font-weight:700;color:var(--ink3);">:</span>
           <select id="vf-hora-fin-mm" class="time-select" onchange="_syncTimeSelects('vf-hora-fin')"></select>
+          <span id="vf-hora-fin-preview" style="font-size:11px;color:var(--ink3);white-space:nowrap;margin-left:2px;"></span>
         </div>
         <input type="hidden" id="vf-hora-fin" onchange="calcMinutosVF()" value="">
       </div>
@@ -3135,6 +3149,17 @@ function kardexListFiltrada() {
   var cuadsDelSector = getCuadrillasFiltradas().map(function(c){ return c.id; });
   return all.filter(function(k){ return cuadsDelSector.indexOf(k.cuadrillaId) > -1; });
 }
+// Visitas fallidas con el mismo criterio de alcance que asigListFiltrada/kardexListFiltrada:
+// cuadrilla solo ve las suyas, admin/superadmin solo las de su sector activo.
+function visitasFallidasListFiltrada() {
+  var all = Object.values(cache.visitas_fallidas || {});
+  if (!currentUser) return [];
+  if (currentUser.tipo === 'cuadrilla') {
+    return all.filter(function(v){ return v.cuadrillaId === currentUser.cuadrillaId; });
+  }
+  var cuadsDelSector = getCuadrillasFiltradas().map(function(c){ return c.id; });
+  return all.filter(function(v){ return cuadsDelSector.indexOf(v.cuadrillaId) > -1; });
+}
 function getMat(id) { return cache.materiales[id]; }
 function getStock(cid, mid) { return (cache.stocks[cid] || {})[mid] || 0; }
 function setStock(cid, mid, val) {
@@ -3436,7 +3461,7 @@ function renderAdminVF() {
   var cid = (document.getElementById('avf-cuadrilla')||{value:''}).value;
   var motFiltro = (document.getElementById('avf-motivo')||{value:''}).value;
 
-  var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
+  var vfs = visitasFallidasListFiltrada().filter(function(v){
     var f = (v.fecha||'').slice(0,10);
     return f >= iniStr && f <= hoyStr
       && (!cid || v.cuadrillaId === cid)
@@ -3513,7 +3538,7 @@ function renderAdminVF() {
 }
 
 function exportarVFAdmin() {
-  var vfs = Object.values(cache.visitas_fallidas||{}).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
+  var vfs = visitasFallidasListFiltrada().sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
   var rows = [['Fecha Registro','Hora Registro','Cuadrilla','Cliente','Motivo','Observacion','Hora Inicio','Hora Fin','Minutos Perdidos','OT','Tecnico']];
   vfs.forEach(function(v){
     var c = getCuad(v.cuadrillaId);
@@ -3556,7 +3581,7 @@ function renderVisitasFallidas() {
   }
   var motivoFiltro = (document.getElementById('vf-motivo-filtro')||{value:''}).value;
 
-  var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
+  var vfs = visitasFallidasListFiltrada().filter(function(v){
     var f = new Date(v.fecha);
     return f>=ini && f<=hoy && (!cid||v.cuadrillaId===cid) && (!motivoFiltro||v.motivo===motivoFiltro);
   }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
@@ -3674,7 +3699,7 @@ function renderGraficosVisitasFallidas() {
     }
   }
 
-  var vfs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
+  var vfs = visitasFallidasListFiltrada().filter(function(v){
     var f = new Date(v.fecha);
     return f >= ini && f <= hoy && (!cid || v.cuadrillaId === cid);
   });
@@ -3777,7 +3802,7 @@ function eliminarVisitaFallida(vfId) {
 
 function exportarVisitasFallidas() {
   var rows = [['Fecha Registro','Hora Registro','Cuadrilla','Cliente','Motivo','Observacion','Hora Inicio','Hora Fin','Minutos Perdidos','OT','Tecnico']];
-  Object.values(cache.visitas_fallidas||{}).sort(function(a,b){return (b.tsRegistro||0)-(a.tsRegistro||0);}).forEach(function(v){
+  visitasFallidasListFiltrada().sort(function(a,b){return (b.tsRegistro||0)-(a.tsRegistro||0);}).forEach(function(v){
     var c = getCuad(v.cuadrillaId);
     var tsReg = v.tsRegistro ? new Date(v.tsRegistro) : null;
     var fechaReg = tsReg ? tsReg.toLocaleDateString('es-HN') : (v.fecha||'');
@@ -3908,7 +3933,10 @@ function initSidebarState() {
 // ══════════════════════════════════════════════════════
 // 3. PESTAÑAS DE REPORTES
 // ══════════════════════════════════════════════════════
+var repTabActivo = 'asignaciones'; // pestaña de Reportes actualmente visible — usada para
+                                    // refrescarla sola cuando cambian los datos subyacentes
 function switchRepTab(tab) {
+  repTabActivo = tab;
   ['asignaciones','reincidencias','visitas','tiempos','cuadres'].forEach(function(t) {
     var panel = document.getElementById('reptab-'+t);
     var btn   = document.getElementById('tab-'+t);
@@ -3967,7 +3995,7 @@ function renderRepKardex() {
     if(i&&i.value) ini=new Date(i.value+'T00:00:00');
     if(f&&f.value) hoy=new Date(f.value+'T23:59:59');
   }
-  var rows = kardexList().filter(function(k){
+  var rows = kardexListFiltrada().filter(function(k){
     var d=new Date(k.fecha);
     return d>=ini && d<=hoy
       && (!cid  || k.cuadrillaId===cid)
@@ -3999,7 +4027,7 @@ function renderRepKardex() {
 
 function exportarKardexCSV() {
   var rows=[['Fecha','Cuadrilla','Tipo','Material','MAC','Cantidad','Unidad','Responsable','Referencia']];
-  kardexList().forEach(function(k){
+  kardexListFiltrada().forEach(function(k){
     var c=getCuad(k.cuadrillaId), m=getMat(k.matId);
     rows.push([fmtDTK(k), c?c.nombre:'—', k.tipo, m?m.nombre:'—', k.mac||'', k.qty, m?m.unidad:'', k.resp||'', k.ref||'']);
   });
@@ -4287,7 +4315,7 @@ function renderRepCuadres() {
 
   // Recolectar todas las filas de cuadre de todos los retiros
   var filas = [];
-  retirosList().forEach(function(r){
+  retirosListFiltrada().forEach(function(r){
     if (fCuad && r.cuadrillaId !== fCuad) return;
     var cuad = getCuad(r.cuadrillaId);
     (r.equipos||[]).forEach(function(eq){
@@ -4526,8 +4554,25 @@ function _syncTimeSelects(id) {
   hidden.value = (hh !== '' && mm !== '') ? (hh+':'+mm) : '';
   var wrap = document.getElementById(id+'-wrap');
   if (wrap) wrap.dataset.filled = hidden.value ? '1' : '0';
+  _actualizarPreview12h(id, hh, mm);
   hidden.dispatchEvent(new Event('input', {bubbles:true}));
   hidden.dispatchEvent(new Event('change', {bubbles:true}));
+}
+// Convierte HH:MM (24h) a un texto tipo "8:45 a.m." — solo para mostrar como
+// confirmación visual junto al selector; el valor real que se guarda sigue
+// siendo el de 24h. Esto es clave para que la cuadrilla note de inmediato si
+// escogió, por ejemplo, "08" pensando en la noche cuando debía ser "20".
+function _formatearHora12(hh, mm) {
+  var h = parseInt(hh, 10);
+  if (isNaN(h)) return '';
+  var suf = h < 12 ? 'a.m.' : 'p.m.';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + mm + ' ' + suf;
+}
+function _actualizarPreview12h(id, hh, mm) {
+  var prev = document.getElementById(id+'-preview');
+  if (!prev) return;
+  prev.textContent = (hh !== '' && mm !== '') ? ('→ ' + _formatearHora12(hh, mm)) : '';
 }
 // Fija un valor "HH:MM" en el selector (equivalente a hacer .value = 'HH:MM'
 // sobre el input original). Úsalo en vez de asignar .value directo al id,
@@ -4541,6 +4586,7 @@ function setTimeSelects(id, value) {
   if (mmEl) mmEl.value = partes[1] || '';
   var wrap = document.getElementById(id+'-wrap');
   if (wrap) wrap.dataset.filled = value ? '1' : '0';
+  _actualizarPreview12h(id, partes[0]||'', partes[1]||'');
 }
 
 
@@ -4574,6 +4620,9 @@ var TOLERANCIA_DURACION_MIN = 30;
 // usuario logueado (getSectorActivo()), para poder recalcular en lote
 // registros de distintas cuadrillas/sectores sin depender de quién esté
 // actualmente logueado.
+var PORCENTAJE_MINIMO_DURACION = 0.20; // 20% del tiempo estimado
+var PISO_MINIMO_DURACION_MIN   = 15;   // nunca marcar por debajo de esto como "sospechoso", ni siquiera para tipos con estimado muy bajo
+
 function _validarDuracionCore(tipo, minutosReales, categoria, sector) {
   if (minutosReales === null || minutosReales === undefined) return null;
   if (!sector) return null;
@@ -4581,14 +4630,27 @@ function _validarDuracionCore(tipo, minutosReales, categoria, sector) {
   var config = fuente[sector] || {};
   var estimado = config[tipo||''];
   if (!estimado) return null; // sin tiempo estimado configurado para este tipo — no se valida
+
   var maxPermitido = estimado + TOLERANCIA_DURACION_MIN;
   if (minutosReales > maxPermitido) {
     return {
+      tipoProblema: 'exceso',
       estimadoMin: estimado, realMin: minutosReales, excesoMin: minutosReales - estimado,
       mensaje: 'La duración calculada es de <strong>'+fmtDuracion(minutosReales)+'</strong>, pero "'+esc(tipo)+'" tiene un tiempo esperado de ~'+fmtDuracion(estimado)
         +' (máximo permitido '+fmtDuracion(maxPermitido)+' con el margen de '+TOLERANCIA_DURACION_MIN+' min).'
     };
   }
+
+  var minPermitido = Math.max(Math.round(estimado * PORCENTAJE_MINIMO_DURACION), PISO_MINIMO_DURACION_MIN);
+  if (minutosReales < minPermitido) {
+    return {
+      tipoProblema: 'corto',
+      estimadoMin: estimado, realMin: minutosReales, excesoMin: minPermitido - minutosReales,
+      mensaje: 'La duración calculada es de solo <strong>'+fmtDuracion(minutosReales)+'</strong>, pero "'+esc(tipo)+'" tiene un tiempo esperado de ~'+fmtDuracion(estimado)
+        +' (mínimo razonable '+fmtDuracion(minPermitido)+', el 20% del estimado). Parece muy corto para ser real.'
+    };
+  }
+
   return null;
 }
 
@@ -6516,6 +6578,7 @@ function guardarRedInterna() {
     tsRegistro: Date.now(),
     creadoEn: fechaLocal,
     excedeTiempo: !!infoDuracionRI,
+    tiempoProblema: infoDuracionRI ? infoDuracionRI.tipoProblema : null,
     tiempoEstimadoMin: infoDuracionRI ? infoDuracionRI.estimadoMin : null,
     tiempoExcesoMin: infoDuracionRI ? infoDuracionRI.excesoMin : null
   };
@@ -6553,6 +6616,7 @@ function guardarRedInterna() {
       cuadrillaId: cid,
       redInternaId: newId,
       excedeTiempo: !!infoDuracionRI,
+      tiempoProblema: infoDuracionRI ? infoDuracionRI.tipoProblema : null,
       tiempoEstimadoMin: infoDuracionRI ? infoDuracionRI.estimadoMin : null,
       tiempoExcesoMin: infoDuracionRI ? infoDuracionRI.excesoMin : null
     };
@@ -6650,7 +6714,18 @@ function copiarTextoRI(id) {
   var cuad = getCuad(r.cuadrillaId);
   var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
     var mat = getMat(m.matId);
-    return '  \u2022 ' + (mat?mat.nombre:'?') + ' \xd7 ' + m.qty + (mat?' '+mat.unidad:'');
+    var linea = '  \u2022 ' + (mat?mat.nombre:'?') + ' \xd7 ' + m.qty + (mat?' '+mat.unidad:'');
+    if (m.unidades && m.unidades.length) {
+      var detalleUnidades = m.unidades.map(function(u, ui){
+        if (!u.mac && !u.serie) return null;
+        var l = '     ['+(ui+1)+']';
+        if (u.mac)   l += '  MAC: '+u.mac;
+        if (u.serie) l += '  Serie: '+u.serie;
+        return l;
+      }).filter(Boolean).join('\n');
+      if (detalleUnidades) linea += '\n' + detalleUnidades;
+    }
+    return linea;
   }).join('\n') : '  Sin materiales';
   var dur = riDuracion(r.horaIni, r.horaFin);
   var texto = [
@@ -6682,7 +6757,18 @@ function verDetalleRI(id) {
   var cuad = getCuad(r.cuadrillaId);
   var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
     var mat = getMat(m.matId);
-    return (mat?esc(mat.nombre):'?') + ' \xd7 ' + m.qty + (mat?' '+esc(mat.unidad):'');
+    var linea = (mat?esc(mat.nombre):'?') + ' \xd7 ' + m.qty + (mat?' '+esc(mat.unidad):'');
+    if (m.unidades && m.unidades.length) {
+      var detalleUnidades = m.unidades.map(function(u, ui){
+        if (!u.mac && !u.serie) return null;
+        var partes = [];
+        if (u.mac)   partes.push('MAC: '+esc(u.mac));
+        if (u.serie) partes.push('Serie: '+esc(u.serie));
+        return '<div style="font-size:11px;color:var(--ink3);padding-left:12px;">['+(ui+1)+'] '+partes.join(' · ')+'</div>';
+      }).filter(Boolean).join('');
+      if (detalleUnidades) linea += detalleUnidades;
+    }
+    return linea;
   }).join('<br>') : '\u2014';
   var dur = riDuracion(r.horaIni, r.horaFin);
   var tsReg = r.tsRegistro ? fmtDT(r.tsRegistro) : (r.fecha||'\u2014');
@@ -6749,7 +6835,16 @@ function exportarRedInternaCSV() {
   riListFiltrada().sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); }).forEach(function(r){
     var cuad = getCuad(r.cuadrillaId);
     var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
-      var mat=getMat(m.matId); return (mat?mat.nombre:'?')+'x'+m.qty;
+      var mat=getMat(m.matId);
+      var base = (mat?mat.nombre:'?')+'x'+m.qty;
+      if (m.unidades && m.unidades.length) {
+        var ids = m.unidades.map(function(u){
+          var p=[]; if(u.mac) p.push('MAC:'+u.mac); if(u.serie) p.push('Serie:'+u.serie);
+          return p.length ? '['+p.join(' ')+']' : null;
+        }).filter(Boolean).join(' ');
+        if (ids) base += ' ' + ids;
+      }
+      return base;
     }).join('; ') : '';
     var tsReg = r.tsRegistro ? new Date(r.tsRegistro) : null;
     var fechaReg = tsReg ? tsReg.toLocaleDateString('es-HN') : (r.fecha||'');
@@ -9701,46 +9796,64 @@ function autoFormatMACSearch(input) {
   input.value = fmt.join(':').toUpperCase();
 }
 
-function buscarPorMAC() {
-  var q = (document.getElementById('mac-search-input').value || '').replace(/[^0-9a-fA-F]/gi,'').toUpperCase();
-  if (q.length < 4) { toast('Ingresa al menos 4 caracteres de la MAC', 'info'); return; }
+// Búsqueda de un equipo por MAC o por Serie — comparte la misma lógica de
+// resultados (asignaciones a cliente + movimientos de Kardex, cuando aplica).
+// tipo: 'mac' | 'serie'
+function _buscarPorIdentificador(tipo) {
+  var esMAC = tipo === 'mac';
+  var inputId = esMAC ? 'mac-search-input' : 'serie-search-input';
+  var raw = document.getElementById(inputId).value || '';
+  var q = esMAC ? raw.replace(/[^0-9a-fA-F]/gi,'').toUpperCase() : raw.trim().toUpperCase();
+  var minLen = esMAC ? 4 : 3;
+  if (q.length < minLen) { toast('Ingresa al menos '+minLen+' caracteres', 'info'); return; }
 
   var resultDiv = document.getElementById('mac-search-result');
   resultDiv.style.display = 'block';
 
-  // Buscar en kardex
-  var enKardex = kardexListFiltrada().filter(function(k) {
-    return k.mac && k.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1;
+  function coincide(u) {
+    if (esMAC) return u.mac && u.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1;
+    return u.serie && u.serie.trim().toUpperCase().indexOf(q) > -1;
+  }
+
+  // Buscar en asignaciones (materiales con MAC/Serie por unidad — incluye
+  // asignaciones a cliente y trabajos de Red Interna, ya que estos últimos
+  // se espejan en asignaciones/ con tipoRegistro:'redInterna')
+  var enAsigs = asigListFiltrada().filter(function(a) {
+    return (a.materiales||[]).some(function(m){ return (m.unidades||[]).some(coincide); });
   });
 
-  // Buscar en asignaciones (materiales con MAC por unidad)
-  var enAsigs = asigListFiltrada().filter(function(a) {
-    return (a.materiales||[]).some(function(m){
-      return (m.unidades||[]).some(function(u){ return u.mac && u.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1; });
-    });
-  });
+  // Los movimientos de Kardex (ingreso/egreso a granel) no capturan MAC/Serie
+  // por unidad — solo se captura al momento de usar ese equipo específico en
+  // una asignación o trabajo real. Por eso Kardex solo aplica para MAC en
+  // registros antiguos que sí llegaron a tener ese campo; para Serie no aplica.
+  var enKardex = esMAC ? kardexListFiltrada().filter(function(k) {
+    return k.mac && k.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1;
+  }) : [];
+
+  var qDisplay = esMAC ? q.match(/.{1,2}/g).join(':') : raw.trim();
+  var etiqueta = esMAC ? 'MAC' : 'Serie';
 
   if (!enKardex.length && !enAsigs.length) {
     resultDiv.innerHTML = '<div style="text-align:center;padding:1.25rem;background:var(--bg3);border-radius:var(--r);font-size:13px;color:var(--ink3);">'
-      + '📭 No se encontró ningún equipo con MAC <strong style="font-family:monospace;color:var(--ink);">'
-      + q.match(/.{1,2}/g).join(':') + '</strong></div>';
+      + '📭 No se encontró ningún equipo con '+etiqueta+' <strong style="font-family:monospace;color:var(--ink);">'
+      + esc(qDisplay) + '</strong></div>';
     return;
   }
 
   var html = '<div style="font-family:var(--display);font-size:14px;font-weight:700;margin-bottom:.75rem;color:var(--ink);">'
-    + 'Resultados para <span style="font-family:monospace;color:var(--accent);">' + q.match(/.{1,2}/g).join(':') + '</span></div>';
+    + 'Resultados para '+etiqueta+' <span style="font-family:monospace;color:var(--accent);">' + esc(qDisplay) + '</span></div>';
 
-  // Asignaciones a clientes
+  // Asignaciones a clientes y Red Interna
   if (enAsigs.length) {
-    html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Asignado a cliente</div>';
+    html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Asignado a cliente / Red Interna</div>';
     html += '<div class="table-wrap" style="margin-bottom:1rem;"><table><thead><tr>'
-      + '<th>Fecha</th><th>Cliente</th><th>Dirección</th><th>OT</th><th>Material</th><th>MAC</th><th>Serie</th>'
+      + '<th>Fecha</th><th>Cliente / Nodo</th><th>Dirección</th><th>OT</th><th>Material</th><th>MAC</th><th>Serie</th>'
       + (currentUser.tipo==='admin'?'<th>Cuadrilla</th>':'')
       + '</tr></thead><tbody>';
     enAsigs.forEach(function(a){
       (a.materiales||[]).forEach(function(m){
         var mat = getMat(m.matId);
-        (m.unidades||[]).filter(function(u){ return u.mac && u.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q)>-1; }).forEach(function(u){
+        (m.unidades||[]).filter(coincide).forEach(function(u){
           html += '<tr>'
             + '<td style="font-size:11px;white-space:nowrap">' + fmtDate(a.fecha) + '</td>'
             + '<td><strong>' + esc(a.cliente||'—') + '</strong>'
@@ -9748,8 +9861,8 @@ function buscarPorMAC() {
             + '<td style="font-size:11px;">' + esc((a.direccion||'')+(a.municipio?', '+a.municipio:'')+(a.idCliente?' · ID:'+a.idCliente:'')+(a.ip?' · IP:'+a.ip:'')) + '</td>'
             + '<td style="font-size:11px;">' + esc(a.ot||'—') + '</td>'
             + '<td style="font-size:12px;">' + esc(mat?mat.nombre:'—') + '</td>'
-            + '<td style="font-family:monospace;font-size:11px;color:var(--accent);">' + esc(u.mac) + '</td>'
-            + '<td style="font-family:monospace;font-size:11px;color:var(--ink3);">' + esc(u.serie||'—') + '</td>'
+            + '<td style="font-family:monospace;font-size:11px;'+(esMAC?'color:var(--accent);font-weight:700;':'color:var(--ink3);')+'">' + esc(u.mac||'—') + '</td>'
+            + '<td style="font-family:monospace;font-size:11px;'+(!esMAC?'color:var(--accent);font-weight:700;':'color:var(--ink3);')+'">' + esc(u.serie||'—') + '</td>'
             + (currentUser.tipo==='admin'?'<td><span class="badge badge-gray">'+esc(getCuad(a.cuadrillaId)?getCuad(a.cuadrillaId).nombre:'—')+'</span></td>':'')
             + '</tr>';
         });
@@ -9758,7 +9871,7 @@ function buscarPorMAC() {
     html += '</tbody></table></div>';
   }
 
-  // Movimientos en Kardex
+  // Movimientos en Kardex (solo aplica para búsqueda por MAC)
   if (enKardex.length) {
     html += '<div class="card-title" style="margin-bottom:.5rem;">📋 Movimientos en Kardex</div>';
     html += '<div class="table-wrap"><table><thead><tr>'
@@ -9784,9 +9897,14 @@ function buscarPorMAC() {
   resultDiv.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
+function buscarPorMAC()   { _buscarPorIdentificador('mac'); }
+function buscarPorSerie() { _buscarPorIdentificador('serie'); }
+
 function limpiarBusquedaMAC() {
   var inp = document.getElementById('mac-search-input');
   if (inp) inp.value = '';
+  var inpSerie = document.getElementById('serie-search-input');
+  if (inpSerie) inpSerie.value = '';
   var res = document.getElementById('mac-search-result');
   if (res) { res.style.display = 'none'; res.innerHTML = ''; }
 }
@@ -10092,6 +10210,7 @@ function registrarAsignacion(){
         materiales:matsData,cuadrillaId:cid,
         equiposReemplazados:equiposReemplazados.length?equiposReemplazados:null,
         excedeTiempo: !!infoDuracion,
+        tiempoProblema: infoDuracion ? infoDuracion.tipoProblema : null,
         tiempoEstimadoMin: infoDuracion ? infoDuracion.estimadoMin : null,
         tiempoExcesoMin: infoDuracion ? infoDuracion.excesoMin : null};
       updates['asignaciones/'+aid]=asig;
@@ -10416,6 +10535,7 @@ function guardarEdicionMateriales() {
       if (cambioIdCliente) updates['asignaciones/'+asigId+'/idCliente'] = nuevoIdCliente;
       if (infoDuracionEdit) {
         updates['asignaciones/'+asigId+'/excedeTiempo'] = true;
+        updates['asignaciones/'+asigId+'/tiempoProblema'] = infoDuracionEdit.tipoProblema;
         updates['asignaciones/'+asigId+'/tiempoEstimadoMin'] = infoDuracionEdit.estimadoMin;
         updates['asignaciones/'+asigId+'/tiempoExcesoMin'] = infoDuracionEdit.excesoMin;
       }
@@ -11517,6 +11637,32 @@ function limpiarFiltrosHistAdmin(){
   renderHistorial();
 }
 
+// Badge compacto para la fila del historial — cubre tanto exceso de tiempo
+// como duración sospechosamente corta, y el estado "ya revisado".
+function badgeTiempoProblema(a) {
+  if (!a.excedeTiempo) return '';
+  if (a.tiempoRevisado) {
+    return ' <span class="badge badge-gray" style="font-size:10px;" title="Ya revisado">⏱ Revisado</span>';
+  }
+  var esCorto = a.tiempoProblema === 'corto';
+  var color = esCorto ? 'var(--amber)' : 'var(--red)';
+  var label = esCorto ? '⏱ Duración muy corta' : '⏱ Excede tiempo';
+  var tip = esCorto
+    ? 'Duración sospechosamente corta — faltan '+fmtDuracion(a.tiempoExcesoMin)+' para lo mínimo razonable'
+    : 'Excede tiempo estimado por '+fmtDuracion(a.tiempoExcesoMin);
+  return ' <span class="badge" style="font-size:10px;background:'+color+';color:#fff;" title="'+tip+'">'+label+'</span>';
+}
+// Detalle expandido con el mismo criterio, para el panel al abrir la fila.
+function detalleTiempoProblema(a) {
+  if (!a.excedeTiempo) return '';
+  var esCorto = a.tiempoProblema === 'corto';
+  var color = esCorto ? 'var(--amber)' : 'var(--red)';
+  var texto = esCorto
+    ? '⏱ Duración muy corta (esperado ~'+fmtDuracion(a.tiempoEstimadoMin)+') — le faltan '+fmtDuracion(a.tiempoExcesoMin)+' para el mínimo razonable (20% del estimado)'
+    : '⏱ Excede el tiempo esperado (~'+fmtDuracion(a.tiempoEstimadoMin)+') por '+fmtDuracion(a.tiempoExcesoMin);
+  return '<div style="margin-top:6px;font-size:11px;color:#fff;background:'+color+';border-radius:4px;padding:4px 8px;display:inline-block;">'+texto+(a.tiempoRevisado?' — ✓ ya revisado':'')+'</div>';
+}
+
 function marcarTiempoRevisado(asigId) {
   db.ref('asignaciones/'+asigId+'/tiempoRevisado').set(true)
     .then(function(){ toast('Marcado como revisado','success'); renderHistorial(); })
@@ -11551,13 +11697,16 @@ function recalcularTiemposExcedidos() {
     var info = _validarDuracionCore(a.tipo, calcDuracionMin(a.horaInicio, a.horaFin), categoria, sector);
     if (info) paraMarcar.push({ id: a.id, cliente: a.cliente, info: info });
   });
+  var nExceso = paraMarcar.filter(function(p){ return p.info.tipoProblema === 'exceso'; }).length;
+  var nCorto  = paraMarcar.filter(function(p){ return p.info.tipoProblema === 'corto'; }).length;
 
   showConfirm(
-    'Recalcular tiempos excedidos',
+    'Recalcular tiempos sospechosos',
     'Se revisaron <strong>'+candidatos.length+'</strong> registro(s) antiguo(s) sin evaluar todavía.<br><br>'
     + (paraMarcar.length
-        ? '<strong>'+paraMarcar.length+' de ellos</strong> exceden el tiempo estimado configurado y se marcarán con el badge "⏱ Excede tiempo" en Historial.'
-        : 'Ninguno excede el tiempo estimado configurado — quedarán marcados como evaluados y no se les preguntará de nuevo.')
+        ? '<strong>'+paraMarcar.length+' de ellos</strong> tienen una duración sospechosa y se marcarán en Historial: '
+          + (nExceso ? nExceso+' con exceso de tiempo' : '') + (nExceso && nCorto ? ' y ' : '') + (nCorto ? nCorto+' con duración muy corta' : '') + '.'
+        : 'Ninguno tiene una duración sospechosa — quedarán marcados como evaluados y no se les preguntará de nuevo.')
     + '<br><br>Esta acción no modifica materiales, stock ni ningún otro dato de los registros. ¿Confirmas?',
     function(){
       var updates = {};
@@ -11565,6 +11714,7 @@ function recalcularTiemposExcedidos() {
         var marcado = paraMarcar.find(function(p){ return p.id === a.id; });
         if (marcado) {
           updates['asignaciones/'+a.id+'/excedeTiempo'] = true;
+          updates['asignaciones/'+a.id+'/tiempoProblema'] = marcado.info.tipoProblema;
           updates['asignaciones/'+a.id+'/tiempoEstimadoMin'] = marcado.info.estimadoMin;
           updates['asignaciones/'+a.id+'/tiempoExcesoMin'] = marcado.info.excesoMin;
         } else {
@@ -11574,7 +11724,7 @@ function recalcularTiemposExcedidos() {
       });
       updates['_lastUpdate'] = Date.now();
       db.ref().update(updates).then(function(){
-        toast(paraMarcar.length+' registro(s) marcado(s) con exceso de tiempo, de '+candidatos.length+' revisados','success');
+        toast(paraMarcar.length+' registro(s) marcado(s) con duración sospechosa, de '+candidatos.length+' revisados','success');
         renderHistorial();
       }).catch(function(e){ toast('Error: '+e.message,'error'); });
     }
@@ -11629,11 +11779,7 @@ function renderHistorial(){
       var badgeHTML = esRI
         ? '<span class="badge badge-green" style="font-size:10px;">🖧 Red Interna</span>'
         : '<span class="badge badge-blue"  style="font-size:10px;">👤 Cliente</span>';
-      if (a.excedeTiempo) {
-        badgeHTML += a.tiempoRevisado
-          ? ' <span class="badge badge-gray" style="font-size:10px;" title="Ya revisado">⏱ Revisado</span>'
-          : ' <span class="badge" style="font-size:10px;background:var(--red);color:#fff;" title="Excede tiempo estimado por '+fmtDuracion(a.tiempoExcesoMin)+'">⏱ Excede tiempo</span>';
-      }
+      badgeHTML += badgeTiempoProblema(a);
 
       // Materiales en panel expandido
       var matsDetalle = buildMatsDetalleHTML(a.materiales);
@@ -11665,9 +11811,7 @@ function renderHistorial(){
       var estimadoHTML = (efCuad && efCuad.estimado)
         ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(efCuad.minutos)+' (sin hora de fin registrada)</div>'
         : '';
-      if (a.excedeTiempo) {
-        estimadoHTML += '<div style="margin-top:6px;font-size:11px;color:#fff;background:var(--red);border-radius:4px;padding:4px 8px;display:inline-block;">⏱ Excede el tiempo esperado (~'+fmtDuracion(a.tiempoEstimadoMin)+') por '+fmtDuracion(a.tiempoExcesoMin)+'</div>';
-      }
+      estimadoHTML += detalleTiempoProblema(a);
 
       return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
         +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
@@ -11769,11 +11913,7 @@ function renderHistorial(){
       var badgeHTML = esRI
         ? '<span class="badge badge-green" style="font-size:10px;">🖧 Red Interna</span>'
         : '<span class="badge badge-blue"  style="font-size:10px;">👤 Cliente</span>';
-      if (a.excedeTiempo) {
-        badgeHTML += a.tiempoRevisado
-          ? ' <span class="badge badge-gray" style="font-size:10px;" title="Ya revisado">⏱ Revisado</span>'
-          : ' <span class="badge" style="font-size:10px;background:var(--red);color:#fff;" title="Excede tiempo estimado por '+fmtDuracion(a.tiempoExcesoMin)+'">⏱ Excede tiempo</span>';
-      }
+      badgeHTML += badgeTiempoProblema(a);
 
       // Materiales para el panel expandido (con MAC/Serie por unidad)
       var matsDetalle = buildMatsDetalleHTML(a.materiales);
@@ -11831,7 +11971,7 @@ function renderHistorial(){
               +'<div style="font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">MATERIALES ENTREGADOS</div>'
               +matsDetalle+auditHTML+reemplazadosDetalleAdmin
               +(function(){ var ef=getTiempoEfectivo(a); return (ef&&ef.estimado) ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(ef.minutos)+'</div>' : ''; })()
-              +(a.excedeTiempo ? '<div style="margin-top:6px;font-size:11px;color:#fff;background:var(--red);border-radius:4px;padding:4px 8px;display:inline-block;">⏱ Excede el tiempo esperado (~'+fmtDuracion(a.tiempoEstimadoMin)+') por '+fmtDuracion(a.tiempoExcesoMin)+(a.tiempoRevisado?' — ✓ ya revisado':'')+'</div>' : '')
+              +detalleTiempoProblema(a)
             +'</div>'
             +'<div>'+(extraHTML||'<span style="font-size:12px;color:var(--ink3);">Sin datos adicionales</span>')+'</div>'
           +'</div>'
@@ -12741,7 +12881,18 @@ function renderAdminReportes(){
   var ini=new Date(hoy.getFullYear(),hoy.getMonth(),1);
   document.getElementById('rep-fecha-ini').value=ini.toISOString().slice(0,10);
   document.getElementById('rep-preview-card').style.display='none';
-  renderResumenMateriales();
+  // Refrescar la pestaña que esté actualmente abierta con los datos más
+  // recientes. Antes, si estabas viendo "Tiempos" y corregías la hora de una
+  // asignación en otro lado (Editar asignación, recalcular, etc.), esta
+  // función se disparaba de nuevo por el listener de Firebase pero solo
+  // volvía a calcular "Resumen de materiales" — la pestaña de Tiempos se
+  // quedaba mostrando el promedio calculado con el dato ANTERIOR, porque
+  // nada la mandaba a recalcular hasta que hicieras clic en ella de nuevo.
+  if (repTabActivo === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
+  else if (repTabActivo === 'visitas') renderVisitasFallidas();
+  else if (repTabActivo === 'reincidencias') { poblarSelReincidencias(); renderReincidencias(); }
+  else if (repTabActivo === 'cuadres') { poblarSelRepCuadres(); renderRepCuadres(); }
+  else renderResumenMateriales();
 }
 
 // 10. Reporte de material utilizado en asignaciones
@@ -12750,7 +12901,7 @@ function renderResumenMateriales(){
   if(!el) return;
   var cid=document.getElementById('rep-cuadrilla').value||null;
   var tipoTrabajoSel=(document.getElementById('rep-tipotrabajo')||{value:''}).value;
-  var asigs=filtrarPorRango(asigList().filter(function(a){return !a.anulada;}));
+  var asigs=filtrarPorRango(asigListFiltrada().filter(function(a){return !a.anulada;}));
   if (tipoTrabajoSel) asigs = asigs.filter(function(a){ return a.tipo === tipoTrabajoSel; });
   var tituloEl = document.getElementById('rep-resumen-mats-title');
   if (tituloEl) tituloEl.textContent = tipoTrabajoSel ? 'Materiales utilizados en "'+tipoTrabajoSel+'" (período)' : 'Materiales utilizados en el período';
