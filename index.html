@@ -283,6 +283,25 @@ select option{background:var(--bg3);color:var(--ink);}
 .herr-kpi-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 14px;text-align:center;}
 .herr-kpi-num{font-size:22px;font-weight:700;line-height:1;}
 .herr-kpi-lbl{font-size:11px;color:var(--ink3);margin-top:3px;}
+
+/* Impresión térmica de tickets de materiales (Historial → 🖨️ Imprimir).
+   #print-area está oculto en pantalla; al imprimir, se oculta TODO lo demás
+   y solo se muestra el ticket, en blanco y negro, con ancho angosto tipo
+   recibo (funciona tanto para rollos de 58mm como 80mm — el diálogo de
+   impresión de Android ajusta según la impresora seleccionada). */
+#print-area{display:none;}
+@media print{
+  body *{visibility:hidden!important;}
+  #print-area,#print-area *{visibility:visible!important;}
+  #print-area{
+    display:block!important;position:absolute;top:0;left:0;width:100%;
+    font-family:'Courier New',monospace;color:#000;background:#fff;font-size:12px;line-height:1.4;
+  }
+  .ticket-linea{white-space:pre-wrap;word-break:break-word;}
+  .ticket-sep{border-top:1px dashed #000;margin:6px 0;}
+  .ticket-centro{text-align:center;}
+  .ticket-bold{font-weight:700;}
+}
 </style>
 </head>
 <body>
@@ -592,9 +611,6 @@ select option{background:var(--bg3);color:var(--ink);}
 
         <!-- Vista CUADRILLA: solo total de materiales -->
         <div id="dash-cuad-view" style="display:none;">
-          <!-- ACCESOS RÁPIDOS -->
-          <div id="dash-quick-actions" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem;"></div>
-
           <!-- KPI cuadrilla: total de materiales en bodega + rendimiento del día -->
           <div class="kpi-grid" id="kpi-grid-cuad"></div>
 
@@ -663,6 +679,38 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
+        <!-- ── Búsqueda de material (auditoría) — visible para cuadrilla y admin.
+             Antes vivía dentro de las herramientas exclusivas de admin; se separa
+             porque la cuadrilla también necesita poder rastrear dónde usó un
+             material desde su primera asignación, no solo el admin. ── -->
+        <div id="kardex-mat-audit-tools" style="margin-bottom:1rem;">
+          <div class="card" style="margin-bottom:1rem;">
+            <div class="card-header" style="margin-bottom:.75rem;">
+              <h3 style="font-size:14px;">🔍 Búsqueda de material (auditoría)</h3>
+              <span style="font-size:12px;color:var(--ink3);">¿Dónde he usado este material? — todo el historial, desde la primera vez</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div style="position:relative;flex:1;min-width:200px;">
+                <input type="text" id="kardex-mat-search" placeholder="Escribe el nombre del material..."
+                  oninput="filtrarSugerenciasMaterial(this.value)"
+                  onfocus="filtrarSugerenciasMaterial(this.value)"
+                  autocomplete="off"
+                  style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink);outline:none;">
+                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:14px;pointer-events:none;">🔍</span>
+                <!-- Sugerencias dropdown -->
+                <div id="kardex-mat-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg4);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 var(--r) var(--r);z-index:300;max-height:200px;overflow-y:auto;box-shadow:0 6px 16px rgba(30,35,50,.12);"></div>
+              </div>
+              <button class="btn btn-accent" onclick="buscarUsoMaterial()" style="white-space:nowrap;">Ver usos</button>
+              <button class="btn btn-ghost" onclick="limpiarBusquedaMaterial()" style="white-space:nowrap;">✕ Limpiar</button>
+            </div>
+            <!-- Resultados de trazabilidad -->
+            <div id="kardex-traz-result" style="display:none;margin-top:1rem;">
+              <div id="kardex-traz-header" style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap;"></div>
+              <div id="kardex-traz-tabla"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- ── Búsqueda por MAC o Serie (admin/superadmin) ── -->
         <div id="kardex-admin-tools" style="display:none;">
           <div class="card" style="margin-bottom:1rem;">
@@ -695,31 +743,6 @@ select option{background:var(--bg3);color:var(--ink);}
               <button class="btn btn-ghost" onclick="limpiarBusquedaMAC()">✕ Limpiar</button>
             </div>
             <div id="mac-search-result" style="display:none;margin-top:1rem;"></div>
-          </div>
-          <div class="card" style="margin-bottom:1rem;">
-            <div class="card-header" style="margin-bottom:.75rem;">
-              <h3 style="font-size:14px;">🔍 Buscar uso de material</h3>
-              <span style="font-size:12px;color:var(--ink3);">¿En qué clientes se usó este material?</span>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <div style="position:relative;flex:1;min-width:200px;">
-                <input type="text" id="kardex-mat-search" placeholder="Escribe el nombre del material..."
-                  oninput="filtrarSugerenciasMaterial(this.value)"
-                  onfocus="filtrarSugerenciasMaterial(this.value)"
-                  autocomplete="off"
-                  style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;background:var(--bg3);color:var(--ink);outline:none;">
-                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:14px;pointer-events:none;">🔍</span>
-                <!-- Sugerencias dropdown -->
-                <div id="kardex-mat-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg4);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 var(--r) var(--r);z-index:300;max-height:200px;overflow-y:auto;box-shadow:0 6px 16px rgba(30,35,50,.12);"></div>
-              </div>
-              <button class="btn btn-accent" onclick="buscarUsoMaterial()" style="white-space:nowrap;">Ver usos</button>
-              <button class="btn btn-ghost" onclick="limpiarBusquedaMaterial()" style="white-space:nowrap;">✕ Limpiar</button>
-            </div>
-            <!-- Resultados de trazabilidad -->
-            <div id="kardex-traz-result" style="display:none;margin-top:1rem;">
-              <div id="kardex-traz-header" style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap;"></div>
-              <div id="kardex-traz-tabla"></div>
-            </div>
           </div>
         </div>
 
@@ -755,11 +778,7 @@ select option{background:var(--bg3);color:var(--ink);}
         <div class="asignar-action-bar" style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-green" onclick="registrarAsignacion()" style="flex:1;justify-content:center;min-width:120px;">
             <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-7 14V10H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-            Registrar y PDF
-          </button>
-          <button class="btn" onclick="mostrarResumenTexto()" style="flex:1;justify-content:center;min-width:120px;border-color:var(--blue);color:var(--blue);">
-            <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 10h8M6 13h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-            Resumen texto
+            Registrar, PDF y Texto
           </button>
           <button class="btn btn-ghost" onclick="limpiarAsignacion()" style="flex:1;justify-content:center;min-width:80px;">Limpiar</button>
         </div>
@@ -1066,6 +1085,7 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="rep-tab" onclick="switchRepTab('reincidencias')" id="tab-reincidencias" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">🔁 Reincidencias</button>
           <button class="rep-tab" onclick="switchRepTab('tiempos')" id="tab-tiempos" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">⏱ Tiempos por Trabajo</button>
           <button class="rep-tab" onclick="switchRepTab('cuadres')" id="tab-cuadres" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">📦 Cuadres de retiros</button>
+          <button class="rep-tab" onclick="switchRepTab('pendientes-retiro')" id="tab-pendientes-retiro" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">⏳ Pendientes de cuadre</button>
           <!-- Tab Visitas Fallidas oculto — no implementado actualmente -->
         </div>
 
@@ -1311,9 +1331,34 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="table-wrap"><table>
               <thead><tr>
                 <th># Cuadre</th><th>Fecha cuadre</th><th>Cuadrilla</th>
-                <th>Equipo</th><th>Cant.</th><th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th>
+                <th>Equipo</th><th>Cant.</th><th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th><th></th>
               </tr></thead>
               <tbody id="rc2-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <div id="reptab-pendientes-retiro" style="display:none;">
+          <div class="card">
+            <div class="card-title">Equipos retirados aún sin cuadrar — por cuadrilla</div>
+            <p style="font-size:12px;color:var(--ink3);margin-bottom:.75rem;">Aquí puedes eliminar un registro duplicado o mal capturado antes de que se cuadre.</p>
+            <div class="form-grid">
+              <div class="field"><label>Cuadrilla</label>
+                <select id="rpr-cuadrilla" onchange="renderPendientesRetiroAdmin()"><option value="">Todas las cuadrillas</option></select>
+              </div>
+            </div>
+          </div>
+          <div class="kpi-grid" id="rpr-kpis" style="margin-bottom:1rem;"></div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Pendientes de cuadre</h3>
+              <span id="rpr-count" style="font-size:13px;color:var(--ink3);"></span>
+            </div>
+            <div class="table-wrap"><table>
+              <thead><tr>
+                <th>Cuadrilla</th><th>Equipo</th><th>Cant.</th><th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th><th></th>
+              </tr></thead>
+              <tbody id="rpr-tbody"></tbody>
             </table></div>
           </div>
         </div>
@@ -3934,10 +3979,13 @@ function initSidebarState() {
 // 3. PESTAÑAS DE REPORTES
 // ══════════════════════════════════════════════════════
 var repTabActivo = 'asignaciones'; // pestaña de Reportes actualmente visible — usada para
+// Controla que el rango de 30 días por defecto en Historial admin se aplique
+// solo una vez por sesión (ver renderHistorial) — no pisa una limpieza manual.
+var historialRangoDefaultAplicado = false;
                                     // refrescarla sola cuando cambian los datos subyacentes
 function switchRepTab(tab) {
   repTabActivo = tab;
-  ['asignaciones','reincidencias','visitas','tiempos','cuadres'].forEach(function(t) {
+  ['asignaciones','reincidencias','visitas','tiempos','cuadres','pendientes-retiro'].forEach(function(t) {
     var panel = document.getElementById('reptab-'+t);
     var btn   = document.getElementById('tab-'+t);
     if (!panel || !btn) return;
@@ -3952,6 +4000,7 @@ function switchRepTab(tab) {
   if (tab === 'asignaciones') renderResumenMateriales();
   if (tab === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
   if (tab === 'cuadres') { poblarSelRepCuadres(); renderRepCuadres(); }
+  if (tab === 'pendientes-retiro') { poblarSelPendientesRetiroAdmin(); renderPendientesRetiroAdmin(); }
 }
 
 function poblarSelKardexRep() {
@@ -4330,7 +4379,9 @@ function renderRepCuadres() {
         cantidad:   eq.cantidad||1,
         cliente:    r.cliente||'—',
         numTrabajo: r.numTrabajo||'—',
-        fechaRetiro:r.fecha||''
+        fechaRetiro:r.fecha||'',
+        retiroId:   r.id,
+        equipoId:   eq.equipoId
       });
     });
   });
@@ -4352,7 +4403,7 @@ function renderRepCuadres() {
 
   var tbody = document.getElementById('rc2-tbody');
   if (!filas.length) {
-    tbody.innerHTML = '<tr><td colspan="8">'+empty('Sin cuadres en este período')+'</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9">'+empty('Sin cuadres en este período')+'</td></tr>';
     return;
   }
   tbody.innerHTML = filas.map(function(f){
@@ -4365,6 +4416,8 @@ function renderRepCuadres() {
       +'<td style="font-size:12px;">'+esc(f.cliente)+'</td>'
       +'<td style="font-family:monospace;font-size:12px;">'+esc(f.numTrabajo)+'</td>'
       +'<td style="font-size:12px;white-space:nowrap;">'+fmtDate(f.fechaRetiro)+'</td>'
+      +'<td><button class="btn btn-sm btn-ghost" style="color:var(--red);" '
+        +'onclick="eliminarEquipoRetiro(\''+f.retiroId+'\',\''+f.equipoId+'\',\'(ya estaba marcado como cuadrado en el N.\\u00ba '+esc(f.numCuadre)+')\');event.stopPropagation();">✕ Eliminar</button></td>'
       +'</tr>';
   }).join('');
 }
@@ -4382,6 +4435,81 @@ function exportarCuadresCSV() {
   a.download = 'Cuadres_Retiros_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
   toast('CSV descargado','success');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PENDIENTES DE CUADRE (admin) — equipos retirados que aún no se marcan como
+// cuadrados. Antes esta vista solo existía para la cuadrilla; sin ella, un
+// admin no tenía forma de ver ni corregir un registro duplicado o mal
+// capturado mientras siguiera pendiente.
+// ══════════════════════════════════════════════════════════════════════════
+function poblarSelPendientesRetiroAdmin() {
+  var sel = document.getElementById('rpr-cuadrilla');
+  if (!sel) return;
+  var val = sel.value;
+  sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
+  getCuadrillasFiltradas().forEach(function(c){
+    var o = document.createElement('option');
+    o.value=c.id; o.textContent=c.nombre;
+    if (c.id===val) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+
+var _rprCache = []; // para posible exportación futura
+
+function renderPendientesRetiroAdmin() {
+  var fCuad = (document.getElementById('rpr-cuadrilla')||{value:''}).value;
+
+  var filas = [];
+  retirosListFiltrada().forEach(function(r){
+    var cuad = getCuad(r.cuadrillaId);
+    if (fCuad && r.cuadrillaId !== fCuad) return;
+    (r.equipos||[]).forEach(function(eq){
+      if (eq.estado === 'cuadrado') return; // solo pendientes
+      filas.push({
+        cuadrilla:  cuad?cuad.nombre:'—',
+        nombreRef:  eq.nombreRef||'—',
+        cantidad:   eq.cantidad||1,
+        cliente:    r.cliente||'—',
+        numTrabajo: r.numTrabajo||'—',
+        fechaRetiro:r.fecha||'',
+        retiroId:   r.id,
+        equipoId:   eq.equipoId
+      });
+    });
+  });
+  filas.sort(function(a,b){ return new Date(b.fechaRetiro) - new Date(a.fechaRetiro); });
+  _rprCache = filas;
+
+  var kpis = document.getElementById('rpr-kpis');
+  if (kpis) {
+    var porCuadrilla = {};
+    filas.forEach(function(f){ porCuadrilla[f.cuadrilla] = (porCuadrilla[f.cuadrilla]||0)+1; });
+    kpis.innerHTML = kpi('Equipos pendientes', filas.length, 'sin marcar como cuadrados', filas.length>0?'c-amber':'c-green')
+      + kpi('Cuadrillas con pendientes', Object.keys(porCuadrilla).length, 'de las visibles en tu alcance', '');
+  }
+
+  var count = document.getElementById('rpr-count');
+  if (count) count.textContent = filas.length + ' equipo(s) pendiente(s)';
+
+  var tbody = document.getElementById('rpr-tbody');
+  if (!filas.length) {
+    tbody.innerHTML = '<tr><td colspan="7">'+empty('Sin equipos pendientes de cuadre en tu alcance')+'</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filas.map(function(f){
+    return '<tr>'
+      +'<td style="font-size:12px;">'+esc(f.cuadrilla)+'</td>'
+      +'<td><strong style="font-size:13px;">'+esc(f.nombreRef)+'</strong></td>'
+      +'<td style="text-align:center;">'+f.cantidad+'</td>'
+      +'<td style="font-size:12px;">'+esc(f.cliente)+'</td>'
+      +'<td style="font-family:monospace;font-size:12px;">'+esc(f.numTrabajo)+'</td>'
+      +'<td style="font-size:12px;white-space:nowrap;">'+fmtDate(f.fechaRetiro)+'</td>'
+      +'<td><button class="btn btn-sm btn-ghost" style="color:var(--red);" '
+        +'onclick="eliminarEquipoRetiro(\''+f.retiroId+'\',\''+f.equipoId+'\')">✕ Eliminar</button></td>'
+      +'</tr>';
+  }).join('');
 }
 
 // ══════════════════════════════════════════════════════
@@ -5629,6 +5757,8 @@ function initFirebaseListeners() {
   db.ref('retiros').on('value', function(snap) {
     cache.retiros = snap.val() || {};
     if (currentUser && currentUser.tipo === 'cuadrilla' && currentSection === 'retiros') renderRetiros();
+    if (currentUser && currentUser.tipo === 'admin' && currentSection === 'admin-reportes' && repTabActivo === 'cuadres') renderRepCuadres();
+    if (currentUser && currentUser.tipo === 'admin' && currentSection === 'admin-reportes' && repTabActivo === 'pendientes-retiro') renderPendientesRetiroAdmin();
   });
   // Auditorías físicas de inventario (reinicios de stock a cero)
   db.ref('auditoriasFisicas').on('value', function(snap) {
@@ -7016,19 +7146,35 @@ function limpiarSeleccionRetiro() {
   renderRetPendientes();
 }
 
+// Elimina un equipo específico de un retiro, sin importar su estado
+// (pendiente o ya cuadrado). Si era el único equipo del retiro, borra el
+// retiro completo. "Cuadrar" no toca Kardex ni stock (solo marca estado),
+// así que no hay nada que reversar al eliminar — es seguro para corregir
+// registros duplicados o mal capturados en cualquier momento.
+function eliminarEquipoRetiro(retiroId, equipoId, notaExtra) {
+  var retiro = cache.retiros[retiroId];
+  if (!retiro) { toast('Registro no encontrado','error'); return; }
+  var eqObj = (retiro.equipos||[]).find(function(e){ return e.equipoId === equipoId; });
+  var nombreEq = eqObj ? eqObj.nombreRef : 'este equipo';
+  showConfirm(
+    'Eliminar equipo del retiro',
+    '¿Eliminar <strong>'+esc(nombreEq)+'</strong> de este retiro'+(notaExtra?' '+notaExtra:'')+'? Esta acción no se puede deshacer.',
+    function(){
+      var equipos = (retiro.equipos||[]).filter(function(e){ return e.equipoId !== equipoId; });
+      var updates = {};
+      if (!equipos.length) updates['retiros/'+retiroId] = null;
+      else updates['retiros/'+retiroId+'/equipos'] = equipos;
+      updates['_lastUpdate'] = Date.now();
+      db.ref().update(updates).then(function(){
+        delete retiroSeleccion[retiroId+'__'+equipoId];
+        toast('Equipo eliminado','success');
+      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    }
+  );
+}
+// Alias retrocompatible (el botón de "pendientes" ya lo usaba con este nombre)
 function eliminarEquipoPendiente(retiroId, equipoId) {
-  showConfirm('¿Eliminar este equipo de la lista? Esta acción no se puede deshacer.', function(){
-    var retiro = cache.retiros[retiroId];
-    if (!retiro) return;
-    var equipos = (retiro.equipos||[]).filter(function(eq){ return eq.equipoId !== equipoId; });
-    var updates = {};
-    if (!equipos.length) updates['retiros/'+retiroId] = null;
-    else updates['retiros/'+retiroId+'/equipos'] = equipos;
-    db.ref().update(updates).then(function(){
-      delete retiroSeleccion[retiroId+'__'+equipoId];
-      toast('Equipo eliminado','success');
-    }).catch(function(e){ toast('Error: '+e.message,'error'); });
-  });
+  eliminarEquipoRetiro(retiroId, equipoId);
 }
 
 function renderRetCuadres() {
@@ -7040,7 +7186,8 @@ function renderRetCuadres() {
         var k = eq.numCuadre;
         if (!grupos[k]) grupos[k]={ numCuadre:k, fechaCuadre:eq.fechaCuadre||'', items:[] };
         grupos[k].items.push({ nombreRef:eq.nombreRef||'—', cantidad:eq.cantidad||1,
-          cliente:r.cliente||'—', numTrabajo:r.numTrabajo||'—', fechaRetiro:r.fecha||'' });
+          cliente:r.cliente||'—', numTrabajo:r.numTrabajo||'—', fechaRetiro:r.fecha||'',
+          retiroId:r.id, equipoId:eq.equipoId });
       }
     });
   });
@@ -7065,14 +7212,17 @@ function renderRetCuadres() {
         +'<th style="text-align:center;padding:4px 6px;border-bottom:1px solid var(--border);">Cant.</th>'
         +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Cliente</th>'
         +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);"># Trabajo</th>'
-        +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Fecha retiro</th></tr>'
+        +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Fecha retiro</th>'
+        +'<th style="border-bottom:1px solid var(--border);"></th></tr>'
       +'</thead><tbody>'
       + g.items.map(function(it){
           return '<tr><td style="padding:5px 6px;"><strong>'+esc(it.nombreRef)+'</strong></td>'
             +'<td style="text-align:center;padding:5px 6px;">'+it.cantidad+'</td>'
             +'<td style="padding:5px 6px;">'+esc(it.cliente)+'</td>'
             +'<td style="padding:5px 6px;font-family:monospace;">'+esc(it.numTrabajo)+'</td>'
-            +'<td style="padding:5px 6px;white-space:nowrap;">'+fmtDate(it.fechaRetiro)+'</td></tr>';
+            +'<td style="padding:5px 6px;white-space:nowrap;">'+fmtDate(it.fechaRetiro)+'</td>'
+            +'<td style="padding:5px 6px;"><button class="btn btn-sm btn-ghost" style="color:var(--red);" '
+              +'onclick="eliminarEquipoRetiro(\''+it.retiroId+'\',\''+it.equipoId+'\',\'(ya estaba marcado como cuadrado en el N.\\u00ba '+esc(g.numCuadre)+')\')">✕</button></td></tr>';
         }).join('')
       +'</tbody></table></div>';
   }).join('');
@@ -8738,29 +8888,6 @@ function renderDashboard() {
     var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
     var bajoCuad = matsCuad.filter(function(m){ return getStock(cid,m.id) < m.min; }).length;
 
-    // Accesos rápidos: solo muestra Red Interna / Retiros si la cuadrilla los tiene habilitados
-    // (mismo criterio que ya decide si esos ítems aparecen en el menú lateral).
-    var quickActions = document.getElementById('dash-quick-actions');
-    if (quickActions) {
-      var navRI = document.getElementById('nav-red-interna');
-      var navRet = document.getElementById('nav-retiros-cuad');
-      var accesos = [
-        { icon:'📝', label:'Nueva asignación', color:'var(--accent)', fn:"showSection('asignar')" },
-        { icon:'📇', label:'Registrar Kardex', color:'#22c55e', fn:"showSection('kardex')" }
-      ];
-      if (navRI && navRI.style.display !== 'none') accesos.push({ icon:'🖧', label:'Red Interna', color:'#6366f1', fn:"showSection('red-interna')" });
-      if (navRet && navRet.style.display !== 'none') accesos.push({ icon:'♻️', label:'Retiros', color:'#f59e0b', fn:"showSection('retiros')" });
-      accesos.push({ icon:'⚠️', label:'Visita fallida', color:'#f97316', fn:"showSection('visitas-fallidas-cuad')" });
-
-      quickActions.innerHTML = accesos.map(function(a){
-        return '<button onclick="'+a.fn+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:14px 10px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--bg2);cursor:pointer;transition:border-color .12s,transform .1s;" '
-          +'onmouseover="this.style.borderColor=\''+a.color+'\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
-          +'<span style="font-size:22px;">'+a.icon+'</span>'
-          +'<span style="font-size:12px;font-weight:600;color:var(--ink);">'+a.label+'</span>'
-          +'</button>';
-      }).join('');
-    }
-
     // Rendimiento del día: asignaciones a clientes, trabajos de red interna y movimientos de kardex
     var asigsHoyCuad = asigListFiltrada().filter(function(a){
       return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today && a.tipoRegistro!=='redInterna';
@@ -9718,15 +9845,27 @@ function buscarUsoMaterial() {
 
   var html = '';
   var esAdmin = currentUser.tipo === 'admin';
+  // Igual que en Historial: los totales (arriba) se calculan sobre TODO el
+  // historial encontrado, pero solo se construyen como filas de tabla un
+  // máximo razonable — si un material se usó cientos de veces, no hace falta
+  // pintar cientos de filas para "validar" el dato, con las más recientes
+  // alcanza y evita congelar el navegador/celular.
+  var LIMITE_FILAS_TRAZ = 200;
+  var asigsRecorte = asigs.length > LIMITE_FILAS_TRAZ;
+  var egresosRecorte = egresos.length > LIMITE_FILAS_TRAZ;
+  var asigsVisibles = asigsRecorte ? asigs.slice(0, LIMITE_FILAS_TRAZ) : asigs;
+  var egresosVisibles = egresosRecorte ? egresos.slice(0, LIMITE_FILAS_TRAZ) : egresos;
 
   // ── Tabla clientes ──
-  if (asigs.length) {
-    html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Clientes que recibieron este material</div>';
+  if (asigsVisibles.length) {
+    html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Clientes que recibieron este material'
+      + (asigsRecorte ? ' <span style="font-weight:400;font-size:11px;color:var(--amber);">(mostrando los '+LIMITE_FILAS_TRAZ+' más recientes de '+asigs.length+')</span>' : '')
+      + '</div>';
     html += '<div class="table-wrap" style="margin-bottom:1rem;"><table><thead><tr>'
       + '<th>Fecha</th><th>Cliente</th><th>Dirección</th><th>OT</th><th>Cantidad</th>'
       + (esAdmin ? '<th>Cuadrilla</th>' : '')
       + '<th>Técnico</th></tr></thead><tbody>';
-    html += asigs.map(function(a) {
+    html += asigsVisibles.map(function(a) {
       var mr = (a.materiales || []).find(function(m) { return m.matId === trazMatId; });
       var qty = mr ? mr.qty : '—';
       return '<tr>'
@@ -9747,13 +9886,15 @@ function buscarUsoMaterial() {
   }
 
   // ── Tabla egresos kardex ──
-  if (egresos.length) {
-    html += '<div class="card-title" style="margin-bottom:.5rem;">📤 Egresos en Kardex</div>';
+  if (egresosVisibles.length) {
+    html += '<div class="card-title" style="margin-bottom:.5rem;">📤 Egresos en Kardex'
+      + (egresosRecorte ? ' <span style="font-weight:400;font-size:11px;color:var(--amber);">(mostrando los '+LIMITE_FILAS_TRAZ+' más recientes de '+egresos.length+')</span>' : '')
+      + '</div>';
     html += '<div class="table-wrap"><table><thead><tr>'
       + '<th>Fecha</th><th>Cantidad</th><th>Referencia</th><th>Responsable</th>'
       + (esAdmin ? '<th>Cuadrilla</th>' : '')
       + '</tr></thead><tbody>';
-    html += egresos.map(function(k) {
+    html += egresosVisibles.map(function(k) {
       return '<tr>'
         + '<td style="font-size:11px;white-space:nowrap">' + fmtDTK(k) + '</td>'
         + '<td style="font-weight:600;color:var(--red);">-' + k.qty + ' ' + esc(mat.unidad || '') + '</td>'
@@ -10278,6 +10419,11 @@ function registrarAsignacion(){
       db.ref().update(updates).then(function(){
         toast('Asignación registrada. Generando PDF...','success');
         generarPDF(asig);
+        // Mostrar la ventana de "copiar texto" automáticamente al registrar —
+        // se arma ANTES de limpiar el formulario porque lee los campos en vivo,
+        // pero el modal usa un textarea con el texto ya armado (una foto fija),
+        // así que sigue mostrándose bien aunque el formulario se limpie después.
+        mostrarResumenTexto();
         // 2. Limpieza automática completa al confirmar
         limpiarAsignacion();
         showSection('dashboard');
@@ -10858,6 +11004,70 @@ function toggleHistDetalle(asigId) {
 
 // Genera el resumen de texto de una asignación ya guardada (desde Firebase)
 // y lo muestra en el modal de resumen — usable tanto desde cuadrilla como admin
+// Arma un ticket imprimible (pensado para impresora térmica de recibos, ej.
+// modelo MHT2408020088, ya registrada como impresora del sistema Android) con
+// los materiales de una asignación o trabajo de Red Interna, y dispara la
+// impresión nativa del navegador (window.print()) — así funciona con
+// cualquier impresora que ya aparezca en el diálogo de impresión normal del
+// celular, sin necesitar SDK ni conexión Bluetooth propia de la app.
+function imprimirMaterialesAsig(asigId) {
+  var a = cache.asignaciones[asigId];
+  if (!a) { toast('Asignación no encontrada','error'); return; }
+  var cuad = getCuad(a.cuadrillaId);
+  var esRI = a.tipoRegistro === 'redInterna';
+
+  var html = '';
+  html += '<div class="ticket-centro ticket-bold ticket-linea">BODEGANET ISP</div>';
+  html += '<div class="ticket-centro ticket-linea">Reporte de Materiales</div>';
+  html += '<div class="ticket-sep"></div>';
+  if (cuad) html += '<div class="ticket-linea">Cuadrilla: '+esc(cuad.nombre)+'</div>';
+  html += '<div class="ticket-linea">Técnico: '+esc(a.tecnico||'—')+'</div>';
+  html += '<div class="ticket-linea">Fecha: '+esc(fmtDate(a.fecha))+'</div>';
+  if (a.ot) html += '<div class="ticket-linea">OT: '+esc(a.ot)+'</div>';
+  html += '<div class="ticket-linea">'+(esRI?'Nodo/HE':'Cliente')+': '+esc(a.cliente||'—')+'</div>';
+  if (!esRI) {
+    if (a.tel) html += '<div class="ticket-linea">Teléfono: '+esc(a.tel)+'</div>';
+    if (a.dir) html += '<div class="ticket-linea">Dirección: '+esc(a.dir)+'</div>';
+    if (a.idCliente) html += '<div class="ticket-linea">ID Cliente: '+esc(a.idCliente)+'</div>';
+  }
+  html += '<div class="ticket-linea">Trabajo: '+esc(a.tipo||'—')+'</div>';
+  html += '<div class="ticket-sep"></div>';
+  html += '<div class="ticket-bold ticket-linea">MATERIALES</div>';
+
+  var mats = (a.materiales||[]).filter(function(m){ return m.matId; });
+  if (!mats.length) {
+    html += '<div class="ticket-linea">(Sin materiales registrados)</div>';
+  } else {
+    mats.forEach(function(m, i){
+      var mt = getMat(m.matId);
+      if (!mt) return;
+      html += '<div class="ticket-linea">'+(i+1)+'. '+esc(mt.nombre)+': '+m.qty+' '+esc(mt.unidad)+'</div>';
+      if (m.unidades && m.unidades.length) {
+        m.unidades.forEach(function(u, ui){
+          if (!u.mac && !u.serie) return;
+          var partes = [];
+          if (u.mac)   partes.push('MAC:'+u.mac);
+          if (u.serie) partes.push('Serie:'+u.serie);
+          html += '<div class="ticket-linea">   ['+(ui+1)+'] '+esc(partes.join('  '))+'</div>';
+        });
+      }
+    });
+  }
+
+  if (a.obs) {
+    html += '<div class="ticket-sep"></div>';
+    html += '<div class="ticket-bold ticket-linea">OBSERVACIONES</div>';
+    html += '<div class="ticket-linea">'+esc(a.obs)+'</div>';
+  }
+
+  html += '<div class="ticket-sep"></div>';
+  html += '<div class="ticket-centro ticket-linea">Impreso: '+esc(fmtDT(Date.now()))+'</div>';
+
+  document.getElementById('print-area').innerHTML = html;
+  setTimeout(function(){ window.print(); }, 50);
+}
+
+
 function mostrarResumenTextoAsig(asigId) {
   var a = cache.asignaciones[asigId];
   if (!a) { toast('Asignación no encontrada','error'); return; }
@@ -11663,6 +11873,59 @@ function detalleTiempoProblema(a) {
   return '<div style="margin-top:6px;font-size:11px;color:#fff;background:'+color+';border-radius:4px;padding:4px 8px;display:inline-block;">'+texto+(a.tiempoRevisado?' — ✓ ya revisado':'')+'</div>';
 }
 
+// Busca el tiempo estimado configurado para el tipo/sector de un registro,
+// sin depender de que ya haya sido evaluado (a.tiempoEstimadoMin solo existe
+// si en su momento se detectó un problema — para dibujar la barra en
+// CUALQUIER registro, incluidos los normales, hay que recalcularlo aquí).
+function _getEstimadoParaRegistro(a) {
+  var cuad = getCuad(a.cuadrillaId);
+  var sector = cuad ? (cuad.sectorId || cuad.sector || '1') : null;
+  if (!sector) return null;
+  var categoria = a.tipoRegistro === 'redInterna' ? 'ri' : 'cliente';
+  var fuente = categoria === 'ri' ? cache.tiemposDefaultRI : cache.tiemposDefault;
+  var config = fuente[sector] || {};
+  return config[a.tipo||''] || null;
+}
+
+// Barra visual de línea de tiempo: dónde cae la duración real de un trabajo
+// respecto al rango "normal" (zona verde, entre el mínimo razonable y el
+// máximo permitido) y al tiempo estimado (marca gris). Sirve para validar de
+// un vistazo que el badge de "excede"/"corto" corresponde a un cálculo real,
+// no solo confiar en el texto.
+function barraDuracionHTML(a) {
+  var real = calcDuracionMin(a.horaInicio, a.horaFin);
+  if (real === null) return '';
+  var estimado = _getEstimadoParaRegistro(a);
+
+  if (!estimado) {
+    return '<div style="margin-top:8px;font-size:11px;color:var(--ink3);">⏱ Duración real: <strong style="color:var(--ink);">'+fmtDuracion(real)+'</strong> — sin tiempo estimado configurado para este tipo, no hay con qué comparar</div>';
+  }
+
+  var minOk = Math.max(Math.round(estimado * PORCENTAJE_MINIMO_DURACION), PISO_MINIMO_DURACION_MIN);
+  var maxOk = estimado + TOLERANCIA_DURACION_MIN;
+  var escalaMax = Math.max(maxOk * 1.25, real * 1.1, estimado * 1.5, 1);
+
+  var pctMinOk    = Math.max(0, Math.min(100, (minOk    / escalaMax) * 100));
+  var pctMaxOk    = Math.max(0, Math.min(100, (maxOk    / escalaMax) * 100));
+  var pctEstimado = Math.max(0, Math.min(100, (estimado / escalaMax) * 100));
+  var pctReal     = Math.max(0, Math.min(100, (real     / escalaMax) * 100));
+
+  var color = real < minOk ? 'var(--amber)' : real > maxOk ? 'var(--red)' : 'var(--green)';
+  var estado = real < minOk ? 'Corta' : real > maxOk ? 'Excede' : 'Normal';
+
+  return '<div style="margin-top:10px;max-width:340px;">'
+    + '<div style="position:relative;height:10px;background:var(--bg3);border-radius:5px;margin:16px 4px 4px;">'
+    +   '<div style="position:absolute;left:'+pctMinOk+'%;width:'+(pctMaxOk-pctMinOk)+'%;top:0;height:100%;background:rgba(34,197,94,.20);border-radius:5px;" title="Rango normal: '+fmtDuracion(minOk)+' a '+fmtDuracion(maxOk)+'"></div>'
+    +   '<div style="position:absolute;left:'+pctEstimado+'%;top:-4px;width:2px;height:18px;background:var(--ink3);" title="Tiempo estimado: '+fmtDuracion(estimado)+'"></div>'
+    +   '<div style="position:absolute;left:calc('+pctReal+'% - 6px);top:-3px;width:12px;height:12px;border-radius:50%;background:'+color+';border:2px solid var(--bg2);box-shadow:0 0 0 1px '+color+';" title="Duración real: '+fmtDuracion(real)+'"></div>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink3);padding:0 4px;">'
+    +   '<span>0</span><span>Estimado '+fmtDuracion(estimado)+'</span><span>'+fmtDuracion(escalaMax)+'</span>'
+    + '</div>'
+    + '<div style="font-size:11px;margin-top:4px;padding:0 4px;">Duración real: <strong style="color:'+color+';">'+fmtDuracion(real)+'</strong> <span style="color:'+color+';">('+estado+')</span></div>'
+    + '</div>';
+}
+
 function marcarTiempoRevisado(asigId) {
   db.ref('asignaciones/'+asigId+'/tiempoRevisado').set(true)
     .then(function(){ toast('Marcado como revisado','success'); renderHistorial(); })
@@ -11793,7 +12056,8 @@ function renderHistorial(){
           ? '<button class="btn btn-sm" onclick="abrirModalEditarMateriales(\''+a.id+'\');event.stopPropagation();">✏️ Editar asignación</button>'
           : '<span style="font-size:11px;color:var(--ink3);padding:6px 0;">✏️ Plazo de edición vencido</span>';
       }
-      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button></div>';
+      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>';
+      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="imprimirMaterialesAsig(\''+a.id+'\');event.stopPropagation();">🖨️ Imprimir</button></div>';
 
       // Datos extra distintos según tipo
       var extraHTML = '';
@@ -11812,6 +12076,7 @@ function renderHistorial(){
         ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(efCuad.minutos)+' (sin hora de fin registrada)</div>'
         : '';
       estimadoHTML += detalleTiempoProblema(a);
+      estimadoHTML += barraDuracionHTML(a);
 
       return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
         +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
@@ -11853,6 +12118,20 @@ function renderHistorial(){
         selCuadHist.appendChild(o);
       });
     }
+    // Rendimiento: por defecto se acota a los últimos 30 días — antes, sin
+    // rango seleccionado, se renderizaba TODO el historial del sector (miles
+    // de filas con badges, barra de duración, materiales, botones...) en
+    // cada actualización, lo que congelaba tanto el navegador de admin como
+    // el celular de la cuadrilla. Se aplica una sola vez por sesión — si el
+    // admin borra el rango a propósito (para buscar algo más viejo), se
+    // respeta esa decisión y no se vuelve a forzar automáticamente.
+    var fIniElAdmin = document.getElementById('hist-admin-fecha-ini');
+    if (fIniElAdmin && !fIniElAdmin.value && !historialRangoDefaultAplicado) {
+      var hace30 = new Date(); hace30.setDate(hace30.getDate()-30);
+      fIniElAdmin.value = hace30.toISOString().slice(0,10);
+    }
+    historialRangoDefaultAplicado = true;
+
     var fCuad   = (document.getElementById('hist-admin-cuadrilla')||{value:''}).value;
     var fSearch = ((document.getElementById('hist-admin-search')||{value:''}).value||'').trim().toLowerCase();
     var fIni    = (document.getElementById('hist-admin-fecha-ini')||{value:''}).value;
@@ -11894,9 +12173,22 @@ function renderHistorial(){
     }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
 
     var conteoEl = document.getElementById('hist-admin-conteo');
+    var totalEncontrado = asigs.length;
+    // Red de seguridad adicional: aunque ya se acota por fecha, nunca se
+    // construyen más de 400 filas de una vez (cada una trae badges, barra de
+    // duración, materiales, botones — es contenido pesado). Si hay más,
+    // se avisa para que se acote el rango o se use la búsqueda.
+    var LIMITE_FILAS_HIST = 400;
+    var huboRecorte = asigs.length > LIMITE_FILAS_HIST;
+    if (huboRecorte) asigs = asigs.slice(0, LIMITE_FILAS_HIST);
+
     if (conteoEl) {
       var rangoTxt = (fIni||fFin) ? ('Del '+(fIni||'—')+' al '+(fFin||'—')+' · ') : '';
-      conteoEl.textContent = rangoTxt + asigs.length + ' registro(s) encontrado(s)';
+      conteoEl.textContent = rangoTxt + (huboRecorte
+        ? ('Mostrando '+LIMITE_FILAS_HIST+' de '+totalEncontrado+' encontrados — acota el rango de fechas o usa la búsqueda para ver el resto')
+        : (totalEncontrado + ' registro(s) encontrado(s)'));
+      conteoEl.style.color = huboRecorte ? 'var(--amber)' : '';
+      conteoEl.style.fontWeight = huboRecorte ? '600' : '';
     }
 
     var thead = document.querySelector('#sec-historial table thead tr');
@@ -11948,6 +12240,7 @@ function renderHistorial(){
         botonesDetalle += '<button class="btn btn-sm btn-red" onclick="eliminarRIDesdeHistorial(\''+a.id+'\');event.stopPropagation();">🗑️ Eliminar</button>';
       }
       botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>';
+      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="imprimirMaterialesAsig(\''+a.id+'\');event.stopPropagation();">🖨️ Imprimir</button>';
       if (a.excedeTiempo && !a.tiempoRevisado) {
         botonesDetalle += '<button class="btn btn-sm" style="border-color:var(--green);color:var(--green);" onclick="marcarTiempoRevisado(\''+a.id+'\');event.stopPropagation();">✓ Marcar como revisado</button>';
       }
@@ -11972,6 +12265,7 @@ function renderHistorial(){
               +matsDetalle+auditHTML+reemplazadosDetalleAdmin
               +(function(){ var ef=getTiempoEfectivo(a); return (ef&&ef.estimado) ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(ef.minutos)+'</div>' : ''; })()
               +detalleTiempoProblema(a)
+              +barraDuracionHTML(a)
             +'</div>'
             +'<div>'+(extraHTML||'<span style="font-size:12px;color:var(--ink3);">Sin datos adicionales</span>')+'</div>'
           +'</div>'
@@ -12892,6 +13186,7 @@ function renderAdminReportes(){
   else if (repTabActivo === 'visitas') renderVisitasFallidas();
   else if (repTabActivo === 'reincidencias') { poblarSelReincidencias(); renderReincidencias(); }
   else if (repTabActivo === 'cuadres') { poblarSelRepCuadres(); renderRepCuadres(); }
+  else if (repTabActivo === 'pendientes-retiro') { poblarSelPendientesRetiroAdmin(); renderPendientesRetiroAdmin(); }
   else renderResumenMateriales();
 }
 
@@ -13405,5 +13700,13 @@ function mostrarErrorFirebase(titulo, subtitulo, causas) {
 
 }); // fin DOMContentLoaded
 </script>
+
+<!-- Área de impresión — oculta en pantalla, solo visible al imprimir (ver
+     @media print e imprimirMaterialesAsig). Pensada para impresoras térmicas
+     de recibos (ej. modelo MHT2408020088) ya registradas como impresora del
+     sistema Android — se usa window.print() nativo, sin SDK ni Bluetooth
+     propio, para que funcione con cualquier impresora que ya aparezca en el
+     diálogo de impresión normal del celular. -->
+<div id="print-area"></div>
 </body>
 </html>
