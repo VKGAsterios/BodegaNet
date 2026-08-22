@@ -5,7 +5,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet v2.20 — Control de Materiales ISP</title>
+<title>BodegaNet v2.28 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -283,25 +283,6 @@ select option{background:var(--bg3);color:var(--ink);}
 .herr-kpi-card{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--r);padding:12px 14px;text-align:center;}
 .herr-kpi-num{font-size:22px;font-weight:700;line-height:1;}
 .herr-kpi-lbl{font-size:11px;color:var(--ink3);margin-top:3px;}
-
-/* Impresión térmica de tickets de materiales (Historial → 🖨️ Imprimir).
-   #print-area está oculto en pantalla; al imprimir, se oculta TODO lo demás
-   y solo se muestra el ticket, en blanco y negro, con ancho angosto tipo
-   recibo (funciona tanto para rollos de 58mm como 80mm — el diálogo de
-   impresión de Android ajusta según la impresora seleccionada). */
-#print-area{display:none;}
-@media print{
-  body *{visibility:hidden!important;}
-  #print-area,#print-area *{visibility:visible!important;}
-  #print-area{
-    display:block!important;position:absolute;top:0;left:0;width:100%;
-    font-family:'Courier New',monospace;color:#000;background:#fff;font-size:12px;line-height:1.4;
-  }
-  .ticket-linea{white-space:pre-wrap;word-break:break-word;}
-  .ticket-sep{border-top:1px dashed #000;margin:6px 0;}
-  .ticket-centro{text-align:center;}
-  .ticket-bold{font-weight:700;}
-}
 </style>
 </head>
 <body>
@@ -367,6 +348,9 @@ select option{background:var(--bg3);color:var(--ink);}
     <div class="topbar-right">
       <div id="super-sector-selector" style="display:none;align-items:center;gap:6px;margin-right:8px;"></div>
       <span class="topbar-sync sync-ok" id="sync-indicator">● En línea</span>
+      <button class="alert-bell" id="bn-pend-wrap" onclick="sincronizarPendientesGenerico(true)" style="display:none;" title="Registros guardados en este dispositivo, pendientes de subir a Firebase">
+        ⏳ <span id="bn-pend-badge">0</span> pendiente(s)
+      </button>
       <button class="alert-bell" onclick="showSection('alertas')">
         <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 00-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 00-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M8 16.5a2 2 0 004 0" stroke="currentColor" stroke-width="1.5"/></svg>
         <span class="alert-count" id="alert-count" style="display:none">0</span>
@@ -611,6 +595,9 @@ select option{background:var(--bg3);color:var(--ink);}
 
         <!-- Vista CUADRILLA: solo total de materiales -->
         <div id="dash-cuad-view" style="display:none;">
+          <!-- ACCESOS RÁPIDOS -->
+          <div id="dash-quick-actions" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem;"></div>
+
           <!-- KPI cuadrilla: total de materiales en bodega + rendimiento del día -->
           <div class="kpi-grid" id="kpi-grid-cuad"></div>
 
@@ -679,15 +666,34 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
         </div>
 
-        <!-- ── Búsqueda de material (auditoría) — visible para cuadrilla y admin.
-             Antes vivía dentro de las herramientas exclusivas de admin; se separa
-             porque la cuadrilla también necesita poder rastrear dónde usó un
-             material desde su primera asignación, no solo el admin. ── -->
-        <div id="kardex-mat-audit-tools" style="margin-bottom:1rem;">
+        <!-- ── Búsqueda por MAC (admin/superadmin) ── -->
+        <div id="kardex-admin-tools" style="display:none;">
           <div class="card" style="margin-bottom:1rem;">
             <div class="card-header" style="margin-bottom:.75rem;">
-              <h3 style="font-size:14px;">🔍 Búsqueda de material (auditoría)</h3>
-              <span style="font-size:12px;color:var(--ink3);">¿Dónde he usado este material? — todo el historial, desde la primera vez</span>
+              <h3 style="font-size:14px;">
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="vertical-align:middle;margin-right:4px;"><rect x="2" y="5" width="16" height="10" rx="2" stroke="var(--accent)" stroke-width="1.5"/><path d="M6 10h.01M10 10h.01M14 10h.01" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
+                Buscar por MAC
+              </h3>
+              <span style="font-size:12px;color:var(--ink3);">¿A qué cliente fue asignado este equipo?</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div style="position:relative;flex:1;min-width:200px;">
+                <input type="text" id="mac-search-input" placeholder="AA:BB:CC:DD:EE:FF"
+                  maxlength="17" autocomplete="off" spellcheck="false"
+                  oninput="autoFormatMACSearch(this)"
+                  onkeydown="if(event.key==='Enter')buscarPorMAC()"
+                  style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:monospace;background:var(--bg3);color:var(--ink);outline:none;">
+                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:12px;pointer-events:none;">MAC</span>
+              </div>
+              <button class="btn btn-accent" onclick="buscarPorMAC()">Buscar</button>
+              <button class="btn btn-ghost" onclick="limpiarBusquedaMAC()">✕ Limpiar</button>
+            </div>
+            <div id="mac-search-result" style="display:none;margin-top:1rem;"></div>
+          </div>
+          <div class="card" style="margin-bottom:1rem;">
+            <div class="card-header" style="margin-bottom:.75rem;">
+              <h3 style="font-size:14px;">🔍 Buscar uso de material</h3>
+              <span style="font-size:12px;color:var(--ink3);">¿En qué clientes se usó este material?</span>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <div style="position:relative;flex:1;min-width:200px;">
@@ -708,41 +714,6 @@ select option{background:var(--bg3);color:var(--ink);}
               <div id="kardex-traz-header" style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap;"></div>
               <div id="kardex-traz-tabla"></div>
             </div>
-          </div>
-        </div>
-
-        <!-- ── Búsqueda por MAC o Serie (admin/superadmin) ── -->
-        <div id="kardex-admin-tools" style="display:none;">
-          <div class="card" style="margin-bottom:1rem;">
-            <div class="card-header" style="margin-bottom:.75rem;">
-              <h3 style="font-size:14px;">
-                <svg width="15" height="15" viewBox="0 0 20 20" fill="none" style="vertical-align:middle;margin-right:4px;"><rect x="2" y="5" width="16" height="10" rx="2" stroke="var(--accent)" stroke-width="1.5"/><path d="M6 10h.01M10 10h.01M14 10h.01" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
-                Buscar por MAC o Serie
-              </h3>
-              <span style="font-size:12px;color:var(--ink3);">¿A qué cliente fue asignado este equipo?</span>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-              <div style="position:relative;flex:1;min-width:200px;">
-                <input type="text" id="mac-search-input" placeholder="AA:BB:CC:DD:EE:FF"
-                  maxlength="17" autocomplete="off" spellcheck="false"
-                  oninput="autoFormatMACSearch(this)"
-                  onkeydown="if(event.key==='Enter')buscarPorMAC()"
-                  style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:monospace;background:var(--bg3);color:var(--ink);outline:none;">
-                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:12px;pointer-events:none;">MAC</span>
-              </div>
-              <button class="btn btn-accent" onclick="buscarPorMAC()">Buscar MAC</button>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <div style="position:relative;flex:1;min-width:200px;">
-                <input type="text" id="serie-search-input" placeholder="Número de serie"
-                  autocomplete="off" spellcheck="false"
-                  onkeydown="if(event.key==='Enter')buscarPorSerie()"
-                  style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:monospace;background:var(--bg3);color:var(--ink);outline:none;">
-              </div>
-              <button class="btn btn-accent" onclick="buscarPorSerie()">Buscar Serie</button>
-              <button class="btn btn-ghost" onclick="limpiarBusquedaMAC()">✕ Limpiar</button>
-            </div>
-            <div id="mac-search-result" style="display:none;margin-top:1rem;"></div>
           </div>
         </div>
 
@@ -778,7 +749,11 @@ select option{background:var(--bg3);color:var(--ink);}
         <div class="asignar-action-bar" style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-green" onclick="registrarAsignacion()" style="flex:1;justify-content:center;min-width:120px;">
             <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-7 14V10H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-            Registrar, PDF y Texto
+            Registrar y PDF
+          </button>
+          <button class="btn" onclick="mostrarResumenTexto()" style="flex:1;justify-content:center;min-width:120px;border-color:var(--blue);color:var(--blue);">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h8M6 10h8M6 13h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            Resumen texto
           </button>
           <button class="btn btn-ghost" onclick="limpiarAsignacion()" style="flex:1;justify-content:center;min-width:80px;">Limpiar</button>
         </div>
@@ -1085,7 +1060,6 @@ select option{background:var(--bg3);color:var(--ink);}
           <button class="rep-tab" onclick="switchRepTab('reincidencias')" id="tab-reincidencias" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">🔁 Reincidencias</button>
           <button class="rep-tab" onclick="switchRepTab('tiempos')" id="tab-tiempos" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">⏱ Tiempos por Trabajo</button>
           <button class="rep-tab" onclick="switchRepTab('cuadres')" id="tab-cuadres" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">📦 Cuadres de retiros</button>
-          <button class="rep-tab" onclick="switchRepTab('pendientes-retiro')" id="tab-pendientes-retiro" style="padding:10px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;white-space:nowrap;">⏳ Pendientes de cuadre</button>
           <!-- Tab Visitas Fallidas oculto — no implementado actualmente -->
         </div>
 
@@ -1331,34 +1305,9 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="table-wrap"><table>
               <thead><tr>
                 <th># Cuadre</th><th>Fecha cuadre</th><th>Cuadrilla</th>
-                <th>Equipo</th><th>Cant.</th><th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th><th></th>
+                <th>Equipo</th><th>Cant.</th><th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th>
               </tr></thead>
               <tbody id="rc2-tbody"></tbody>
-            </table></div>
-          </div>
-        </div>
-
-        <div id="reptab-pendientes-retiro" style="display:none;">
-          <div class="card">
-            <div class="card-title">Equipos retirados aún sin cuadrar — por cuadrilla</div>
-            <p style="font-size:12px;color:var(--ink3);margin-bottom:.75rem;">Aquí puedes eliminar un registro duplicado o mal capturado antes de que se cuadre.</p>
-            <div class="form-grid">
-              <div class="field"><label>Cuadrilla</label>
-                <select id="rpr-cuadrilla" onchange="renderPendientesRetiroAdmin()"><option value="">Todas las cuadrillas</option></select>
-              </div>
-            </div>
-          </div>
-          <div class="kpi-grid" id="rpr-kpis" style="margin-bottom:1rem;"></div>
-          <div class="card">
-            <div class="card-header">
-              <h3>Pendientes de cuadre</h3>
-              <span id="rpr-count" style="font-size:13px;color:var(--ink3);"></span>
-            </div>
-            <div class="table-wrap"><table>
-              <thead><tr>
-                <th>Cuadrilla</th><th>Equipo</th><th>Cant.</th><th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th><th></th>
-              </tr></thead>
-              <tbody id="rpr-tbody"></tbody>
             </table></div>
           </div>
         </div>
@@ -1620,6 +1569,20 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
           <button class="btn" style="background:#7B2FBE;color:#fff;" onclick="cambiarPassSuper()">Actualizar contraseña SuperAdmin</button>
         </div>
+        <!-- Actualizar dispositivos (solo SuperAdmin) -->
+        <div class="card" id="cfg-version-card" style="display:none;">
+          <div class="card-title">🔄 Actualizar dispositivos</div>
+          <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">
+            Cuando subas un archivo nuevo de BodegaNet a tu hosting, usa este botón para que
+            <strong>todos los dispositivos que tengan la app abierta</strong> (cualquier sector, cualquier cuadrilla,
+            incluyendo los que están en la pantalla de inicio de sesión) recarguen automáticamente y usen la versión nueva —
+            sin tener que avisarle uno por uno a cada técnico.
+          </p>
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:12px;">
+            Versión de este dispositivo: <strong id="cfg-version-actual">—</strong>
+          </div>
+          <button class="btn btn-accent" onclick="publicarActualizacion()">📤 Publicar esta versión y recargar a todos</button>
+        </div>
         <!-- SEGURIDAD: Reglas Firebase -->
         <div class="card" id="cfg-firebase-rules-card" style="display:none;">
           <div class="card-title">🛡 Reglas de seguridad Firebase</div>
@@ -1813,6 +1776,46 @@ select option{background:var(--bg3);color:var(--ink);}
             <button class="btn btn-sm" onclick="renderBloqueosLogin()">🔄 Actualizar</button>
           </div>
           <div id="bloqueos-login-lista"><p style="color:var(--ink3);font-size:13px;">Haz clic en Actualizar para cargar.</p></div>
+        </div>
+
+        <!-- 9. Limpieza de datos antiguos -->
+        <div class="card" style="border-color:rgba(220,38,38,.2);">
+          <div class="card-title">🧹 Limpieza de datos antiguos</div>
+          <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">
+            Elimina registros históricos para aligerar tus consultas y reportes. <strong>Esta acción no se puede deshacer.</strong>
+            No afecta el stock actual ni el inventario — solo borra el historial ya cerrado (Kardex, Retiros, Asignaciones, Visitas fallidas, Red Interna, Logs).
+          </p>
+          <div class="form-grid g1">
+            <div class="field">
+              <label>Eliminar registros con más de</label>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="number" id="limp-meses" value="3" min="1" max="60" style="width:90px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <span style="font-size:14px;">mes(es) de antigüedad</span>
+              </div>
+            </div>
+            <div class="field" id="limp-sector-field" style="display:none;">
+              <label>Sector (solo SuperAdmin)</label>
+              <select id="limp-sector" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+                <option value="">Todos los sectores</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>¿Qué eliminar?</label>
+              <div id="limp-modulos" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;"><input type="checkbox" value="kardex" checked> Kardex (ingresos/egresos)</label>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;"><input type="checkbox" value="retiros" checked> Retiros de equipo</label>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;"><input type="checkbox" value="asignaciones" checked> Asignaciones a clientes</label>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;"><input type="checkbox" value="visitas_fallidas" checked> Visitas fallidas</label>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;"><input type="checkbox" value="redInterna" checked> Red Interna</label>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:400;"><input type="checkbox" value="logs"> Logs de acceso (no se filtran por sector)</label>
+              </div>
+            </div>
+          </div>
+          <div id="limp-resultado" style="margin:12px 0;font-size:14px;"></div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="previsualizarLimpieza()">🔍 Ver cuántos se eliminarían</button>
+            <button class="btn btn-red" id="limp-btn-eliminar" onclick="confirmarLimpieza()" disabled>🗑 Eliminar registros</button>
+          </div>
         </div>
       </section>
 
@@ -2971,6 +2974,17 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ══════════════════════════════════════════════════════
+// FIX ACTUALIZACIONES (v2.27): forzar recarga al publicar versión nueva
+// ══════════════════════════════════════════════════════
+// Cada vez que subas un archivo nuevo a tu hosting (GitHub Pages, Netlify...),
+// sube también el número de BN_APP_VERSION. Cuando publiques la actualización
+// desde Configuración → Actualizar dispositivos, todos los navegadores que
+// tengan BodegaNet abierto (login o ya adentro, de cualquier cuadrilla/sector)
+// recargan la página automáticamente para tomar el código nuevo — sin tener
+// que avisarle uno por uno a cada técnico que refresque manualmente.
+const BN_APP_VERSION = '2.27';
+
+// ══════════════════════════════════════════════════════
 // PARCHE DE SEGURIDAD
 // ══════════════════════════════════════════════════════
 
@@ -3465,15 +3479,16 @@ function guardarVisitaFallida() {
   };
   if (!editId) data.id = uid();
 
-  var ref = editId ? db.ref('visitas_fallidas/'+editId) : db.ref('visitas_fallidas/'+data.id);
-  ref.set(data).then(function(){
+  var updatesVF = {}; updatesVF['visitas_fallidas/'+(editId||data.id)] = data;
+  // FIX CONECTIVIDAD: mismo respaldo automático que Kardex/Retiros/Asignaciones.
+  guardarConRespaldo(updatesVF, 'Visita fallida: '+cliente, 'visita-fallida', function(){
     toast(editId?'Visita fallida actualizada':'Visita fallida registrada','success');
     closeModal('modal-visita-fallida');
     // Re-render inmediato según qué sección esté activa, sin esperar al listener
     if (currentSection === 'visitas-fallidas-cuad') renderVisitasFallidasCuad();
     if (currentSection === 'admin-visitas-fallidas') renderAdminVF();
     if (currentSection === 'admin-reportes') renderVisitasFallidas();
-  }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  });
 }
 
 // ── ADMIN VISITAS FALLIDAS (sección standalone) ───────
@@ -3921,11 +3936,76 @@ function esc(v) {
 }
 
 // ── FIX SEGURIDAD: SHA-256 para hashing de contraseñas ─────────────────
-async function sha256(str) {
-  var buf = await crypto.subtle.digest('SHA-256',
-    new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf))
-    .map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+// FIX COMPATIBILIDAD (v2.24): crypto.subtle (Web Crypto) solo existe en
+// "contextos seguros" (HTTPS o localhost) y no está disponible en algunos
+// navegadores/WebViews más limitados. Si BodegaNet se abre por http:// en
+// una red interna, o desde uno de esos navegadores, crypto.subtle es
+// undefined y el login quedaba "muerto" (el botón no hacía nada, sin
+// ningún error visible). Ahora se usa crypto.subtle cuando está disponible
+// (rápido, nativo) y si no, se cae a una implementación de SHA-256 100%
+// en JavaScript puro, sin dependencias, que funciona igual en cualquier
+// navegador — el resultado es idéntico en ambos casos.
+function _sha256Puro(str) {
+  function rrot(x, n) { return (x >>> n) | (x << (32 - n)); }
+  var K = [
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ];
+  var H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  var utf8 = unescape(encodeURIComponent(str)); // bytes UTF-8, sin depender de TextEncoder
+  var len = utf8.length, bitLen = len * 8;
+  var withOne = len + 1;
+  var padded = withOne + ((56 - (withOne % 64) + 64) % 64) + 8;
+  var buf = new Uint8Array(padded);
+  for (var i = 0; i < len; i++) buf[i] = utf8.charCodeAt(i) & 0xff;
+  buf[len] = 0x80;
+  var hi = Math.floor(bitLen / 0x100000000), lo = bitLen >>> 0;
+  buf[padded-8]=(hi>>>24)&0xff; buf[padded-7]=(hi>>>16)&0xff; buf[padded-6]=(hi>>>8)&0xff; buf[padded-5]=hi&0xff;
+  buf[padded-4]=(lo>>>24)&0xff; buf[padded-3]=(lo>>>16)&0xff; buf[padded-2]=(lo>>>8)&0xff; buf[padded-1]=lo&0xff;
+  var w = new Array(64);
+  for (var chunk = 0; chunk < padded; chunk += 64) {
+    for (var t = 0; t < 16; t++) {
+      var o = chunk + t*4;
+      w[t] = (buf[o]<<24 | buf[o+1]<<16 | buf[o+2]<<8 | buf[o+3]) >>> 0;
+    }
+    for (t = 16; t < 64; t++) {
+      var s0 = rrot(w[t-15],7) ^ rrot(w[t-15],18) ^ (w[t-15] >>> 3);
+      var s1 = rrot(w[t-2],17) ^ rrot(w[t-2],19) ^ (w[t-2] >>> 10);
+      w[t] = (w[t-16] + s0 + w[t-7] + s1) >>> 0;
+    }
+    var a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for (t = 0; t < 64; t++) {
+      var S1 = rrot(e,6) ^ rrot(e,11) ^ rrot(e,25);
+      var ch = (e & f) ^ (~e & g);
+      var temp1 = (h + S1 + ch + K[t] + w[t]) >>> 0;
+      var S0 = rrot(a,2) ^ rrot(a,13) ^ rrot(a,22);
+      var maj = (a & b) ^ (a & c) ^ (b & c);
+      var temp2 = (S0 + maj) >>> 0;
+      h=g; g=f; f=e; e=(d+temp1)>>>0; d=c; c=b; b=a; a=(temp1+temp2)>>>0;
+    }
+    H[0]=(H[0]+a)>>>0; H[1]=(H[1]+b)>>>0; H[2]=(H[2]+c)>>>0; H[3]=(H[3]+d)>>>0;
+    H[4]=(H[4]+e)>>>0; H[5]=(H[5]+f)>>>0; H[6]=(H[6]+g)>>>0; H[7]=(H[7]+h)>>>0;
+  }
+  return H.map(function(x){ return ('00000000'+(x>>>0).toString(16)).slice(-8); }).join('');
+}
+function sha256(str) {
+  if (window.crypto && window.crypto.subtle && window.crypto.subtle.digest) {
+    try {
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+        .then(function(buf){
+          return Array.from(new Uint8Array(buf))
+            .map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+        })
+        .catch(function(){ return _sha256Puro(str); }); // subtle falló en tiempo real → respaldo
+    } catch (e) { /* subtle existe pero lanzó síncronamente → respaldo */ }
+  }
+  return Promise.resolve(_sha256Puro(str));
 }
 
 // Sincrónico para compatibilidad con el flujo actual
@@ -3979,13 +4059,10 @@ function initSidebarState() {
 // 3. PESTAÑAS DE REPORTES
 // ══════════════════════════════════════════════════════
 var repTabActivo = 'asignaciones'; // pestaña de Reportes actualmente visible — usada para
-// Controla que el rango de 30 días por defecto en Historial admin se aplique
-// solo una vez por sesión (ver renderHistorial) — no pisa una limpieza manual.
-var historialRangoDefaultAplicado = false;
                                     // refrescarla sola cuando cambian los datos subyacentes
 function switchRepTab(tab) {
   repTabActivo = tab;
-  ['asignaciones','reincidencias','visitas','tiempos','cuadres','pendientes-retiro'].forEach(function(t) {
+  ['asignaciones','reincidencias','visitas','tiempos','cuadres'].forEach(function(t) {
     var panel = document.getElementById('reptab-'+t);
     var btn   = document.getElementById('tab-'+t);
     if (!panel || !btn) return;
@@ -4000,7 +4077,6 @@ function switchRepTab(tab) {
   if (tab === 'asignaciones') renderResumenMateriales();
   if (tab === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
   if (tab === 'cuadres') { poblarSelRepCuadres(); renderRepCuadres(); }
-  if (tab === 'pendientes-retiro') { poblarSelPendientesRetiroAdmin(); renderPendientesRetiroAdmin(); }
 }
 
 function poblarSelKardexRep() {
@@ -4379,9 +4455,7 @@ function renderRepCuadres() {
         cantidad:   eq.cantidad||1,
         cliente:    r.cliente||'—',
         numTrabajo: r.numTrabajo||'—',
-        fechaRetiro:r.fecha||'',
-        retiroId:   r.id,
-        equipoId:   eq.equipoId
+        fechaRetiro:r.fecha||''
       });
     });
   });
@@ -4403,7 +4477,7 @@ function renderRepCuadres() {
 
   var tbody = document.getElementById('rc2-tbody');
   if (!filas.length) {
-    tbody.innerHTML = '<tr><td colspan="9">'+empty('Sin cuadres en este período')+'</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8">'+empty('Sin cuadres en este período')+'</td></tr>';
     return;
   }
   tbody.innerHTML = filas.map(function(f){
@@ -4416,8 +4490,6 @@ function renderRepCuadres() {
       +'<td style="font-size:12px;">'+esc(f.cliente)+'</td>'
       +'<td style="font-family:monospace;font-size:12px;">'+esc(f.numTrabajo)+'</td>'
       +'<td style="font-size:12px;white-space:nowrap;">'+fmtDate(f.fechaRetiro)+'</td>'
-      +'<td><button class="btn btn-sm btn-ghost" style="color:var(--red);" '
-        +'onclick="eliminarEquipoRetiro(\''+f.retiroId+'\',\''+f.equipoId+'\',\'(ya estaba marcado como cuadrado en el N.\\u00ba '+esc(f.numCuadre)+')\');event.stopPropagation();">✕ Eliminar</button></td>'
       +'</tr>';
   }).join('');
 }
@@ -4435,81 +4507,6 @@ function exportarCuadresCSV() {
   a.download = 'Cuadres_Retiros_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
   toast('CSV descargado','success');
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// PENDIENTES DE CUADRE (admin) — equipos retirados que aún no se marcan como
-// cuadrados. Antes esta vista solo existía para la cuadrilla; sin ella, un
-// admin no tenía forma de ver ni corregir un registro duplicado o mal
-// capturado mientras siguiera pendiente.
-// ══════════════════════════════════════════════════════════════════════════
-function poblarSelPendientesRetiroAdmin() {
-  var sel = document.getElementById('rpr-cuadrilla');
-  if (!sel) return;
-  var val = sel.value;
-  sel.innerHTML = '<option value="">Todas las cuadrillas</option>';
-  getCuadrillasFiltradas().forEach(function(c){
-    var o = document.createElement('option');
-    o.value=c.id; o.textContent=c.nombre;
-    if (c.id===val) o.selected=true;
-    sel.appendChild(o);
-  });
-}
-
-var _rprCache = []; // para posible exportación futura
-
-function renderPendientesRetiroAdmin() {
-  var fCuad = (document.getElementById('rpr-cuadrilla')||{value:''}).value;
-
-  var filas = [];
-  retirosListFiltrada().forEach(function(r){
-    var cuad = getCuad(r.cuadrillaId);
-    if (fCuad && r.cuadrillaId !== fCuad) return;
-    (r.equipos||[]).forEach(function(eq){
-      if (eq.estado === 'cuadrado') return; // solo pendientes
-      filas.push({
-        cuadrilla:  cuad?cuad.nombre:'—',
-        nombreRef:  eq.nombreRef||'—',
-        cantidad:   eq.cantidad||1,
-        cliente:    r.cliente||'—',
-        numTrabajo: r.numTrabajo||'—',
-        fechaRetiro:r.fecha||'',
-        retiroId:   r.id,
-        equipoId:   eq.equipoId
-      });
-    });
-  });
-  filas.sort(function(a,b){ return new Date(b.fechaRetiro) - new Date(a.fechaRetiro); });
-  _rprCache = filas;
-
-  var kpis = document.getElementById('rpr-kpis');
-  if (kpis) {
-    var porCuadrilla = {};
-    filas.forEach(function(f){ porCuadrilla[f.cuadrilla] = (porCuadrilla[f.cuadrilla]||0)+1; });
-    kpis.innerHTML = kpi('Equipos pendientes', filas.length, 'sin marcar como cuadrados', filas.length>0?'c-amber':'c-green')
-      + kpi('Cuadrillas con pendientes', Object.keys(porCuadrilla).length, 'de las visibles en tu alcance', '');
-  }
-
-  var count = document.getElementById('rpr-count');
-  if (count) count.textContent = filas.length + ' equipo(s) pendiente(s)';
-
-  var tbody = document.getElementById('rpr-tbody');
-  if (!filas.length) {
-    tbody.innerHTML = '<tr><td colspan="7">'+empty('Sin equipos pendientes de cuadre en tu alcance')+'</td></tr>';
-    return;
-  }
-  tbody.innerHTML = filas.map(function(f){
-    return '<tr>'
-      +'<td style="font-size:12px;">'+esc(f.cuadrilla)+'</td>'
-      +'<td><strong style="font-size:13px;">'+esc(f.nombreRef)+'</strong></td>'
-      +'<td style="text-align:center;">'+f.cantidad+'</td>'
-      +'<td style="font-size:12px;">'+esc(f.cliente)+'</td>'
-      +'<td style="font-family:monospace;font-size:12px;">'+esc(f.numTrabajo)+'</td>'
-      +'<td style="font-size:12px;white-space:nowrap;">'+fmtDate(f.fechaRetiro)+'</td>'
-      +'<td><button class="btn btn-sm btn-ghost" style="color:var(--red);" '
-        +'onclick="eliminarEquipoRetiro(\''+f.retiroId+'\',\''+f.equipoId+'\')">✕ Eliminar</button></td>'
-      +'</tr>';
-  }).join('');
 }
 
 // ══════════════════════════════════════════════════════
@@ -5757,8 +5754,6 @@ function initFirebaseListeners() {
   db.ref('retiros').on('value', function(snap) {
     cache.retiros = snap.val() || {};
     if (currentUser && currentUser.tipo === 'cuadrilla' && currentSection === 'retiros') renderRetiros();
-    if (currentUser && currentUser.tipo === 'admin' && currentSection === 'admin-reportes' && repTabActivo === 'cuadres') renderRepCuadres();
-    if (currentUser && currentUser.tipo === 'admin' && currentSection === 'admin-reportes' && repTabActivo === 'pendientes-retiro') renderPendientesRetiroAdmin();
   });
   // Auditorías físicas de inventario (reinicios de stock a cero)
   db.ref('auditoriasFisicas').on('value', function(snap) {
@@ -5807,7 +5802,7 @@ function renderCurrentSection() {
     'admin-reportes': renderAdminReportes,
     'admin-auditoria': renderAuditoriaStock,
     'admin-logs': renderAdminLogs,
-    'admin-config': function(){ renderSesionesActivasConfig(); renderBloqueosLogin(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); },
+    'admin-config': function(){ renderSesionesActivasConfig(); renderBloqueosLogin(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); initLimpiezaDatos(); },
     'herramientas': renderHerramientas,
     'retiros': renderRetiros,
     'admin-herramientas': renderAdminHerramientas,
@@ -5923,6 +5918,11 @@ function loginCuadrilla() {
     registrarLog(match.nombre, 'cuadrilla', 'exitoso');
     resetSessionTimer();
     startApp();
+  }).catch(function(e){
+    // FIX COMPATIBILIDAD: antes, si algo fallaba aquí, el botón "Entrar"
+    // simplemente no hacía nada y no había forma de saber por qué.
+    showLoginError('cuad', '⚠ No se pudo verificar la contraseña en este navegador. Intenta con otro navegador o contacta al administrador.');
+    console.error('loginCuadrilla error:', e);
   });
 }
 
@@ -6044,6 +6044,9 @@ function loginAdmin() {
     registrarLog(nombreRol, 'admin', 'exitoso');
     resetSessionTimer();
     startApp();
+  }).catch(function(e){
+    showLoginError('admin', '⚠ No se pudo verificar la contraseña en este navegador. Intenta con otro navegador o contacta al administrador.');
+    console.error('loginAdmin error:', e);
   });
 }
 
@@ -6218,7 +6221,7 @@ function initConfigSeccion(){
   if(!currentUser || currentUser.tipo !== 'admin') return;
   var esSuperAdmin = currentUser.rol === 'superadmin';
   // SuperAdmin: ver sectores, passSuper, Firebase rules
-  ['cfg-sectores-card','cfg-pass-super-card'].forEach(function(id){
+  ['cfg-sectores-card','cfg-pass-super-card','cfg-version-card'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = esSuperAdmin ? 'block' : 'none';
   });
@@ -6239,6 +6242,8 @@ function initConfigSeccion(){
   // Reglas Firebase solo para SuperAdmin
   var frCard = document.getElementById('cfg-firebase-rules-card');
   if (frCard) frCard.style.display = esSuperAdmin ? 'block' : 'none';
+  var vEl = document.getElementById('cfg-version-actual');
+  if (vEl) vEl.textContent = BN_APP_VERSION;
   actualizarLabelUltimoRespaldo();
   // Pre-llenar nombres de sectores
   var s1 = document.getElementById('cfg-sector1-nombre');
@@ -6272,9 +6277,12 @@ function cambiarPassAdmin(){
           document.getElementById('chpass-actual').value='';
           document.getElementById('chpass-nueva').value='';
           document.getElementById('chpass-confirmar').value='';
-        });
+        }).catch(function(e){ toast('Error al actualizar: '+e.message,'error'); });
       }
     );
+  }).catch(function(e){
+    toast('No se pudo verificar la contraseña actual en este navegador','error');
+    console.error('cambiarPassAdmin error:', e);
   });
 }
 
@@ -6298,7 +6306,7 @@ function cambiarPassSuper(){
         toast('Contraseña SuperAdmin actualizada','success');
         document.getElementById('chpassS-nueva').value='';
         document.getElementById('chpassS-confirmar').value='';
-      });
+      }).catch(function(e){ toast('Error al actualizar: '+e.message,'error'); });
     }
   );
 }
@@ -6625,6 +6633,158 @@ function sincronizarRIPendientes(manual){
 window.addEventListener('online', function(){ sincronizarRIPendientes(false); });
 setInterval(function(){ if (navigator.onLine) sincronizarRIPendientes(false); }, 30000);
 
+// ══════════════════════════════════════════════════════
+// FIX CONECTIVIDAD (v2.24): cola de pendientes GENÉRICA
+// ══════════════════════════════════════════════════════
+// Estar conectado a una red WiFi no garantiza un canal abierto hacia los
+// servidores de Firebase: portales cautivos (WiFi que exige una página de
+// inicio de sesión), firewalls que filtran conexiones persistentes
+// (WebSocket), señal débil que corta y reconecta, etc. pueden dejar el
+// dispositivo "en línea" para el sistema operativo pero sin poder
+// realmente hablar con Firebase.
+//
+// Antes, SOLO el módulo de Red Interna (arriba) guardaba un respaldo
+// local en ese caso. El resto de los módulos (Kardex, Materiales,
+// Asignaciones, Retiros...) escribían directo a Firebase y, si la
+// escritura fallaba o se quedaba esperando indefinidamente, el registro
+// se perdía en silencio (solo aparecía un toast de error que desaparece
+// en segundos). guardarConRespaldo() generaliza el mismo patrón probado
+// de Red Interna para que ningún módulo pierda datos por una
+// desconexión momentánea.
+//
+// Es seguro reintentar el mismo objeto "updates" más de una vez: los IDs
+// (uid()) se generan una sola vez ANTES de escribir y quedan fijos dentro
+// de "updates", así que si la escritura original igual llega a completarse
+// más tarde y además se reintenta desde la cola, Firebase recibe dos
+// veces el mismo contenido en las mismas rutas — no se duplica nada.
+var BN_PEND_KEY = 'bodeganet_pendientes_generico';
+var BN_RETRY_TIMEOUT_MS = 8000; // si Firebase no responde en 8s, se asume desconexión
+
+function _bnGetPendientes(){
+  try { return JSON.parse(localStorage.getItem(BN_PEND_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function _bnSetPendientes(arr){
+  try {
+    localStorage.setItem(BN_PEND_KEY, JSON.stringify(arr));
+    _bnActualizarBadgePendientes();
+    return true;
+  } catch(e){
+    // FIX ROBUSTEZ (v2.25): esto puede pasar si el navegador borró/bloqueó
+    // el almacenamiento (ventana privada, "Shred"/"borrar al cerrar" en
+    // Brave, poco espacio en disco, etc.). Si ni Firebase ni localStorage
+    // pueden guardar el registro, es el único momento en que SÍ perdemos
+    // el dato — así que se lo advertimos al usuario de forma imposible de
+    // ignorar (alerta bloqueante) en vez de un toast que puede pasar
+    // desapercibido.
+    _bnActualizarBadgePendientes();
+    return false;
+  }
+}
+function _bnEncolarPendiente(updates, resumen, modulo){
+  var arr = _bnGetPendientes();
+  arr.push({ id: uid(), updates: updates, resumen: resumen||'', modulo: modulo||'', ts: Date.now() });
+  var ok = _bnSetPendientes(arr);
+  if (!ok) {
+    alert('⚠ ATENCIÓN — No se pudo guardar este registro ni en Firebase ni en este dispositivo:\n\n' +
+      resumen + '\n\n' +
+      'Este navegador está bloqueando el almacenamiento local (común en ventanas privadas/incógnito, o en Brave con "borrar datos al cerrar" activado).\n\n' +
+      'Anota estos datos ahora o tómales una foto — luego vuelve a intentar guardarlos en una ventana normal (no privada) o desde otro navegador/dispositivo.');
+  }
+}
+function _bnActualizarBadgePendientes(){
+  var n = _bnGetPendientes().length;
+  var badge = document.getElementById('bn-pend-badge');
+  var wrap  = document.getElementById('bn-pend-wrap');
+  if (wrap)  wrap.style.display = n>0 ? 'flex' : 'none';
+  if (badge) badge.textContent = n;
+}
+
+// Guarda con respaldo automático. onExito se llama cuando Firebase confirma
+// la escritura; onPendiente (opcional) se llama si quedó guardada solo
+// localmente en espera de sincronizar (útil para marcar el registro como
+// "pendiente" en la UI, igual que hace Red Interna).
+function guardarConRespaldo(updates, resumen, modulo, onExito, onPendiente){
+  var resuelto = false;
+  var timeoutId = setTimeout(function(){
+    if (resuelto) return;
+    resuelto = true;
+    _bnEncolarPendiente(updates, resumen, modulo);
+    toast('Sin respuesta de Firebase — se guardó en este dispositivo y se sincronizará solo cuando vuelva la conexión','info');
+    if (onPendiente) onPendiente();
+  }, BN_RETRY_TIMEOUT_MS);
+
+  db.ref().update(updates).then(function(){
+    if (resuelto) return; // ya se había encolado por el timeout; se sincronizará solo (mismo contenido, no duplica)
+    resuelto = true;
+    clearTimeout(timeoutId);
+    if (onExito) onExito();
+  }).catch(function(e){
+    if (resuelto) return;
+    resuelto = true;
+    clearTimeout(timeoutId);
+    _bnEncolarPendiente(updates, resumen, modulo);
+    toast('No se pudo guardar en este momento — se guardó en este dispositivo y se sincronizará solo','info');
+    console.warn('guardarConRespaldo: escritura falló, encolada como pendiente —', modulo, e);
+    if (onPendiente) onPendiente();
+  });
+}
+
+function sincronizarPendientesGenerico(manual){
+  var arr = _bnGetPendientes();
+  if (!arr.length) { if (manual) toast('No hay registros pendientes por sincronizar','info'); return; }
+  if (!navigator.onLine) { if (manual) toast('Sigues sin conexión, se reintentará automáticamente','error'); return; }
+  if (manual) toast('Sincronizando '+arr.length+' registro(s)...','info');
+  var restantes = arr.slice();
+  var exitosos = 0;
+  (function procesarSiguiente(){
+    if (!restantes.length){
+      if (exitosos>0) toast(exitosos+' registro(s) sincronizado(s) ✅','success');
+      return;
+    }
+    var item = restantes.shift();
+    db.ref().update(item.updates).then(function(){
+      exitosos++;
+      _bnSetPendientes(_bnGetPendientes().filter(function(x){ return x.id !== item.id; }));
+      procesarSiguiente();
+    }).catch(function(){
+      if (manual) toast('Falló la sincronización de uno o más registros, se reintentará automáticamente','error');
+      // Se detiene aquí para no perder el orden; lo que falta se reintenta en el próximo ciclo
+    });
+  })();
+}
+window.addEventListener('online', function(){ sincronizarPendientesGenerico(false); });
+setInterval(function(){ if (navigator.onLine) sincronizarPendientesGenerico(false); }, 30000);
+document.addEventListener('DOMContentLoaded', function(){ _bnActualizarBadgePendientes(); });
+
+// FIX ROBUSTEZ (v2.25): si el usuario intenta cerrar la pestaña/app mientras
+// todavía hay registros esperando subir a Firebase, el navegador muestra su
+// aviso nativo de "¿Seguro que quieres salir?". Esto protege contra CUALQUIER
+// causa de pérdida de la cola local — no solo desconexión de Firebase, sino
+// también que el navegador borre el almacenamiento local al cerrar (ventana
+// privada, "Shred" de Brave, etc.) antes de que alcance a sincronizar.
+window.addEventListener('beforeunload', function(e){
+  if (_bnGetPendientes().length > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
+
+// FIX ROBUSTEZ (v2.25): le pide al navegador que trate el almacenamiento de
+// este sitio como "persistente" (menos propenso a ser borrado automáticamente
+// por poco espacio en disco). Es una simple solicitud — el navegador decide
+// si la concede, y si no la concede tampoco pasa nada malo — pero ayuda en
+// navegadores Chromium (incluyendo Brave) a que la cola de pendientes
+// sobreviva mejor. No afecta en absoluto el espacio disponible: la cola de
+// pendientes es texto plano (unos pocos KB por registro) muy por debajo del
+// límite típico de 5-10 MB de localStorage, así que quedarse sin espacio no
+// es realista aquí; el riesgo real es que el navegador borre el
+// almacenamiento por políticas de privacidad, no que se llene.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(function(){});
+}
+
 function guardarRedInterna() {
   if (!currentUser) return;
   var orden  = document.getElementById('ri-orden').value.trim();
@@ -6827,6 +6987,154 @@ function guardarRedInterna() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// LIMPIEZA DE DATOS ANTIGUOS (v2.26) — Admin/SuperAdmin, sección Configuración
+// ══════════════════════════════════════════════════════════════════════════
+// Borra registros históricos (Kardex, Retiros, Asignaciones, Visitas fallidas,
+// Red Interna, Logs) más antiguos que N meses, para que las consultas y
+// reportes no se vuelvan lentos con el tiempo. NO toca "stocks" (el stock
+// actual se guarda como un valor absoluto que ya no depende del historial de
+// Kardex) ni el catálogo de materiales/herramientas/cuadrillas — solo elimina
+// registros de eventos ya cerrados.
+var LIMP_MODULOS_DEF = {
+  kardex:           { label:'Kardex (ingresos/egresos)', porSector:true  },
+  retiros:          { label:'Retiros de equipo',         porSector:true  },
+  asignaciones:     { label:'Asignaciones a clientes',    porSector:true  },
+  visitas_fallidas: { label:'Visitas fallidas',           porSector:true  },
+  redInterna:       { label:'Red Interna',                porSector:true  },
+  logs:             { label:'Logs de acceso',             porSector:false }
+};
+var _limpiezaUltimoResultado = null;
+
+function initLimpiezaDatos(){
+  var campoSector = document.getElementById('limp-sector-field');
+  var selSector = document.getElementById('limp-sector');
+  if (!campoSector || !selSector) return;
+  if (currentUser && currentUser.rol === 'superadmin') {
+    campoSector.style.display = '';
+    var actuales = Array.prototype.slice.call(selSector.options).map(function(o){return o.value;});
+    sectorList().forEach(function(s){
+      if (actuales.indexOf(s.id) === -1) {
+        var op = document.createElement('option'); op.value = s.id; op.textContent = s.nombre; selSector.appendChild(op);
+      }
+    });
+  } else {
+    campoSector.style.display = 'none';
+  }
+  _limpiezaUltimoResultado = null;
+  var out = document.getElementById('limp-resultado'); if (out) out.innerHTML = '';
+  var btn = document.getElementById('limp-btn-eliminar'); if (btn) btn.disabled = true;
+}
+
+function _limpiezaLeerFiltros(){
+  var meses = parseInt(document.getElementById('limp-meses').value, 10);
+  if (!meses || meses < 1) meses = 3;
+  // Aproximación de 30 días por mes — suficiente para este propósito de limpieza,
+  // no necesita precisión calendario.
+  var cutoff = Date.now() - meses*30*24*60*60*1000;
+  var modulos = Array.prototype.slice.call(document.querySelectorAll('#limp-modulos input[type=checkbox]:checked')).map(function(cb){ return cb.value; });
+  var sectorFiltro = '';
+  if (currentUser && currentUser.rol === 'superadmin') {
+    var sel = document.getElementById('limp-sector');
+    sectorFiltro = sel ? sel.value : '';
+  } else if (currentUser && currentUser.rol === 'admin') {
+    sectorFiltro = currentUser.sector || '';
+  }
+  return { meses: meses, cutoff: cutoff, modulos: modulos, sectorFiltro: sectorFiltro };
+}
+
+function _limpiezaRegistroEsViejo(r, cutoff){
+  if (!r) return false;
+  var ts = r.tsRegistro || (r.fecha ? new Date(r.fecha).getTime() : 0);
+  return !!ts && ts < cutoff;
+}
+function _limpiezaEnSector(r, sectorFiltro){
+  if (!sectorFiltro) return true; // sin filtro = todos los sectores (solo SuperAdmin puede llegar aquí)
+  if (!r.cuadrillaId) return false; // sin cuadrilla asociada, no se puede confirmar el sector: no se toca, por seguridad
+  var cu = getCuad(r.cuadrillaId);
+  if (!cu) return false;
+  return (cu.sectorId || cu.sector) === sectorFiltro;
+}
+
+// Recolecta los IDs a borrar por módulo. logs no vive en "cache" (se carga
+// bajo demanda), así que se consulta directo a Firebase solo si fue marcado.
+function _limpiezaRecolectar(filtros, callback){
+  var resultado = {};
+  filtros.modulos.forEach(function(mod){
+    if (mod === 'logs') return;
+    var def = LIMP_MODULOS_DEF[mod]; if (!def) return;
+    var coll = cache[mod] || {};
+    resultado[mod] = Object.keys(coll).filter(function(id){
+      var r = coll[id];
+      if (!_limpiezaRegistroEsViejo(r, filtros.cutoff)) return false;
+      if (def.porSector && !_limpiezaEnSector(r, filtros.sectorFiltro)) return false;
+      return true;
+    });
+  });
+  if (filtros.modulos.indexOf('logs') === -1) { callback(resultado); return; }
+  db.ref('logs').once('value', function(snap){
+    var val = snap.val() || {};
+    resultado.logs = Object.keys(val).filter(function(id){ return _limpiezaRegistroEsViejo(val[id], filtros.cutoff); });
+    callback(resultado);
+  }, function(){ resultado.logs = []; callback(resultado); });
+}
+
+function previsualizarLimpieza(){
+  var filtros = _limpiezaLeerFiltros();
+  var out = document.getElementById('limp-resultado');
+  var btn = document.getElementById('limp-btn-eliminar');
+  if (!filtros.modulos.length) { toast('Selecciona al menos un tipo de registro','error'); return; }
+  out.innerHTML = '<p style="color:var(--ink3);">Calculando...</p>';
+  btn.disabled = true;
+  _limpiezaRecolectar(filtros, function(resultado){
+    var total = 0;
+    var lineas = Object.keys(resultado).map(function(mod){
+      var n = resultado[mod].length; total += n;
+      return '• '+(LIMP_MODULOS_DEF[mod]?LIMP_MODULOS_DEF[mod].label:mod)+': <strong>'+n+'</strong>';
+    });
+    var fechaCorte = new Date(filtros.cutoff);
+    out.innerHTML = '<div style="padding:10px 14px;border-radius:var(--r);background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);">'+
+      'Registros anteriores al <strong>'+fechaCorte.toLocaleDateString('es-HN')+'</strong>:<br>'+
+      lineas.join('<br>')+
+      '<br><br>Total a eliminar: <strong>'+total+'</strong> registro(s)'+
+      (total===0 ? '' : '<br><span style="font-size:12px;color:var(--ink3);">Esta acción no se puede deshacer.</span>')+
+      '</div>';
+    _limpiezaUltimoResultado = resultado;
+    btn.disabled = total === 0;
+  });
+}
+
+function confirmarLimpieza(){
+  if (!_limpiezaUltimoResultado) return;
+  var total = 0;
+  Object.keys(_limpiezaUltimoResultado).forEach(function(m){ total += _limpiezaUltimoResultado[m].length; });
+  if (!total) { toast('No hay registros para eliminar','info'); return; }
+  showConfirm('⚠️ Eliminar '+total+' registro(s)',
+    'Esta acción <strong>no se puede deshacer</strong>. Se eliminarán permanentemente '+total+' registro(s) del historial. '+
+    'El stock actual y el inventario <strong>no</strong> se ven afectados — solo se borra el historial ya cerrado. ¿Confirmas?',
+    ejecutarLimpieza
+  );
+}
+
+function ejecutarLimpieza(){
+  var resultado = _limpiezaUltimoResultado;
+  if (!resultado) return;
+  var updates = {}; var total = 0;
+  Object.keys(resultado).forEach(function(mod){
+    resultado[mod].forEach(function(id){ updates[mod+'/'+id] = null; total++; }); // null = borra ese nodo en Firebase
+  });
+  if (!total) return;
+  var btn = document.getElementById('limp-btn-eliminar'); if (btn) btn.disabled = true;
+  db.ref().update(updates).then(function(){
+    toast(total+' registro(s) eliminado(s) correctamente ✅','success');
+    var out = document.getElementById('limp-resultado'); if (out) out.innerHTML = '';
+    _limpiezaUltimoResultado = null;
+  }).catch(function(e){
+    toast('No se pudo completar la limpieza: '+e.message+' — intenta de nuevo con buena conexión','error');
+    if (btn) btn.disabled = false;
+  });
+}
+
 function eliminarRI(id) {
   var r = cache.redInterna[id]; if (!r) return;
   showConfirm('Eliminar registro',
@@ -6844,18 +7152,7 @@ function copiarTextoRI(id) {
   var cuad = getCuad(r.cuadrillaId);
   var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
     var mat = getMat(m.matId);
-    var linea = '  \u2022 ' + (mat?mat.nombre:'?') + ' \xd7 ' + m.qty + (mat?' '+mat.unidad:'');
-    if (m.unidades && m.unidades.length) {
-      var detalleUnidades = m.unidades.map(function(u, ui){
-        if (!u.mac && !u.serie) return null;
-        var l = '     ['+(ui+1)+']';
-        if (u.mac)   l += '  MAC: '+u.mac;
-        if (u.serie) l += '  Serie: '+u.serie;
-        return l;
-      }).filter(Boolean).join('\n');
-      if (detalleUnidades) linea += '\n' + detalleUnidades;
-    }
-    return linea;
+    return '  \u2022 ' + (mat?mat.nombre:'?') + ' \xd7 ' + m.qty + (mat?' '+mat.unidad:'');
   }).join('\n') : '  Sin materiales';
   var dur = riDuracion(r.horaIni, r.horaFin);
   var texto = [
@@ -6887,18 +7184,7 @@ function verDetalleRI(id) {
   var cuad = getCuad(r.cuadrillaId);
   var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
     var mat = getMat(m.matId);
-    var linea = (mat?esc(mat.nombre):'?') + ' \xd7 ' + m.qty + (mat?' '+esc(mat.unidad):'');
-    if (m.unidades && m.unidades.length) {
-      var detalleUnidades = m.unidades.map(function(u, ui){
-        if (!u.mac && !u.serie) return null;
-        var partes = [];
-        if (u.mac)   partes.push('MAC: '+esc(u.mac));
-        if (u.serie) partes.push('Serie: '+esc(u.serie));
-        return '<div style="font-size:11px;color:var(--ink3);padding-left:12px;">['+(ui+1)+'] '+partes.join(' · ')+'</div>';
-      }).filter(Boolean).join('');
-      if (detalleUnidades) linea += detalleUnidades;
-    }
-    return linea;
+    return (mat?esc(mat.nombre):'?') + ' \xd7 ' + m.qty + (mat?' '+esc(mat.unidad):'');
   }).join('<br>') : '\u2014';
   var dur = riDuracion(r.horaIni, r.horaFin);
   var tsReg = r.tsRegistro ? fmtDT(r.tsRegistro) : (r.fecha||'\u2014');
@@ -6965,16 +7251,7 @@ function exportarRedInternaCSV() {
   riListFiltrada().sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); }).forEach(function(r){
     var cuad = getCuad(r.cuadrillaId);
     var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
-      var mat=getMat(m.matId);
-      var base = (mat?mat.nombre:'?')+'x'+m.qty;
-      if (m.unidades && m.unidades.length) {
-        var ids = m.unidades.map(function(u){
-          var p=[]; if(u.mac) p.push('MAC:'+u.mac); if(u.serie) p.push('Serie:'+u.serie);
-          return p.length ? '['+p.join(' ')+']' : null;
-        }).filter(Boolean).join(' ');
-        if (ids) base += ' ' + ids;
-      }
-      return base;
+      var mat=getMat(m.matId); return (mat?mat.nombre:'?')+'x'+m.qty;
     }).join('; ') : '';
     var tsReg = r.tsRegistro ? new Date(r.tsRegistro) : null;
     var fechaReg = tsReg ? tsReg.toLocaleDateString('es-HN') : (r.fecha||'');
@@ -7146,35 +7423,19 @@ function limpiarSeleccionRetiro() {
   renderRetPendientes();
 }
 
-// Elimina un equipo específico de un retiro, sin importar su estado
-// (pendiente o ya cuadrado). Si era el único equipo del retiro, borra el
-// retiro completo. "Cuadrar" no toca Kardex ni stock (solo marca estado),
-// así que no hay nada que reversar al eliminar — es seguro para corregir
-// registros duplicados o mal capturados en cualquier momento.
-function eliminarEquipoRetiro(retiroId, equipoId, notaExtra) {
-  var retiro = cache.retiros[retiroId];
-  if (!retiro) { toast('Registro no encontrado','error'); return; }
-  var eqObj = (retiro.equipos||[]).find(function(e){ return e.equipoId === equipoId; });
-  var nombreEq = eqObj ? eqObj.nombreRef : 'este equipo';
-  showConfirm(
-    'Eliminar equipo del retiro',
-    '¿Eliminar <strong>'+esc(nombreEq)+'</strong> de este retiro'+(notaExtra?' '+notaExtra:'')+'? Esta acción no se puede deshacer.',
-    function(){
-      var equipos = (retiro.equipos||[]).filter(function(e){ return e.equipoId !== equipoId; });
-      var updates = {};
-      if (!equipos.length) updates['retiros/'+retiroId] = null;
-      else updates['retiros/'+retiroId+'/equipos'] = equipos;
-      updates['_lastUpdate'] = Date.now();
-      db.ref().update(updates).then(function(){
-        delete retiroSeleccion[retiroId+'__'+equipoId];
-        toast('Equipo eliminado','success');
-      }).catch(function(e){ toast('Error: '+e.message,'error'); });
-    }
-  );
-}
-// Alias retrocompatible (el botón de "pendientes" ya lo usaba con este nombre)
 function eliminarEquipoPendiente(retiroId, equipoId) {
-  eliminarEquipoRetiro(retiroId, equipoId);
+  showConfirm('¿Eliminar este equipo de la lista? Esta acción no se puede deshacer.', function(){
+    var retiro = cache.retiros[retiroId];
+    if (!retiro) return;
+    var equipos = (retiro.equipos||[]).filter(function(eq){ return eq.equipoId !== equipoId; });
+    var updates = {};
+    if (!equipos.length) updates['retiros/'+retiroId] = null;
+    else updates['retiros/'+retiroId+'/equipos'] = equipos;
+    db.ref().update(updates).then(function(){
+      delete retiroSeleccion[retiroId+'__'+equipoId];
+      toast('Equipo eliminado','success');
+    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  });
 }
 
 function renderRetCuadres() {
@@ -7186,8 +7447,7 @@ function renderRetCuadres() {
         var k = eq.numCuadre;
         if (!grupos[k]) grupos[k]={ numCuadre:k, fechaCuadre:eq.fechaCuadre||'', items:[] };
         grupos[k].items.push({ nombreRef:eq.nombreRef||'—', cantidad:eq.cantidad||1,
-          cliente:r.cliente||'—', numTrabajo:r.numTrabajo||'—', fechaRetiro:r.fecha||'',
-          retiroId:r.id, equipoId:eq.equipoId });
+          cliente:r.cliente||'—', numTrabajo:r.numTrabajo||'—', fechaRetiro:r.fecha||'' });
       }
     });
   });
@@ -7212,17 +7472,14 @@ function renderRetCuadres() {
         +'<th style="text-align:center;padding:4px 6px;border-bottom:1px solid var(--border);">Cant.</th>'
         +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Cliente</th>'
         +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);"># Trabajo</th>'
-        +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Fecha retiro</th>'
-        +'<th style="border-bottom:1px solid var(--border);"></th></tr>'
+        +'<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);">Fecha retiro</th></tr>'
       +'</thead><tbody>'
       + g.items.map(function(it){
           return '<tr><td style="padding:5px 6px;"><strong>'+esc(it.nombreRef)+'</strong></td>'
             +'<td style="text-align:center;padding:5px 6px;">'+it.cantidad+'</td>'
             +'<td style="padding:5px 6px;">'+esc(it.cliente)+'</td>'
             +'<td style="padding:5px 6px;font-family:monospace;">'+esc(it.numTrabajo)+'</td>'
-            +'<td style="padding:5px 6px;white-space:nowrap;">'+fmtDate(it.fechaRetiro)+'</td>'
-            +'<td style="padding:5px 6px;"><button class="btn btn-sm btn-ghost" style="color:var(--red);" '
-              +'onclick="eliminarEquipoRetiro(\''+it.retiroId+'\',\''+it.equipoId+'\',\'(ya estaba marcado como cuadrado en el N.\\u00ba '+esc(g.numCuadre)+')\')">✕</button></td></tr>';
+            +'<td style="padding:5px 6px;white-space:nowrap;">'+fmtDate(it.fechaRetiro)+'</td></tr>';
         }).join('')
       +'</tbody></table></div>';
   }).join('');
@@ -7288,9 +7545,13 @@ function guardarRetiro() {
   var data = { cliente:cliente, numTrabajo:(document.getElementById('ret-num-trabajo').value||'').trim(),
     fecha:fecha, cuadrillaId:cid, tsRegistro:Date.now(), equipos:equiposData };
 
-  db.ref('retiros/'+rid).set(data)
-    .then(function(){ toast('Retiro registrado correctamente','success'); closeModal('modal-retiro'); })
-    .catch(function(e){ toast('Error al guardar: '+e.message,'error'); });
+  // FIX CONECTIVIDAD: guardarConRespaldo evita perder el retiro si Firebase
+  // no responde por una desconexión momentánea (se guarda en el dispositivo
+  // y se sincroniza solo apenas vuelva la conexión).
+  var updatesRet = {}; updatesRet['retiros/'+rid] = data;
+  guardarConRespaldo(updatesRet, 'Retiro: '+cliente+' — '+equiposValidos.length+' equipo(s)', 'retiro', function(){
+    toast('Retiro registrado correctamente','success'); closeModal('modal-retiro');
+  });
 }
 
 function abrirModalCuadre() {
@@ -7336,13 +7597,11 @@ function confirmarCuadre() {
     updates['retiros/'+rid+'/equipos']=equipos;
   });
 
-  db.ref().update(updates)
-    .then(function(){
-      retiroSeleccion={};
-      toast('Cuadre N.º '+numCuadre+' registrado correctamente','success');
-      closeModal('modal-cuadre');
-    })
-    .catch(function(e){ toast('Error al cuadrar: '+e.message,'error'); });
+  guardarConRespaldo(updates, 'Cuadre N.º '+numCuadre, 'cuadre', function(){
+    retiroSeleccion={};
+    toast('Cuadre N.º '+numCuadre+' registrado correctamente','success');
+    closeModal('modal-cuadre');
+  });
 }
 
 // ── VISTA CUADRILLA ──────────────────────────────────
@@ -7653,22 +7912,29 @@ function guardarHerramientaPropia() {
   };
 
   if (editId) {
-    db.ref('herramientas/'+editId).update(data).then(function(){
+    // Multi-path update construido a mano para que sea compatible con
+    // guardarConRespaldo (que siempre escribe con db.ref().update(...) en
+    // la raíz) y se comporte igual que el .update(data) original: solo
+    // fusiona los campos indicados sin tocar el resto del nodo.
+    var updatesHP = {};
+    Object.keys(data).forEach(function(k){ updatesHP['herramientas/'+editId+'/'+k] = data[k]; });
+    guardarConRespaldo(updatesHP, 'Herramienta propia (editar): '+nombre, 'herramienta-propia', function(){
       toast('Herramienta actualizada ✅', 'success');
       closeModal('modal-herr-propia');
       renderHerramientas();
-    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    });
   } else {
     data.historial = obs ? [{
       fecha: new Date().toISOString(), estadoAnterior: '—', estadoNuevo: estado,
       tipo: 'registro', responsable: (getCuad(cid)||{nombre:''}).nombre,
       obs: obs, kardexRef: ''
     }] : [];
-    db.ref('herramientas/'+uid()).set(data).then(function(){
+    var updatesHP2 = {}; updatesHP2['herramientas/'+uid()] = data;
+    guardarConRespaldo(updatesHP2, 'Herramienta propia (nueva): '+nombre, 'herramienta-propia', function(){
       toast('Herramienta registrada ✅', 'success');
       closeModal('modal-herr-propia');
       renderHerramientas();
-    }).catch(function(e){ toast('Error: '+e.message,'error'); });
+    });
   }
 }
 
@@ -7740,16 +8006,17 @@ function confirmarCambioEstado() {
   var historial = (h.historial||[]).slice();
   historial.push(cambio);
 
-  db.ref('herramientas/'+herrId).update({
-    estado:       nuevoEst,
-    historial:    historial,
-    verificacion: 'verificado'
-  }).then(function(){
+  var updatesCE = {};
+  updatesCE['herramientas/'+herrId+'/estado']       = nuevoEst;
+  updatesCE['herramientas/'+herrId+'/historial']    = historial;
+  updatesCE['herramientas/'+herrId+'/verificacion'] = 'verificado';
+  // FIX CONECTIVIDAD: mismo respaldo automático que el resto de los módulos.
+  guardarConRespaldo(updatesCE, 'Cambio estado herramienta: '+tipo+' — Ref '+kardexRef, 'cambio-estado-herr', function(){
     closeModal('modal-herr-estado');
     toast('✅ Cambio registrado · Ref: '+kardexRef, 'success');
     renderHerramientas();
     if (herrTabActual === 'kardex') renderHerrKardex();
-  }).catch(function(e){ toast('Error: '+e.message,'error'); });
+  });
 }
 
 
@@ -8198,7 +8465,9 @@ function guardarRecepcionHerramientas() {
       };
     }
   });
-  db.ref().update(updates).then(function(){
+  // FIX CONECTIVIDAD: antes ni siquiera tenía .catch() — un fallo quedaba
+  // completamente invisible. Ahora usa el mismo respaldo automático.
+  guardarConRespaldo(updates, 'Recepción de herramientas — '+ids.length+' ítem(s)', 'recepcion-herramientas', function(){
     toast('Recepción registrada — '+ids.length+' herramienta(s)','success');
     closeModal('modal-herr-recepcion');
     herrRecSeleccion = {};
@@ -8887,6 +9156,29 @@ function renderDashboard() {
 
     var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
     var bajoCuad = matsCuad.filter(function(m){ return getStock(cid,m.id) < m.min; }).length;
+
+    // Accesos rápidos: solo muestra Red Interna / Retiros si la cuadrilla los tiene habilitados
+    // (mismo criterio que ya decide si esos ítems aparecen en el menú lateral).
+    var quickActions = document.getElementById('dash-quick-actions');
+    if (quickActions) {
+      var navRI = document.getElementById('nav-red-interna');
+      var navRet = document.getElementById('nav-retiros-cuad');
+      var accesos = [
+        { icon:'📝', label:'Nueva asignación', color:'var(--accent)', fn:"showSection('asignar')" },
+        { icon:'📇', label:'Registrar Kardex', color:'#22c55e', fn:"showSection('kardex')" }
+      ];
+      if (navRI && navRI.style.display !== 'none') accesos.push({ icon:'🖧', label:'Red Interna', color:'#6366f1', fn:"showSection('red-interna')" });
+      if (navRet && navRet.style.display !== 'none') accesos.push({ icon:'♻️', label:'Retiros', color:'#f59e0b', fn:"showSection('retiros')" });
+      accesos.push({ icon:'⚠️', label:'Visita fallida', color:'#f97316', fn:"showSection('visitas-fallidas-cuad')" });
+
+      quickActions.innerHTML = accesos.map(function(a){
+        return '<button onclick="'+a.fn+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:14px 10px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--bg2);cursor:pointer;transition:border-color .12s,transform .1s;" '
+          +'onmouseover="this.style.borderColor=\''+a.color+'\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+          +'<span style="font-size:22px;">'+a.icon+'</span>'
+          +'<span style="font-size:12px;font-weight:600;color:var(--ink);">'+a.label+'</span>'
+          +'</button>';
+      }).join('');
+    }
 
     // Rendimiento del día: asignaciones a clientes, trabajos de red interna y movimientos de kardex
     var asigsHoyCuad = asigListFiltrada().filter(function(a){
@@ -9584,9 +9876,13 @@ function registrarKardex(){
         };
         updates['kardex/'+kid]=entradaKardex;
       });
-      updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
+      updates['_lastUpdate']=Date.now();
+      // FIX CONECTIVIDAD: antes esto se perdía en silencio si Firebase no
+      // respondía por una desconexión momentánea. Ahora queda guardado en
+      // el dispositivo y se sincroniza solo en cuanto vuelva la conexión.
+      guardarConRespaldo(updates, 'Kardex ('+kardexTipo+'): '+resumen, 'kardex', function(){
         toast(validos.length+' material(es) registrado(s) como '+kardexTipo,'success');
-      }).catch(function(e){toast('Error: '+e.message,'error');});
+      });
     }
   );
 }
@@ -9845,27 +10141,15 @@ function buscarUsoMaterial() {
 
   var html = '';
   var esAdmin = currentUser.tipo === 'admin';
-  // Igual que en Historial: los totales (arriba) se calculan sobre TODO el
-  // historial encontrado, pero solo se construyen como filas de tabla un
-  // máximo razonable — si un material se usó cientos de veces, no hace falta
-  // pintar cientos de filas para "validar" el dato, con las más recientes
-  // alcanza y evita congelar el navegador/celular.
-  var LIMITE_FILAS_TRAZ = 200;
-  var asigsRecorte = asigs.length > LIMITE_FILAS_TRAZ;
-  var egresosRecorte = egresos.length > LIMITE_FILAS_TRAZ;
-  var asigsVisibles = asigsRecorte ? asigs.slice(0, LIMITE_FILAS_TRAZ) : asigs;
-  var egresosVisibles = egresosRecorte ? egresos.slice(0, LIMITE_FILAS_TRAZ) : egresos;
 
   // ── Tabla clientes ──
-  if (asigsVisibles.length) {
-    html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Clientes que recibieron este material'
-      + (asigsRecorte ? ' <span style="font-weight:400;font-size:11px;color:var(--amber);">(mostrando los '+LIMITE_FILAS_TRAZ+' más recientes de '+asigs.length+')</span>' : '')
-      + '</div>';
+  if (asigs.length) {
+    html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Clientes que recibieron este material</div>';
     html += '<div class="table-wrap" style="margin-bottom:1rem;"><table><thead><tr>'
       + '<th>Fecha</th><th>Cliente</th><th>Dirección</th><th>OT</th><th>Cantidad</th>'
       + (esAdmin ? '<th>Cuadrilla</th>' : '')
       + '<th>Técnico</th></tr></thead><tbody>';
-    html += asigsVisibles.map(function(a) {
+    html += asigs.map(function(a) {
       var mr = (a.materiales || []).find(function(m) { return m.matId === trazMatId; });
       var qty = mr ? mr.qty : '—';
       return '<tr>'
@@ -9886,15 +10170,13 @@ function buscarUsoMaterial() {
   }
 
   // ── Tabla egresos kardex ──
-  if (egresosVisibles.length) {
-    html += '<div class="card-title" style="margin-bottom:.5rem;">📤 Egresos en Kardex'
-      + (egresosRecorte ? ' <span style="font-weight:400;font-size:11px;color:var(--amber);">(mostrando los '+LIMITE_FILAS_TRAZ+' más recientes de '+egresos.length+')</span>' : '')
-      + '</div>';
+  if (egresos.length) {
+    html += '<div class="card-title" style="margin-bottom:.5rem;">📤 Egresos en Kardex</div>';
     html += '<div class="table-wrap"><table><thead><tr>'
       + '<th>Fecha</th><th>Cantidad</th><th>Referencia</th><th>Responsable</th>'
       + (esAdmin ? '<th>Cuadrilla</th>' : '')
       + '</tr></thead><tbody>';
-    html += egresosVisibles.map(function(k) {
+    html += egresos.map(function(k) {
       return '<tr>'
         + '<td style="font-size:11px;white-space:nowrap">' + fmtDTK(k) + '</td>'
         + '<td style="font-weight:600;color:var(--red);">-' + k.qty + ' ' + esc(mat.unidad || '') + '</td>'
@@ -9937,64 +10219,46 @@ function autoFormatMACSearch(input) {
   input.value = fmt.join(':').toUpperCase();
 }
 
-// Búsqueda de un equipo por MAC o por Serie — comparte la misma lógica de
-// resultados (asignaciones a cliente + movimientos de Kardex, cuando aplica).
-// tipo: 'mac' | 'serie'
-function _buscarPorIdentificador(tipo) {
-  var esMAC = tipo === 'mac';
-  var inputId = esMAC ? 'mac-search-input' : 'serie-search-input';
-  var raw = document.getElementById(inputId).value || '';
-  var q = esMAC ? raw.replace(/[^0-9a-fA-F]/gi,'').toUpperCase() : raw.trim().toUpperCase();
-  var minLen = esMAC ? 4 : 3;
-  if (q.length < minLen) { toast('Ingresa al menos '+minLen+' caracteres', 'info'); return; }
+function buscarPorMAC() {
+  var q = (document.getElementById('mac-search-input').value || '').replace(/[^0-9a-fA-F]/gi,'').toUpperCase();
+  if (q.length < 4) { toast('Ingresa al menos 4 caracteres de la MAC', 'info'); return; }
 
   var resultDiv = document.getElementById('mac-search-result');
   resultDiv.style.display = 'block';
 
-  function coincide(u) {
-    if (esMAC) return u.mac && u.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1;
-    return u.serie && u.serie.trim().toUpperCase().indexOf(q) > -1;
-  }
-
-  // Buscar en asignaciones (materiales con MAC/Serie por unidad — incluye
-  // asignaciones a cliente y trabajos de Red Interna, ya que estos últimos
-  // se espejan en asignaciones/ con tipoRegistro:'redInterna')
-  var enAsigs = asigListFiltrada().filter(function(a) {
-    return (a.materiales||[]).some(function(m){ return (m.unidades||[]).some(coincide); });
+  // Buscar en kardex
+  var enKardex = kardexListFiltrada().filter(function(k) {
+    return k.mac && k.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1;
   });
 
-  // Los movimientos de Kardex (ingreso/egreso a granel) no capturan MAC/Serie
-  // por unidad — solo se captura al momento de usar ese equipo específico en
-  // una asignación o trabajo real. Por eso Kardex solo aplica para MAC en
-  // registros antiguos que sí llegaron a tener ese campo; para Serie no aplica.
-  var enKardex = esMAC ? kardexListFiltrada().filter(function(k) {
-    return k.mac && k.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1;
-  }) : [];
-
-  var qDisplay = esMAC ? q.match(/.{1,2}/g).join(':') : raw.trim();
-  var etiqueta = esMAC ? 'MAC' : 'Serie';
+  // Buscar en asignaciones (materiales con MAC por unidad)
+  var enAsigs = asigListFiltrada().filter(function(a) {
+    return (a.materiales||[]).some(function(m){
+      return (m.unidades||[]).some(function(u){ return u.mac && u.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q) > -1; });
+    });
+  });
 
   if (!enKardex.length && !enAsigs.length) {
     resultDiv.innerHTML = '<div style="text-align:center;padding:1.25rem;background:var(--bg3);border-radius:var(--r);font-size:13px;color:var(--ink3);">'
-      + '📭 No se encontró ningún equipo con '+etiqueta+' <strong style="font-family:monospace;color:var(--ink);">'
-      + esc(qDisplay) + '</strong></div>';
+      + '📭 No se encontró ningún equipo con MAC <strong style="font-family:monospace;color:var(--ink);">'
+      + q.match(/.{1,2}/g).join(':') + '</strong></div>';
     return;
   }
 
   var html = '<div style="font-family:var(--display);font-size:14px;font-weight:700;margin-bottom:.75rem;color:var(--ink);">'
-    + 'Resultados para '+etiqueta+' <span style="font-family:monospace;color:var(--accent);">' + esc(qDisplay) + '</span></div>';
+    + 'Resultados para <span style="font-family:monospace;color:var(--accent);">' + q.match(/.{1,2}/g).join(':') + '</span></div>';
 
-  // Asignaciones a clientes y Red Interna
+  // Asignaciones a clientes
   if (enAsigs.length) {
-    html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Asignado a cliente / Red Interna</div>';
+    html += '<div class="card-title" style="margin-bottom:.5rem;">👤 Asignado a cliente</div>';
     html += '<div class="table-wrap" style="margin-bottom:1rem;"><table><thead><tr>'
-      + '<th>Fecha</th><th>Cliente / Nodo</th><th>Dirección</th><th>OT</th><th>Material</th><th>MAC</th><th>Serie</th>'
+      + '<th>Fecha</th><th>Cliente</th><th>Dirección</th><th>OT</th><th>Material</th><th>MAC</th><th>Serie</th>'
       + (currentUser.tipo==='admin'?'<th>Cuadrilla</th>':'')
       + '</tr></thead><tbody>';
     enAsigs.forEach(function(a){
       (a.materiales||[]).forEach(function(m){
         var mat = getMat(m.matId);
-        (m.unidades||[]).filter(coincide).forEach(function(u){
+        (m.unidades||[]).filter(function(u){ return u.mac && u.mac.replace(/[^0-9a-fA-F]/g,'').toUpperCase().indexOf(q)>-1; }).forEach(function(u){
           html += '<tr>'
             + '<td style="font-size:11px;white-space:nowrap">' + fmtDate(a.fecha) + '</td>'
             + '<td><strong>' + esc(a.cliente||'—') + '</strong>'
@@ -10002,8 +10266,8 @@ function _buscarPorIdentificador(tipo) {
             + '<td style="font-size:11px;">' + esc((a.direccion||'')+(a.municipio?', '+a.municipio:'')+(a.idCliente?' · ID:'+a.idCliente:'')+(a.ip?' · IP:'+a.ip:'')) + '</td>'
             + '<td style="font-size:11px;">' + esc(a.ot||'—') + '</td>'
             + '<td style="font-size:12px;">' + esc(mat?mat.nombre:'—') + '</td>'
-            + '<td style="font-family:monospace;font-size:11px;'+(esMAC?'color:var(--accent);font-weight:700;':'color:var(--ink3);')+'">' + esc(u.mac||'—') + '</td>'
-            + '<td style="font-family:monospace;font-size:11px;'+(!esMAC?'color:var(--accent);font-weight:700;':'color:var(--ink3);')+'">' + esc(u.serie||'—') + '</td>'
+            + '<td style="font-family:monospace;font-size:11px;color:var(--accent);">' + esc(u.mac) + '</td>'
+            + '<td style="font-family:monospace;font-size:11px;color:var(--ink3);">' + esc(u.serie||'—') + '</td>'
             + (currentUser.tipo==='admin'?'<td><span class="badge badge-gray">'+esc(getCuad(a.cuadrillaId)?getCuad(a.cuadrillaId).nombre:'—')+'</span></td>':'')
             + '</tr>';
         });
@@ -10012,7 +10276,7 @@ function _buscarPorIdentificador(tipo) {
     html += '</tbody></table></div>';
   }
 
-  // Movimientos en Kardex (solo aplica para búsqueda por MAC)
+  // Movimientos en Kardex
   if (enKardex.length) {
     html += '<div class="card-title" style="margin-bottom:.5rem;">📋 Movimientos en Kardex</div>';
     html += '<div class="table-wrap"><table><thead><tr>'
@@ -10038,14 +10302,9 @@ function _buscarPorIdentificador(tipo) {
   resultDiv.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
-function buscarPorMAC()   { _buscarPorIdentificador('mac'); }
-function buscarPorSerie() { _buscarPorIdentificador('serie'); }
-
 function limpiarBusquedaMAC() {
   var inp = document.getElementById('mac-search-input');
   if (inp) inp.value = '';
-  var inpSerie = document.getElementById('serie-search-input');
-  if (inpSerie) inpSerie.value = '';
   var res = document.getElementById('mac-search-result');
   if (res) { res.style.display = 'none'; res.innerHTML = ''; }
 }
@@ -10416,18 +10675,17 @@ function registrarAsignacion(){
       });
       // ── FIN SYNC ─────────────────────────────────────────
 
-      db.ref().update(updates).then(function(){
+      // FIX CONECTIVIDAD: la asignación (incluye el descuento de stock y el
+      // kardex del egreso) ahora queda protegida igual que Kardex/Retiros —
+      // si Firebase no responde, se guarda en el dispositivo y se sincroniza
+      // sola en cuanto vuelva la conexión, sin perder el registro.
+      guardarConRespaldo(updates, 'Asignación: '+nombre+' — '+resumen, 'asignacion', function(){
         toast('Asignación registrada. Generando PDF...','success');
         generarPDF(asig);
-        // Mostrar la ventana de "copiar texto" automáticamente al registrar —
-        // se arma ANTES de limpiar el formulario porque lee los campos en vivo,
-        // pero el modal usa un textarea con el texto ya armado (una foto fija),
-        // así que sigue mostrándose bien aunque el formulario se limpie después.
-        mostrarResumenTexto();
         // 2. Limpieza automática completa al confirmar
         limpiarAsignacion();
         showSection('dashboard');
-      }).catch(function(e){toast('Error: '+e.message,'error');});
+      });
     }
   );
 }
@@ -10690,11 +10948,12 @@ function guardarEdicionMateriales() {
       updates['asignaciones/'+asigId+'/fechaEdicion'] = nowISOLocal();
       updates['_lastUpdate'] = Date.now();
 
-      db.ref().update(updates).then(function(){
+      // FIX CONECTIVIDAD: mismo respaldo automático que Kardex/Retiros/Asignaciones.
+      guardarConRespaldo(updates, 'Edición asignación: '+(asig.cliente||'')+' — '+resumenCambios, 'edicion-asignacion', function(){
         toast('Asignación actualizada correctamente','success');
         closeModal('modal-editar-materiales');
         renderHistorial();
-      }).catch(function(e){ toast('Error: '+e.message,'error'); });
+      });
     }
   );
 }
@@ -11004,70 +11263,6 @@ function toggleHistDetalle(asigId) {
 
 // Genera el resumen de texto de una asignación ya guardada (desde Firebase)
 // y lo muestra en el modal de resumen — usable tanto desde cuadrilla como admin
-// Arma un ticket imprimible (pensado para impresora térmica de recibos, ej.
-// modelo MHT2408020088, ya registrada como impresora del sistema Android) con
-// los materiales de una asignación o trabajo de Red Interna, y dispara la
-// impresión nativa del navegador (window.print()) — así funciona con
-// cualquier impresora que ya aparezca en el diálogo de impresión normal del
-// celular, sin necesitar SDK ni conexión Bluetooth propia de la app.
-function imprimirMaterialesAsig(asigId) {
-  var a = cache.asignaciones[asigId];
-  if (!a) { toast('Asignación no encontrada','error'); return; }
-  var cuad = getCuad(a.cuadrillaId);
-  var esRI = a.tipoRegistro === 'redInterna';
-
-  var html = '';
-  html += '<div class="ticket-centro ticket-bold ticket-linea">BODEGANET ISP</div>';
-  html += '<div class="ticket-centro ticket-linea">Reporte de Materiales</div>';
-  html += '<div class="ticket-sep"></div>';
-  if (cuad) html += '<div class="ticket-linea">Cuadrilla: '+esc(cuad.nombre)+'</div>';
-  html += '<div class="ticket-linea">Técnico: '+esc(a.tecnico||'—')+'</div>';
-  html += '<div class="ticket-linea">Fecha: '+esc(fmtDate(a.fecha))+'</div>';
-  if (a.ot) html += '<div class="ticket-linea">OT: '+esc(a.ot)+'</div>';
-  html += '<div class="ticket-linea">'+(esRI?'Nodo/HE':'Cliente')+': '+esc(a.cliente||'—')+'</div>';
-  if (!esRI) {
-    if (a.tel) html += '<div class="ticket-linea">Teléfono: '+esc(a.tel)+'</div>';
-    if (a.dir) html += '<div class="ticket-linea">Dirección: '+esc(a.dir)+'</div>';
-    if (a.idCliente) html += '<div class="ticket-linea">ID Cliente: '+esc(a.idCliente)+'</div>';
-  }
-  html += '<div class="ticket-linea">Trabajo: '+esc(a.tipo||'—')+'</div>';
-  html += '<div class="ticket-sep"></div>';
-  html += '<div class="ticket-bold ticket-linea">MATERIALES</div>';
-
-  var mats = (a.materiales||[]).filter(function(m){ return m.matId; });
-  if (!mats.length) {
-    html += '<div class="ticket-linea">(Sin materiales registrados)</div>';
-  } else {
-    mats.forEach(function(m, i){
-      var mt = getMat(m.matId);
-      if (!mt) return;
-      html += '<div class="ticket-linea">'+(i+1)+'. '+esc(mt.nombre)+': '+m.qty+' '+esc(mt.unidad)+'</div>';
-      if (m.unidades && m.unidades.length) {
-        m.unidades.forEach(function(u, ui){
-          if (!u.mac && !u.serie) return;
-          var partes = [];
-          if (u.mac)   partes.push('MAC:'+u.mac);
-          if (u.serie) partes.push('Serie:'+u.serie);
-          html += '<div class="ticket-linea">   ['+(ui+1)+'] '+esc(partes.join('  '))+'</div>';
-        });
-      }
-    });
-  }
-
-  if (a.obs) {
-    html += '<div class="ticket-sep"></div>';
-    html += '<div class="ticket-bold ticket-linea">OBSERVACIONES</div>';
-    html += '<div class="ticket-linea">'+esc(a.obs)+'</div>';
-  }
-
-  html += '<div class="ticket-sep"></div>';
-  html += '<div class="ticket-centro ticket-linea">Impreso: '+esc(fmtDT(Date.now()))+'</div>';
-
-  document.getElementById('print-area').innerHTML = html;
-  setTimeout(function(){ window.print(); }, 50);
-}
-
-
 function mostrarResumenTextoAsig(asigId) {
   var a = cache.asignaciones[asigId];
   if (!a) { toast('Asignación no encontrada','error'); return; }
@@ -11873,59 +12068,6 @@ function detalleTiempoProblema(a) {
   return '<div style="margin-top:6px;font-size:11px;color:#fff;background:'+color+';border-radius:4px;padding:4px 8px;display:inline-block;">'+texto+(a.tiempoRevisado?' — ✓ ya revisado':'')+'</div>';
 }
 
-// Busca el tiempo estimado configurado para el tipo/sector de un registro,
-// sin depender de que ya haya sido evaluado (a.tiempoEstimadoMin solo existe
-// si en su momento se detectó un problema — para dibujar la barra en
-// CUALQUIER registro, incluidos los normales, hay que recalcularlo aquí).
-function _getEstimadoParaRegistro(a) {
-  var cuad = getCuad(a.cuadrillaId);
-  var sector = cuad ? (cuad.sectorId || cuad.sector || '1') : null;
-  if (!sector) return null;
-  var categoria = a.tipoRegistro === 'redInterna' ? 'ri' : 'cliente';
-  var fuente = categoria === 'ri' ? cache.tiemposDefaultRI : cache.tiemposDefault;
-  var config = fuente[sector] || {};
-  return config[a.tipo||''] || null;
-}
-
-// Barra visual de línea de tiempo: dónde cae la duración real de un trabajo
-// respecto al rango "normal" (zona verde, entre el mínimo razonable y el
-// máximo permitido) y al tiempo estimado (marca gris). Sirve para validar de
-// un vistazo que el badge de "excede"/"corto" corresponde a un cálculo real,
-// no solo confiar en el texto.
-function barraDuracionHTML(a) {
-  var real = calcDuracionMin(a.horaInicio, a.horaFin);
-  if (real === null) return '';
-  var estimado = _getEstimadoParaRegistro(a);
-
-  if (!estimado) {
-    return '<div style="margin-top:8px;font-size:11px;color:var(--ink3);">⏱ Duración real: <strong style="color:var(--ink);">'+fmtDuracion(real)+'</strong> — sin tiempo estimado configurado para este tipo, no hay con qué comparar</div>';
-  }
-
-  var minOk = Math.max(Math.round(estimado * PORCENTAJE_MINIMO_DURACION), PISO_MINIMO_DURACION_MIN);
-  var maxOk = estimado + TOLERANCIA_DURACION_MIN;
-  var escalaMax = Math.max(maxOk * 1.25, real * 1.1, estimado * 1.5, 1);
-
-  var pctMinOk    = Math.max(0, Math.min(100, (minOk    / escalaMax) * 100));
-  var pctMaxOk    = Math.max(0, Math.min(100, (maxOk    / escalaMax) * 100));
-  var pctEstimado = Math.max(0, Math.min(100, (estimado / escalaMax) * 100));
-  var pctReal     = Math.max(0, Math.min(100, (real     / escalaMax) * 100));
-
-  var color = real < minOk ? 'var(--amber)' : real > maxOk ? 'var(--red)' : 'var(--green)';
-  var estado = real < minOk ? 'Corta' : real > maxOk ? 'Excede' : 'Normal';
-
-  return '<div style="margin-top:10px;max-width:340px;">'
-    + '<div style="position:relative;height:10px;background:var(--bg3);border-radius:5px;margin:16px 4px 4px;">'
-    +   '<div style="position:absolute;left:'+pctMinOk+'%;width:'+(pctMaxOk-pctMinOk)+'%;top:0;height:100%;background:rgba(34,197,94,.20);border-radius:5px;" title="Rango normal: '+fmtDuracion(minOk)+' a '+fmtDuracion(maxOk)+'"></div>'
-    +   '<div style="position:absolute;left:'+pctEstimado+'%;top:-4px;width:2px;height:18px;background:var(--ink3);" title="Tiempo estimado: '+fmtDuracion(estimado)+'"></div>'
-    +   '<div style="position:absolute;left:calc('+pctReal+'% - 6px);top:-3px;width:12px;height:12px;border-radius:50%;background:'+color+';border:2px solid var(--bg2);box-shadow:0 0 0 1px '+color+';" title="Duración real: '+fmtDuracion(real)+'"></div>'
-    + '</div>'
-    + '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink3);padding:0 4px;">'
-    +   '<span>0</span><span>Estimado '+fmtDuracion(estimado)+'</span><span>'+fmtDuracion(escalaMax)+'</span>'
-    + '</div>'
-    + '<div style="font-size:11px;margin-top:4px;padding:0 4px;">Duración real: <strong style="color:'+color+';">'+fmtDuracion(real)+'</strong> <span style="color:'+color+';">('+estado+')</span></div>'
-    + '</div>';
-}
-
 function marcarTiempoRevisado(asigId) {
   db.ref('asignaciones/'+asigId+'/tiempoRevisado').set(true)
     .then(function(){ toast('Marcado como revisado','success'); renderHistorial(); })
@@ -12056,8 +12198,7 @@ function renderHistorial(){
           ? '<button class="btn btn-sm" onclick="abrirModalEditarMateriales(\''+a.id+'\');event.stopPropagation();">✏️ Editar asignación</button>'
           : '<span style="font-size:11px;color:var(--ink3);padding:6px 0;">✏️ Plazo de edición vencido</span>';
       }
-      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>';
-      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="imprimirMaterialesAsig(\''+a.id+'\');event.stopPropagation();">🖨️ Imprimir</button></div>';
+      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button></div>';
 
       // Datos extra distintos según tipo
       var extraHTML = '';
@@ -12076,7 +12217,6 @@ function renderHistorial(){
         ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(efCuad.minutos)+' (sin hora de fin registrada)</div>'
         : '';
       estimadoHTML += detalleTiempoProblema(a);
-      estimadoHTML += barraDuracionHTML(a);
 
       return '<tr class="hist-fila-main" onclick="toggleHistDetalle(\''+a.id+'\')" style="cursor:pointer;" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">'
         +'<td style="color:var(--ink3);font-size:11px;text-align:center;" id="hist-arrow-'+a.id+'">▶</td>'
@@ -12118,20 +12258,6 @@ function renderHistorial(){
         selCuadHist.appendChild(o);
       });
     }
-    // Rendimiento: por defecto se acota a los últimos 30 días — antes, sin
-    // rango seleccionado, se renderizaba TODO el historial del sector (miles
-    // de filas con badges, barra de duración, materiales, botones...) en
-    // cada actualización, lo que congelaba tanto el navegador de admin como
-    // el celular de la cuadrilla. Se aplica una sola vez por sesión — si el
-    // admin borra el rango a propósito (para buscar algo más viejo), se
-    // respeta esa decisión y no se vuelve a forzar automáticamente.
-    var fIniElAdmin = document.getElementById('hist-admin-fecha-ini');
-    if (fIniElAdmin && !fIniElAdmin.value && !historialRangoDefaultAplicado) {
-      var hace30 = new Date(); hace30.setDate(hace30.getDate()-30);
-      fIniElAdmin.value = hace30.toISOString().slice(0,10);
-    }
-    historialRangoDefaultAplicado = true;
-
     var fCuad   = (document.getElementById('hist-admin-cuadrilla')||{value:''}).value;
     var fSearch = ((document.getElementById('hist-admin-search')||{value:''}).value||'').trim().toLowerCase();
     var fIni    = (document.getElementById('hist-admin-fecha-ini')||{value:''}).value;
@@ -12173,22 +12299,9 @@ function renderHistorial(){
     }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
 
     var conteoEl = document.getElementById('hist-admin-conteo');
-    var totalEncontrado = asigs.length;
-    // Red de seguridad adicional: aunque ya se acota por fecha, nunca se
-    // construyen más de 400 filas de una vez (cada una trae badges, barra de
-    // duración, materiales, botones — es contenido pesado). Si hay más,
-    // se avisa para que se acote el rango o se use la búsqueda.
-    var LIMITE_FILAS_HIST = 400;
-    var huboRecorte = asigs.length > LIMITE_FILAS_HIST;
-    if (huboRecorte) asigs = asigs.slice(0, LIMITE_FILAS_HIST);
-
     if (conteoEl) {
       var rangoTxt = (fIni||fFin) ? ('Del '+(fIni||'—')+' al '+(fFin||'—')+' · ') : '';
-      conteoEl.textContent = rangoTxt + (huboRecorte
-        ? ('Mostrando '+LIMITE_FILAS_HIST+' de '+totalEncontrado+' encontrados — acota el rango de fechas o usa la búsqueda para ver el resto')
-        : (totalEncontrado + ' registro(s) encontrado(s)'));
-      conteoEl.style.color = huboRecorte ? 'var(--amber)' : '';
-      conteoEl.style.fontWeight = huboRecorte ? '600' : '';
+      conteoEl.textContent = rangoTxt + asigs.length + ' registro(s) encontrado(s)';
     }
 
     var thead = document.querySelector('#sec-historial table thead tr');
@@ -12240,7 +12353,6 @@ function renderHistorial(){
         botonesDetalle += '<button class="btn btn-sm btn-red" onclick="eliminarRIDesdeHistorial(\''+a.id+'\');event.stopPropagation();">🗑️ Eliminar</button>';
       }
       botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="mostrarResumenTextoAsig(\''+a.id+'\');event.stopPropagation();">💬 Copiar texto</button>';
-      botonesDetalle += '<button class="btn btn-sm btn-ghost" onclick="imprimirMaterialesAsig(\''+a.id+'\');event.stopPropagation();">🖨️ Imprimir</button>';
       if (a.excedeTiempo && !a.tiempoRevisado) {
         botonesDetalle += '<button class="btn btn-sm" style="border-color:var(--green);color:var(--green);" onclick="marcarTiempoRevisado(\''+a.id+'\');event.stopPropagation();">✓ Marcar como revisado</button>';
       }
@@ -12265,7 +12377,6 @@ function renderHistorial(){
               +matsDetalle+auditHTML+reemplazadosDetalleAdmin
               +(function(){ var ef=getTiempoEfectivo(a); return (ef&&ef.estimado) ? '<div style="margin-top:6px;font-size:11px;color:var(--amber);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:3px 8px;display:inline-block;">⏱ Tiempo estimado aplicado: ~'+fmtDuracion(ef.minutos)+'</div>' : ''; })()
               +detalleTiempoProblema(a)
-              +barraDuracionHTML(a)
             +'</div>'
             +'<div>'+(extraHTML||'<span style="font-size:12px;color:var(--ink3);">Sin datos adicionales</span>')+'</div>'
           +'</div>'
@@ -12813,10 +12924,12 @@ function guardarMaterial(){
     +'¿Confirmas '+(editId?'los cambios?':'el nuevo material?'),
     function(){
       var ref=editId?db.ref('materiales/'+editId):db.ref('materiales').push();
-      ref.set(mat).then(function(){
+      var updates={}; updates['materiales/'+ref.key]=mat;
+      // FIX CONECTIVIDAD: mismo respaldo automático que Kardex/Retiros/Asignaciones.
+      guardarConRespaldo(updates, (editId?'Editar material: ':'Nuevo material: ')+nombre, 'material', function(){
         toast(editId?'Material actualizado':'Material "'+nombre+'" agregado','success');
         closeModal('modal-material');
-      }).catch(function(e){toast('Error: '+e.message,'error');});
+      });
     }
   );
 }
@@ -13186,7 +13299,6 @@ function renderAdminReportes(){
   else if (repTabActivo === 'visitas') renderVisitasFallidas();
   else if (repTabActivo === 'reincidencias') { poblarSelReincidencias(); renderReincidencias(); }
   else if (repTabActivo === 'cuadres') { poblarSelRepCuadres(); renderRepCuadres(); }
-  else if (repTabActivo === 'pendientes-retiro') { poblarSelPendientesRetiroAdmin(); renderPendientesRetiroAdmin(); }
   else renderResumenMateriales();
 }
 
@@ -13538,15 +13650,27 @@ function cargarDatosIniciales() {
   var timedOut = false;
   var timeoutId = setTimeout(function() {
     timedOut = true;
+    // FIX (v2.27): un timeout (sin respuesta alguna) casi nunca es un problema
+    // de reglas — si las reglas bloquearan el acceso, Firebase responde con un
+    // rechazo casi inmediato (eso se maneja aparte, más abajo, como tipo
+    // 'reglas'), no se queda 20 segundos sin contestar. Por eso aquí ya NO se
+    // sugiere "corregir las reglas": esto es prácticamente siempre un problema
+    // de conectividad real (sin internet, o "conectado" a una red que en
+    // realidad no llega a Firebase — portal cautivo, firewall, etc.).
+    var sinRed = (typeof navigator !== 'undefined' && navigator.onLine === false);
     mostrarErrorFirebase(
-      '⏱ Sin respuesta de Firebase',
-      'La base de datos no respondió en 20 segundos. Posibles causas:',
-      [
-        'Sin conexión a internet en este dispositivo',
-        'Las reglas de Firebase bloquean el acceso',
-        'El proyecto Firebase está pausado o su plan gratuito se agotó',
-        'La URL de la base de datos no es correcta'
-      ]
+      sinRed ? '📡 Sin conexión a internet' : '⏱ Sin respuesta de Firebase',
+      sinRed
+        ? 'Este dispositivo no tiene conexión a internet en este momento.'
+        : 'La base de datos no respondió en 20 segundos. El dispositivo parece tener red, pero no logra comunicarse con Firebase. Causas más comunes:',
+      sinRed
+        ? ['Activa el WiFi o los datos móviles e inténtalo de nuevo']
+        : [
+            'Wifi/datos con señal débil o intermitente',
+            'Red con portal cautivo (pide iniciar sesión en el navegador antes de dar acceso a internet)',
+            'Firewall o red corporativa bloqueando la conexión a Firebase'
+          ],
+      'conexion'
     );
   }, 20000);
 
@@ -13574,8 +13698,12 @@ function cargarDatosIniciales() {
 
     // Detectar si hay errores de permisos en rutas principales
     var permErrors = [];
+    var otrosErrors = [];
     ['cuadrillas','materiales','stocks','kardex','asignaciones'].forEach(function(r, i) {
-      if (snaps[i] && snaps[i]._error) permErrors.push(r);
+      if (snaps[i] && snaps[i]._error) {
+        var cod = snaps[i]._error.code || '';
+        if (cod === 'PERMISSION_DENIED') permErrors.push(r); else otrosErrors.push(r);
+      }
     });
 
     if (permErrors.length > 0) {
@@ -13587,7 +13715,20 @@ function cargarDatosIniciales() {
           'Cambia las reglas a: <code>{ "rules": { ".read": true, ".write": true } }</code>',
           'Guarda los cambios y recarga esta página',
           'Nota: estas reglas son solo para desarrollo. Usa reglas seguras en producción.'
-        ]
+        ],
+        'reglas'
+      );
+      return;
+    }
+    // FIX (v2.27): si hubo error pero NO es PERMISSION_DENIED (ej. fallo de
+    // red al leer esa ruta puntual), no se sugiere tocar las reglas —
+    // simplemente se pide reintentar con mejor conexión.
+    if (otrosErrors.length > 0) {
+      mostrarErrorFirebase(
+        '📡 No se pudo leer parte de la información',
+        'No se pudo cargar: <strong>' + otrosErrors.join(', ') + '</strong>. Esto suele deberse a una conexión inestable.',
+        ['Verifica tu conexión a internet e inténtalo de nuevo'],
+        'conexion'
       );
       return;
     }
@@ -13643,54 +13784,175 @@ function cargarDatosIniciales() {
       }
     })();
     initFirebaseListeners();
+    initVersionWatcher();
   }).catch(function(err) {
     clearTimeout(timeoutId);
     if (timedOut) return;
     var codigo = err.code || '';
     var causas = [];
     var titulo = '🔴 Error al conectar con Firebase';
-    if (codigo === 'PERMISSION_DENIED' || (err.message||'').indexOf('permission') > -1) {
+    var tipoErr = 'generico';
+    if (codigo === 'PERMISSION_DENIED') {
       titulo = '🔒 Acceso denegado por Firebase';
       causas = [
         'Las reglas de Firebase bloquean la lectura/escritura',
-        'Ve a <strong>Firebase Console → Realtime Database → Rules</strong>',
-        'Configura: <code>{ "rules": { ".read": true, ".write": true } }</code>',
-        'Código: ' + (codigo || err.message)
+        'Código: ' + codigo
       ];
-    } else if ((err.message||'').indexOf('network') > -1 || (err.message||'').indexOf('fetch') > -1) {
+      tipoErr = 'reglas';
+    } else if ((err.message||'').indexOf('network') > -1 || (err.message||'').indexOf('fetch') > -1 || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
       titulo = '📡 Sin conexión de red';
       causas = ['Verifica tu conexión a internet', 'Error: ' + err.message];
+      tipoErr = 'conexion';
     } else {
       causas = [
         'Error: ' + (err.message || JSON.stringify(err)),
         'Revisa la consola del navegador (F12 → Console) para más detalles'
       ];
     }
-    mostrarErrorFirebase(titulo, 'No se pudo cargar la aplicación:', causas);
+    mostrarErrorFirebase(titulo, 'No se pudo cargar la aplicación:', causas, tipoErr);
   });
 }
 
-function mostrarErrorFirebase(titulo, subtitulo, causas) {
+// ══════════════════════════════════════════════════════
+// FIX ACTUALIZACIONES (v2.27): recarga forzada al publicar versión nueva
+// ══════════════════════════════════════════════════════
+// Escucha config/appVersion en vivo. La primera lectura (al conectar) solo
+// se usa para "recordar" el valor actual — NO recarga la página en ese
+// momento (si no, cualquier dispositivo que abra la app recargaría en
+// bucle). Solo se fuerza la recarga cuando el valor CAMBIA mientras la
+// página ya está abierta, es decir, cuando alguien publica una versión
+// nueva desde Configuración → Actualizar dispositivos.
+var _bnVersionInicial = null;
+function initVersionWatcher(){
+  db.ref('config/appVersion').on('value', function(snap){
+    var remota = snap.val();
+    if (_bnVersionInicial === null) {
+      _bnVersionInicial = remota || BN_APP_VERSION;
+      return; // primera lectura: solo referencia, no recargar
+    }
+    if (remota && remota !== _bnVersionInicial && remota !== BN_APP_VERSION) {
+      _bnVersionInicial = remota;
+      _bnForzarRecarga(remota);
+    }
+  });
+}
+function _bnForzarRecarga(versionNueva){
+  // FIX (v2.28): antes esto recargaba a los 4 segundos sin importar si había
+  // registros esperando subir a Firebase — solo confiaba en que sobrevivieran
+  // el reload guardados en localStorage. Ahora, si hay pendientes, primero
+  // se intenta sincronizarlos de verdad y SOLO se recarga una vez confirmado
+  // que ya subieron (o tras un tiempo máximo de espera, para no dejar al
+  // dispositivo esperando para siempre si algo no logra sincronizar).  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  document.body.appendChild(overlay);
+
+  function pintar(msg, icono){
+    overlay.innerHTML = '<div style="background:#fff;border-radius:16px;padding:28px 26px;max-width:360px;width:88%;text-align:center;box-shadow:0 4px 40px rgba(0,0,0,.3);">'
+      + '<div style="font-size:32px;margin-bottom:10px;">'+(icono||'🔄')+'</div>'
+      + '<div style="font-weight:700;font-size:16px;margin-bottom:8px;">Hay una actualización disponible</div>'
+      + '<div style="font-size:13px;color:#666;">'+msg+'</div>'
+      + '</div>';
+  }
+
+  function totalPendientes(){ return _bnGetPendientes().length + getRIPendientes().length; }
+
+  var intentos = 0;
+  var MAX_INTENTOS = 30; // tope ~60s esperando sincronizar antes de recargar de todos modos
+  (function intentarYRecargar(){
+    var pend = totalPendientes();
+
+    if (pend === 0) {
+      pintar('Versión '+esc(String(versionNueva))+'. La página se va a recargar automáticamente para aplicarla.');
+      setTimeout(function(){ location.reload(); }, 1500);
+      return;
+    }
+
+    intentos++;
+    if (intentos > MAX_INTENTOS) {
+      // No se logró terminar de sincronizar a tiempo. No se pierde nada —
+      // sigue guardado en este dispositivo y se reintentará solo después de
+      // recargar — pero ya no conviene seguir esperando indefinidamente.
+      pintar('Tus '+pend+' registro(s) pendientes seguirán guardados en este dispositivo y se sincronizarán después de recargar. Recargando...', '⏳');
+      setTimeout(function(){ location.reload(); }, 2500);
+      return;
+    }
+
+    if (!navigator.onLine) {
+      pintar('Tienes '+pend+' registro(s) esperando subir a Firebase. Sin conexión — se recargará en cuanto logren subirse.', '📡');
+      setTimeout(intentarYRecargar, 2000);
+      return;
+    }
+
+    pintar('Subiendo '+pend+' registro(s) pendiente(s) antes de recargar...', '⬆️');
+    sincronizarPendientesGenerico(false);
+    sincronizarRIPendientes(false);
+    setTimeout(intentarYRecargar, 2000);
+  })();
+}
+
+// Llamado desde Configuración → Actualizar dispositivos (solo SuperAdmin).
+// Sube BN_APP_VERSION a Firebase; todos los dispositivos con la app abierta
+// (incluyendo los que están en la pantalla de login) la detectan y recargan.
+function publicarActualizacion(){
+  showConfirm('🔄 Publicar actualización',
+    'Esto va a <strong>recargar la página en TODOS los dispositivos</strong> que tengan BodegaNet abierto ahora mismo (cualquier sector, cualquier cuadrilla), para que todos usen la versión '+esc(BN_APP_VERSION)+'. '
+    +'Asegúrate de haber subido ya el archivo actualizado a tu hosting antes de publicar. ¿Confirmas?',
+    function(){
+      db.ref('config/appVersion').set(BN_APP_VERSION).then(function(){
+        toast('Versión '+BN_APP_VERSION+' publicada — los dispositivos conectados se recargarán solos','success');
+      }).catch(function(e){ toast('No se pudo publicar: '+e.message,'error'); });
+    }
+  );
+}
+
+function mostrarErrorFirebase(titulo, subtitulo, causas, tipo) {
+  // FIX (v2.27): antes esta pantalla SIEMPRE mostraba "ve a Firebase Console
+  // y cambia tus reglas a .read/.write:true", incluso cuando el problema real
+  // era simplemente que el dispositivo no tenía internet/wifi en ese momento.
+  // Eso confundía a las cuadrillas en campo (les pedía tocar la configuración
+  // de seguridad de la base de datos por un problema que no tenía nada que
+  // ver con las reglas) y era riesgoso si alguien lo seguía al pie de la letra
+  // sin necesidad. Ahora el bloque de "corregir reglas" SOLO aparece cuando
+  // tipo==='reglas' (un PERMISSION_DENIED confirmado). Para timeouts o fallas
+  // de red (tipo==='conexion') se muestra un bloque distinto, enfocado en
+  // revisar la conexión — sin mencionar las reglas de Firebase para nada.
   loadMsg.textContent = '';
   var loadScreen = document.getElementById('loading-screen');
   var box = document.createElement('div');
   box.id = 'firebase-error-box';
   box.style.cssText = 'max-width:500px;width:92%;background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 4px 40px rgba(0,0,0,.15);text-align:left;margin-top:16px;';
+  var pasosHtml;
+  if (tipo === 'reglas') {
+    pasosHtml =
+      '<div style="background:#fff8e1;border:1px solid #f59e0b;border-radius:10px;padding:14px 16px;margin-bottom:18px;">'
+      +'<div style="font-weight:700;font-size:13px;margin-bottom:8px;">📋 Pasos para conectar:</div>'
+      +'<ol style="font-size:12.5px;color:#555;margin:0 0 10px 16px;line-height:2;">'
+      +'<li>Ve a <a href="https://console.firebase.google.com/project/bodeganet-41a58/database/bodeganet-41a58-default-rtdb/rules" target="_blank" style="color:#1a6daf;font-weight:600;">Firebase Console → Rules</a></li>'
+      +'<li>Pega las siguientes reglas y haz clic en <strong>Publicar</strong>:</li>'
+      +'</ol>'
+      +'<code style="display:block;background:#1e1e1e;color:#4ade80;padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.8;white-space:pre;">{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}</code>'
+      +'<div style="font-size:11px;color:#888;margin-top:8px;">⚠ Para producción usa las reglas completas disponibles en Configuración → Reglas Firebase dentro de la app.</div>'
+      +'</div>';
+  } else if (tipo === 'conexion') {
+    pasosHtml =
+      '<div style="background:#eef6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:18px;">'
+      +'<div style="font-weight:700;font-size:13px;margin-bottom:8px;">📋 Qué revisar:</div>'
+      +'<ol style="font-size:12.5px;color:#555;margin:0 0 4px 16px;line-height:2;">'
+      +'<li>Verifica que el WiFi o los datos móviles estén realmente conectados a internet (no solo "conectado" a la red)</li>'
+      +'<li>Si es una red WiFi pública o con portal cautivo, abre cualquier página en el navegador para completar el inicio de sesión de esa red</li>'
+      +'<li>Prueba cambiando de red (por ejemplo, de WiFi a datos móviles) si el problema sigue</li>'
+      +'</ol>'
+      +'</div>';
+  } else {
+    pasosHtml = '';
+  }
   box.innerHTML =
     '<div style="font-size:19px;font-weight:700;color:#c0392b;margin-bottom:8px;">'+titulo+'</div>'
     +'<div style="font-size:13px;color:#555;margin-bottom:12px;">'+subtitulo+'</div>'
     +'<ul style="font-size:13px;color:#444;margin:0 0 18px 18px;line-height:2;">'
     + causas.map(function(c){ return '<li>'+c+'</li>'; }).join('')
     +'</ul>'
-    +'<div style="background:#fff8e1;border:1px solid #f59e0b;border-radius:10px;padding:14px 16px;margin-bottom:18px;">'
-    +'<div style="font-weight:700;font-size:13px;margin-bottom:8px;">📋 Pasos para conectar:</div>'
-    +'<ol style="font-size:12.5px;color:#555;margin:0 0 10px 16px;line-height:2;">'
-    +'<li>Ve a <a href="https://console.firebase.google.com/project/bodeganet-41a58/database/bodeganet-41a58-default-rtdb/rules" target="_blank" style="color:#1a6daf;font-weight:600;">Firebase Console → Rules</a></li>'
-    +'<li>Pega las siguientes reglas y haz clic en <strong>Publicar</strong>:</li>'
-    +'</ol>'
-    +'<code style="display:block;background:#1e1e1e;color:#4ade80;padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.8;white-space:pre;">{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}</code>'
-    +'<div style="font-size:11px;color:#888;margin-top:8px;">⚠ Para producción usa las reglas completas disponibles en Configuración → Reglas Firebase dentro de la app.</div>'
-    +'</div>'
+    + pasosHtml
     +'<div style="display:flex;gap:10px;flex-wrap:wrap;">'
     +'<button onclick="cargarDatosIniciales()" style="padding:11px 22px;background:#1a6daf;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔄 Reintentar conexión</button>'
     +'<a href="https://console.firebase.google.com" target="_blank" style="padding:11px 22px;background:#f0f0f0;color:#333;border:none;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none;display:inline-block;">🔗 Abrir Firebase Console</a>'
@@ -13700,13 +13962,5 @@ function mostrarErrorFirebase(titulo, subtitulo, causas) {
 
 }); // fin DOMContentLoaded
 </script>
-
-<!-- Área de impresión — oculta en pantalla, solo visible al imprimir (ver
-     @media print e imprimirMaterialesAsig). Pensada para impresoras térmicas
-     de recibos (ej. modelo MHT2408020088) ya registradas como impresora del
-     sistema Android — se usa window.print() nativo, sin SDK ni Bluetooth
-     propio, para que funcione con cualquier impresora que ya aparezca en el
-     diálogo de impresión normal del celular. -->
-<div id="print-area"></div>
 </body>
 </html>
