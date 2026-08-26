@@ -5,7 +5,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet v2.30 — Control de Materiales ISP</title>
+<title>BodegaNet v2.34 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -1065,13 +1065,13 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="card-title">Filtros</div>
             <div class="form-grid">
               <div class="field"><label>Cuadrilla</label>
-                <select id="rep-cuadrilla" onchange="renderResumenMateriales()"><option value="">Todas las cuadrillas</option></select>
+                <select id="rep-cuadrilla"><option value="">Todas las cuadrillas</option></select>
               </div>
               <div class="field"><label>Tipo de trabajo</label>
-                <select id="rep-tipotrabajo" onchange="renderResumenMateriales()"><option value="">Todos los tipos</option></select>
+                <select id="rep-tipotrabajo"><option value="">Todos los tipos</option></select>
               </div>
               <div class="field"><label>Período</label>
-                <select id="rep-periodo" onchange="toggleRepFechas();renderResumenMateriales()">
+                <select id="rep-periodo" onchange="toggleRepFechas()">
                   <option value="hoy">Hoy</option>
                   <option value="semana">Esta semana</option>
                   <option value="mes" selected>Este mes</option>
@@ -1080,11 +1080,11 @@ select option{background:var(--bg3);color:var(--ink);}
               </div>
             </div>
             <div class="form-grid" id="rep-fechas-custom" style="display:none;">
-              <div class="field"><label>Fecha inicio</label><input type="date" id="rep-fecha-ini" onchange="renderResumenMateriales()"></div>
-              <div class="field"><label>Fecha fin</label><input type="date" id="rep-fecha-fin" onchange="renderResumenMateriales()"></div>
+              <div class="field"><label>Fecha inicio</label><input type="date" id="rep-fecha-ini"></div>
+              <div class="field"><label>Fecha fin</label><input type="date" id="rep-fecha-fin"></div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-accent" onclick="previsualizarReporte()">Vista previa</button>
+              <button class="btn btn-accent" onclick="previsualizarReporte()">📊 Generar reporte</button>
               <button class="btn btn-green" onclick="exportarExcel()">
                 <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 4h8l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
                 Descargar CSV
@@ -1097,7 +1097,7 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
           <div class="card">
             <div class="card-title" id="rep-resumen-mats-title">Materiales utilizados en el período</div>
-            <div id="rep-resumen-mats"><p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Selecciona un período para ver el resumen</p></div>
+            <div id="rep-resumen-mats"><p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Ajusta los filtros y presiona "📊 Generar reporte" — no se carga nada hasta que lo pidas.</p></div>
           </div>
           <div class="card" id="rep-preview-card" style="display:none;">
             <div class="card-header">
@@ -1587,6 +1587,16 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
           <button class="btn btn-accent" onclick="publicarActualizacion()">📤 Publicar esta versión y recargar a todos</button>
           <button class="btn btn-ghost" style="margin-left:8px;" onclick="probarRecargaLocal()">🧪 Probar la pantalla de recarga en este dispositivo</button>
+          <div style="font-size:12px;color:var(--ink3);margin-top:12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);padding:8px 10px;border-radius:8px;">
+            ⏱ <strong>Además, automático:</strong> cualquier dispositivo que lleve más de <strong>24 horas</strong> con la
+            página abierta sin recargar se refresca solo (sincronizando primero cualquier registro pendiente) — para el
+            personal que deja la app abierta varios días seguidos sin cerrarla ni recargarla manualmente.
+          </div>
+          <div style="font-size:12px;color:var(--ink3);margin-top:8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);padding:8px 10px;border-radius:8px;">
+            📡 <strong>También:</strong> si el dispositivo estuvo en segundo plano (otra app, pantalla bloqueada) y al
+            volver la conexión con Firebase se queda "pegada" en Sin conexión por más de unos segundos, se recarga
+            solo para reconectar — esto puede pasar aunque la página lleve poco tiempo abierta, no solo tras varios días.
+          </div>
         </div>
         <!-- SEGURIDAD: Reglas Firebase -->
         <div class="card" id="cfg-firebase-rules-card" style="display:none;">
@@ -1645,6 +1655,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "kardex": {
       ".read": true,
       ".write": true,
+      ".indexOn": "tsRegistro",
       "$kid": {
         ".validate": "newData.hasChildren(['fecha','tipo','matId','qty','cuadrillaId'])"
       }
@@ -1654,6 +1665,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "asignaciones": {
       ".read": true,
       ".write": true,
+      ".indexOn": "tsRegistro",
       "$aid": {
         ".validate": "newData.hasChildren(['fecha','cliente','cuadrillaId'])"
       }
@@ -1669,7 +1681,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "catalogo_herramientas": { ".read": true, ".write": true },
 
     /* ── Red Interna ── */
-    "redInterna":  { ".read": true, ".write": true },
+    "redInterna":  { ".read": true, ".write": true, ".indexOn": "tsRegistro" },
 
     /* ── Tipos de trabajo Red Interna ── */
     "tipos_red_interna": { ".read": true, ".write": true },
@@ -1682,7 +1694,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "cuadricontrol_registros": { ".read": true, ".write": true },
 
     /* ── Visitas fallidas ── */
-    "visitas_fallidas": { ".read": true, ".write": true },
+    "visitas_fallidas": { ".read": true, ".write": true, ".indexOn": "tsRegistro" },
     "motivos_vf":       { ".read": true, ".write": true },
     "bloqueos_login":   { ".read": true, ".write": true },
 
@@ -1690,6 +1702,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "retiros": {
       ".read": true,
       ".write": true,
+      ".indexOn": "tsRegistro",
       "$rid": {
         ".validate": "newData.hasChildren(['cliente','fecha','cuadrillaId','equipos'])"
       }
@@ -1706,7 +1719,7 @@ select option{background:var(--bg3);color:var(--ink);}
 
     /* ── Logs de seguridad: solo escritura ── */
     "seguridad_logs": { ".read": false, ".write": true },
-    "logs":        { ".read": true, ".write": true },
+    "logs":        { ".read": true, ".write": true, ".indexOn": "fecha" },
 
     /* ── Control de cambios ── */
     "_lastUpdate": { ".read": true, ".write": true },
@@ -1728,6 +1741,12 @@ select option{background:var(--bg3);color:var(--ink);}
             Por eso las reglas permiten lectura pública de rutas necesarias para login.
             La seguridad real viene de: contraseñas con SHA-256, rate limiting, validación de campos,
             y que las contraseñas de admin <strong>nunca viajan en texto plano</strong>.
+          </div>
+          <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:var(--r);padding:.75rem 1rem;font-size:12px;color:var(--ink2);margin-top:.5rem;">
+            <strong>⚡ v2.31:</strong> se agregaron índices (<code>.indexOn: "tsRegistro"</code>/<code>"fecha"</code>) en Kardex,
+            Asignaciones, Red Interna, Retiros, Visitas fallidas y Logs — necesarios para que la app cargue solo los
+            últimos 30 días rápidamente. Si ya tenías las reglas de producción publicadas, vuelve a copiar y publicar
+            esta versión para que los índices queden activos (sin esto, las consultas igual funcionan, pero más lento).
           </div>
         </div>
 
@@ -2990,6 +3009,21 @@ const db = firebase.database();
 const BN_APP_VERSION = '2.27';
 
 // ══════════════════════════════════════════════════════
+// FIX RENDIMIENTO (v2.31): ventana de carga de 30 días
+// ══════════════════════════════════════════════════════
+// Antes, al iniciar, BodegaNet descargaba TODO el historial completo de
+// Kardex, Asignaciones, Red Interna, Retiros y Visitas fallidas — sin
+// importar cuántos años llevara acumulando datos. Con el tiempo eso vuelve
+// el inicio (y el uso diario, porque además quedaban escuchando cambios en
+// vivo sobre la colección completa) cada vez más lento.
+// Ahora solo se cargan y se mantienen sincronizados en vivo los últimos
+// BN_DIAS_CARGA días de esas 5 colecciones. El resto de la app (Dashboard,
+// Kardex, Historial reciente, etc.) sigue funcionando igual, solo que con
+// una ventana de datos más liviana.
+var BN_DIAS_CARGA = 30;
+function _bnCutoffCarga(){ return Date.now() - BN_DIAS_CARGA*24*60*60*1000; }
+
+// ══════════════════════════════════════════════════════
 // PARCHE DE SEGURIDAD
 // ══════════════════════════════════════════════════════
 
@@ -4079,7 +4113,6 @@ function switchRepTab(tab) {
   });
   if (tab === 'visitas') renderVisitasFallidas();
   if (tab === 'reincidencias') { poblarSelReincidencias(); renderReincidencias(); }
-  if (tab === 'asignaciones') renderResumenMateriales();
   if (tab === 'tiempos') { poblarSelTiempos(); renderTiemposTrabajo(); }
   if (tab === 'cuadres') { poblarSelRepCuadres(); renderRepCuadres(); }
 }
@@ -5695,11 +5728,11 @@ function initFirebaseListeners() {
     cache.stocks = snap.val() || {};
     if (currentUser) { updateAlertCount(); renderCurrentSection(); }
   });
-  db.ref('kardex').on('value', function(snap) {
+  db.ref('kardex').orderByChild('tsRegistro').startAt(_bnCutoffCarga()).on('value', function(snap) {
     cache.kardex = snap.val() || {};
     if (currentUser) renderCurrentSection();
   });
-  db.ref('asignaciones').on('value', function(snap) {
+  db.ref('asignaciones').orderByChild('tsRegistro').startAt(_bnCutoffCarga()).on('value', function(snap) {
     cache.asignaciones = snap.val() || {};
     if (currentUser) renderCurrentSection();
   });
@@ -5710,7 +5743,7 @@ function initFirebaseListeners() {
   try { db.ref('config/sector1Nombre').on('value',  function(snap){ if(snap.val()) SECTOR1_NOMBRE = snap.val(); }); } catch(e){}
   try { db.ref('config/sector2Nombre').on('value',  function(snap){ if(snap.val()) SECTOR2_NOMBRE = snap.val(); }); } catch(e){}
   // Red Interna
-  db.ref('redInterna').on('value', function(snap) {
+  db.ref('redInterna').orderByChild('tsRegistro').startAt(_bnCutoffCarga()).on('value', function(snap) {
     cache.redInterna = snap.val() || {};
     rehidratarRIPendientesEnCache();
     if (currentUser) {
@@ -5756,7 +5789,7 @@ function initFirebaseListeners() {
     }
   });
   // Retiros / Recuperaciones de equipos
-  db.ref('retiros').on('value', function(snap) {
+  db.ref('retiros').orderByChild('tsRegistro').startAt(_bnCutoffCarga()).on('value', function(snap) {
     cache.retiros = snap.val() || {};
     if (currentUser && currentUser.tipo === 'cuadrilla' && currentSection === 'retiros') renderRetiros();
   });
@@ -5781,7 +5814,7 @@ function initFirebaseListeners() {
     if (currentUser) renderCurrentSection();
   });
   // 1. Escuchar visitas fallidas
-  db.ref('visitas_fallidas').on('value', function(snap) {
+  db.ref('visitas_fallidas').orderByChild('tsRegistro').startAt(_bnCutoffCarga()).on('value', function(snap) {
     cache.visitas_fallidas = snap.val() || {};
     if (!currentUser) return;
     // FIX: el listener original solo re-renderizaba si currentSection === 'visitas-fallidas'
@@ -7064,25 +7097,40 @@ function _limpiezaEnSector(r, sectorFiltro){
 
 // Recolecta los IDs a borrar por módulo. logs no vive en "cache" (se carga
 // bajo demanda), así que se consulta directo a Firebase solo si fue marcado.
+// FIX (v2.31): desde que la carga automática solo mantiene los últimos
+// BN_DIAS_CARGA días en cache[mod] (para que la app inicie rápido — ver
+// BN_DIAS_CARGA más arriba), esta función YA NO puede filtrar cache[mod]:
+// ahí simplemente no van a estar los registros de hace 3+ meses que esta
+// herramienta necesita encontrar. Ahora consulta Firebase directamente
+// pidiendo solo lo anterior al corte (".endAt(filtros.cutoff)"), que es
+// justo lo opuesto a lo que carga la app normalmente — así que sigue
+// siendo una consulta liviana, no una descarga completa de la colección.
 function _limpiezaRecolectar(filtros, callback){
   var resultado = {};
-  filtros.modulos.forEach(function(mod){
-    if (mod === 'logs') return;
-    var def = LIMP_MODULOS_DEF[mod]; if (!def) return;
-    var coll = cache[mod] || {};
-    resultado[mod] = Object.keys(coll).filter(function(id){
-      var r = coll[id];
-      if (!_limpiezaRegistroEsViejo(r, filtros.cutoff)) return false;
-      if (def.porSector && !_limpiezaEnSector(r, filtros.sectorFiltro)) return false;
-      return true;
-    });
+  var tareas = filtros.modulos.map(function(mod){
+    if (mod === 'logs') {
+      // "logs" no tiene tsRegistro, se ordena por "fecha" (ISO), ver registrarLog().
+      return db.ref('logs').orderByChild('fecha').endAt(new Date(filtros.cutoff).toISOString()).once('value')
+        .then(function(snap){
+          var val = snap.val() || {};
+          resultado.logs = Object.keys(val).filter(function(id){ return _limpiezaRegistroEsViejo(val[id], filtros.cutoff); });
+        })
+        .catch(function(){ resultado.logs = []; });
+    }
+    var def = LIMP_MODULOS_DEF[mod]; if (!def) return Promise.resolve();
+    return db.ref(mod).orderByChild('tsRegistro').endAt(filtros.cutoff).once('value')
+      .then(function(snap){
+        var val = snap.val() || {};
+        resultado[mod] = Object.keys(val).filter(function(id){
+          var r = val[id];
+          if (!_limpiezaRegistroEsViejo(r, filtros.cutoff)) return false;
+          if (def.porSector && !_limpiezaEnSector(r, filtros.sectorFiltro)) return false;
+          return true;
+        });
+      })
+      .catch(function(){ resultado[mod] = []; });
   });
-  if (filtros.modulos.indexOf('logs') === -1) { callback(resultado); return; }
-  db.ref('logs').once('value', function(snap){
-    var val = snap.val() || {};
-    resultado.logs = Object.keys(val).filter(function(id){ return _limpiezaRegistroEsViejo(val[id], filtros.cutoff); });
-    callback(resultado);
-  }, function(){ resultado.logs = []; callback(resultado); });
+  Promise.all(tareas).then(function(){ callback(resultado); });
 }
 
 function previsualizarLimpieza(){
@@ -11382,6 +11430,21 @@ function rePDF(id){
 // INFORMES PDF PROFESIONALES — SuperAdmin
 // ══════════════════════════════════════════════════════
 function generarInformePDF(tipo) {
+  // FIX (v2.32): el informe de "reportes" ya no lee de la caché de 30 días —
+  // primero consulta Firebase el rango exacto pedido, y solo entonces arma
+  // el PDF. Los demás tipos de informe (inventario, kardex, asignaciones...)
+  // siguen igual que antes.
+  if (tipo === 'reportes') {
+    if (!currentUser || currentUser.rol !== 'superadmin') {
+      toast('Solo el SuperAdmin puede generar informes PDF', 'error'); return;
+    }
+    toast('Consultando Firebase...','info');
+    _repObtenerDatos(function(datos){ _generarInformePDFInterno(tipo, datos); });
+    return;
+  }
+  _generarInformePDFInterno(tipo, null);
+}
+function _generarInformePDFInterno(tipo, datosPrefetch) {
   if (!currentUser || currentUser.rol !== 'superadmin') {
     toast('Solo el SuperAdmin puede generar informes PDF', 'error'); return;
   }
@@ -11483,7 +11546,7 @@ function generarInformePDF(tipo) {
     var fin = document.getElementById('rep-fecha-fin') ? document.getElementById('rep-fecha-fin').value : '';
     periodo = (ini||'—') + ' al ' + (fin||'—');
     columnas = ['Fecha','Cliente','OT','Cuadrilla','Técnico','Hora Ini','Hora Fin','# Materiales'];
-    rows = filtrarPorRango(asigListFiltrada()).filter(function(a){
+    rows = (datosPrefetch ? datosPrefetch.asigs : []).filter(function(a){
       return (!repCuad || a.cuadrillaId === repCuad) && (!repTipoTrabajo || a.tipo === repTipoTrabajo);
     }).sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);}).map(function(a){
       var cuad=getCuad(a.cuadrillaId);
@@ -13222,22 +13285,75 @@ function renderAdminReportes(){
   else if (repTabActivo === 'visitas') renderVisitasFallidas();
   else if (repTabActivo === 'reincidencias') { poblarSelReincidencias(); renderReincidencias(); }
   else if (repTabActivo === 'cuadres') { poblarSelRepCuadres(); renderRepCuadres(); }
-  else renderResumenMateriales();
+  // FIX (v2.32): la pestaña "Asignaciones" ya NO se auto-recarga aquí — ahora
+  // solo consulta Firebase cuando el usuario presiona "📊 Generar reporte",
+  // en vez de disparar una consulta cada vez que algo cambia en segundo plano.
 }
 
 // 10. Reporte de material utilizado en asignaciones
-function renderResumenMateriales(){
+// ══════════════════════════════════════════════════════
+// FIX (v2.32): reportes bajo demanda, no precargados
+// ══════════════════════════════════════════════════════
+// Antes, "Materiales utilizados en el período" se recalculaba solo a partir
+// de cache.asignaciones/cache.kardex — que ahora solo guardan los últimos
+// 30 días (ver BN_DIAS_CARGA), para que la app arranque rápido. Eso dejaba
+// reportes de hace más de 30 días incompletos.
+// Ahora nada de esto se calcula hasta que presionas "📊 Generar reporte" o
+// "Descargar CSV" o "Informe PDF": en ese momento se consulta Firebase
+// directamente pidiendo solo el rango de fechas exacto que seleccionaste
+// (db.ref(...).orderByChild('tsRegistro').startAt(...).endAt(...)), sin
+// importar qué tan viejo sea. No se precarga nada de forma anticipada.
+
+function _repFetchRango(coleccion, iniMs, finMs){
+  return db.ref(coleccion).orderByChild('tsRegistro').startAt(iniMs).endAt(finMs).once('value')
+    .then(function(snap){ return snap.val() || {}; })
+    .catch(function(e){ console.warn('_repFetchRango', coleccion, e); return {}; });
+}
+
+// Trae del servidor exactamente lo que el reporte necesita (asignaciones
+// y/o kardex, según #rep-tipo si existiera) para el rango seleccionado,
+// filtrado por sector/cuadrilla del usuario — mismo alcance que tenían
+// asigListFiltrada()/kardexListFiltrada(), pero con datos frescos en vez
+// de la caché de 30 días.
+function _repObtenerDatos(callback){
+  var r = getRepRango();
+  var iniMs = r.ini.getTime(), finMs = r.fin.getTime();
+  var tipoEl = document.getElementById('rep-tipo');
+  var tipo = tipoEl ? tipoEl.value : 'asignaciones';
+  var necesitaAsig   = (tipo === 'asignaciones' || tipo === 'ambos' || !tipoEl);
+  var necesitaKardex = (tipo === 'kardex' || tipo === 'ambos');
+
+  var cuadsDelSector = currentUser.tipo === 'cuadrilla'
+    ? [currentUser.cuadrillaId]
+    : getCuadrillasFiltradas().map(function(c){ return c.id; });
+
+  Promise.all([
+    necesitaAsig   ? _repFetchRango('asignaciones', iniMs, finMs) : Promise.resolve({}),
+    necesitaKardex ? _repFetchRango('kardex', iniMs, finMs)       : Promise.resolve({})
+  ]).then(function(res){
+    var asigs = Object.keys(res[0]).map(function(id){ return Object.assign({id:id}, res[0][id]); })
+      .filter(function(a){ return cuadsDelSector.indexOf(a.cuadrillaId) > -1; });
+    var kardex = Object.keys(res[1]).map(function(id){ return Object.assign({id:id}, res[1][id]); })
+      .filter(function(k){ return cuadsDelSector.indexOf(k.cuadrillaId) > -1; });
+    var cid = document.getElementById('rep-cuadrilla').value;
+    if (cid) {
+      asigs  = asigs.filter(function(a){ return a.cuadrillaId === cid; });
+      kardex = kardex.filter(function(k){ return k.cuadrillaId === cid; });
+    }
+    callback({asigs:asigs, kardex:kardex});
+  });
+}
+
+function renderResumenMaterialesDesde(asigs){
   var el=document.getElementById('rep-resumen-mats');
   if(!el) return;
-  var cid=document.getElementById('rep-cuadrilla').value||null;
   var tipoTrabajoSel=(document.getElementById('rep-tipotrabajo')||{value:''}).value;
-  var asigs=filtrarPorRango(asigListFiltrada().filter(function(a){return !a.anulada;}));
-  if (tipoTrabajoSel) asigs = asigs.filter(function(a){ return a.tipo === tipoTrabajoSel; });
+  var lista = asigs.filter(function(a){return !a.anulada;});
+  if (tipoTrabajoSel) lista = lista.filter(function(a){ return a.tipo === tipoTrabajoSel; });
   var tituloEl = document.getElementById('rep-resumen-mats-title');
   if (tituloEl) tituloEl.textContent = tipoTrabajoSel ? 'Materiales utilizados en "'+tipoTrabajoSel+'" (período)' : 'Materiales utilizados en el período';
-  // Sumar por material
   var totales={};
-  asigs.forEach(function(a){
+  lista.forEach(function(a){
     (a.materiales||[]).forEach(function(m){
       if(!totales[m.matId]) totales[m.matId]={qty:0,mat:getMat(m.matId)};
       totales[m.matId].qty+=m.qty;
@@ -13276,99 +13392,108 @@ function getRepRango(){
   return {ini:ini,fin:hoy};
 }
 
-function filtrarPorRango(lista){
-  var r=getRepRango();
-  var cid=document.getElementById('rep-cuadrilla').value;
-  return lista.filter(function(x){
-    var f=new Date(x.fecha);
-    return f>=r.ini && f<=r.fin && (!cid||x.cuadrillaId===cid);
-  });
+function _repValidarPersonalizado(){
+  if (document.getElementById('rep-periodo').value==='personalizado' &&
+      (!document.getElementById('rep-fecha-ini').value || !document.getElementById('rep-fecha-fin').value)) {
+    toast('Selecciona la fecha de inicio y fin','error');
+    return false;
+  }
+  return true;
 }
 
 function previsualizarReporte(){
+  if (!_repValidarPersonalizado()) return;
   var tipoEl = document.getElementById('rep-tipo');
-  var tipo = tipoEl ? tipoEl.value : 'asignaciones';
-  var tipoTrabajoSel = (document.getElementById('rep-tipotrabajo')||{value:''}).value;
-  var rows=[];
-  if(tipo==='asignaciones'||tipo==='ambos'||tipo==='asignaciones'){
-    filtrarPorRango(asigListFiltrada()).filter(function(a){
-      return !tipoTrabajoSel || a.tipo === tipoTrabajoSel;
-    }).forEach(function(a){
-      var cuad=getCuad(a.cuadrillaId);
-      rows.push({
-        fecha:fmtDate(a.fecha), cuadrilla:cuad?cuad.nombre:'—',
-        tipo:'Asignación', cliente:a.cliente||'—', ot:a.ot||'—',
-        tecnico:a.tecnico||'—', horaInicio:a.horaInicio||'—', horaFin:a.horaFin||'—',
-        materiales:(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.nombre:'';}).join(' | '),
-        obs:a.obs||''
-      });
-    });
-  }
-  if(tipo==='kardex'||tipo==='ambos'){
-    filtrarPorRango(kardexListFiltrada()).forEach(function(k){
-      var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
-      rows.push({
-        fecha:fmtDTK(k), cuadrilla:cuad?cuad.nombre:'—',
-        tipo:k.tipo==='ingreso'?'Ingreso':'Egreso', cliente:k.ref||'—', ot:'—',
-        tecnico:k.resp||'—', horaInicio:'—', horaFin:'—',
-        materiales:(mat?mat.nombre:'—')+' × '+k.qty+' '+(mat?mat.unidad:''),
-        obs:k.obs||''
-      });
-    });
-  }
-  rows.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
-  document.getElementById('rep-preview-count').textContent=rows.length+' registros';
   var tituloTipo = tipoEl ? tipoEl.options[tipoEl.selectedIndex].text : 'Asignaciones';
-  document.getElementById('rep-preview-title').textContent='Vista previa — '+tituloTipo;
+  var elMats = document.getElementById('rep-resumen-mats');
+  if (elMats) elMats.innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Consultando Firebase...</p>';
   var card=document.getElementById('rep-preview-card');
   card.style.display='block';
-  if(!rows.length){ document.getElementById('rep-preview-table').innerHTML=empty('Sin registros en el período seleccionado'); return; }
-  document.getElementById('rep-preview-table').innerHTML=
-    '<table><thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Tipo</th><th>Cliente/Ref.</th><th>OT</th><th>Técnico</th><th>Materiales</th></tr></thead>'
-    +'<tbody>'+rows.slice(0,20).map(function(r){
-      return '<tr>'
-        +'<td style="font-size:11px;white-space:nowrap">'+r.fecha+'</td>'
-        +'<td style="font-size:12px">'+r.cuadrilla+'</td>'
-        +'<td><span class="badge '+(r.tipo==='Ingreso'?'badge-green':r.tipo==='Asignación'?'badge-blue':'badge-accent')+'">'+r.tipo+'</span></td>'
-        +'<td style="font-size:12px">'+r.cliente+'</td>'
-        +'<td style="font-size:12px">'+r.ot+'</td>'
-        +'<td style="font-size:12px">'+r.tecnico+'</td>'
-        +'<td style="font-size:11px;color:var(--ink2)">'+r.materiales+'</td>'
-        +'</tr>';
-    }).join('')+(rows.length>20?'<tr><td colspan="7" style="text-align:center;color:var(--ink3);font-size:12px;">... y '+(rows.length-20)+' más. Descarga el CSV para ver todos.</td></tr>':'')
-    +'</tbody></table>';
+  document.getElementById('rep-preview-title').textContent='Vista previa — '+tituloTipo;
+  document.getElementById('rep-preview-table').innerHTML = '<p style="color:var(--ink3);font-size:13px;text-align:center;padding:1rem;">Consultando Firebase...</p>';
+
+  _repObtenerDatos(function(datos){
+    renderResumenMaterialesDesde(datos.asigs);
+
+    var tipo = tipoEl ? tipoEl.value : 'asignaciones';
+    var tipoTrabajoSel = (document.getElementById('rep-tipotrabajo')||{value:''}).value;
+    var rows=[];
+    if (tipo==='asignaciones'||tipo==='ambos'||!tipoEl){
+      datos.asigs.filter(function(a){ return !tipoTrabajoSel || a.tipo === tipoTrabajoSel; }).forEach(function(a){
+        var cuad=getCuad(a.cuadrillaId);
+        rows.push({
+          fecha:fmtDate(a.fecha), cuadrilla:cuad?cuad.nombre:'—',
+          tipo:'Asignación', cliente:a.cliente||'—', ot:a.ot||'—',
+          tecnico:a.tecnico||'—', horaInicio:a.horaInicio||'—', horaFin:a.horaFin||'—',
+          materiales:(a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.nombre:'';}).join(' | '),
+          obs:a.obs||''
+        });
+      });
+    }
+    if (tipo==='kardex'||tipo==='ambos'){
+      datos.kardex.forEach(function(k){
+        var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
+        rows.push({
+          fecha:fmtDTK(k), cuadrilla:cuad?cuad.nombre:'—',
+          tipo:k.tipo==='ingreso'?'Ingreso':'Egreso', cliente:k.ref||'—', ot:'—',
+          tecnico:k.resp||'—', horaInicio:'—', horaFin:'—',
+          materiales:(mat?mat.nombre:'—')+' × '+k.qty+' '+(mat?mat.unidad:''),
+          obs:k.obs||''
+        });
+      });
+    }
+    rows.sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
+    document.getElementById('rep-preview-count').textContent=rows.length+' registros';
+    if(!rows.length){ document.getElementById('rep-preview-table').innerHTML=empty('Sin registros en el período seleccionado'); return; }
+    document.getElementById('rep-preview-table').innerHTML=
+      '<table><thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Tipo</th><th>Cliente/Ref.</th><th>OT</th><th>Técnico</th><th>Materiales</th></tr></thead>'
+      +'<tbody>'+rows.slice(0,20).map(function(r){
+        return '<tr>'
+          +'<td style="font-size:11px;white-space:nowrap">'+r.fecha+'</td>'
+          +'<td style="font-size:12px">'+r.cuadrilla+'</td>'
+          +'<td><span class="badge '+(r.tipo==='Ingreso'?'badge-green':r.tipo==='Asignación'?'badge-blue':'badge-accent')+'">'+r.tipo+'</span></td>'
+          +'<td style="font-size:12px">'+r.cliente+'</td>'
+          +'<td style="font-size:12px">'+r.ot+'</td>'
+          +'<td style="font-size:12px">'+r.tecnico+'</td>'
+          +'<td style="font-size:11px;color:var(--ink2)">'+r.materiales+'</td>'
+          +'</tr>';
+      }).join('')+(rows.length>20?'<tr><td colspan="7" style="text-align:center;color:var(--ink3);font-size:12px;">... y '+(rows.length-20)+' más. Descarga el CSV para ver todos.</td></tr>':'')
+      +'</tbody></table>';
+  });
 }
 
 function exportarExcel(){
+  if (!_repValidarPersonalizado()) return;
+  toast('Consultando Firebase...','info');
   var tipoEl = document.getElementById('rep-tipo');
-  var tipo = tipoEl ? tipoEl.value : 'asignaciones';
   var tipoTrabajoSel = (document.getElementById('rep-tipotrabajo')||{value:''}).value;
-  var rows=[['Fecha','Cuadrilla','Tipo','Cliente/Referencia','OT','Técnico','Hora Inicio','Hora Fin','Materiales','Observaciones']];
-  if(tipo==='asignaciones'||tipo==='ambos'||!tipoEl){
-    filtrarPorRango(asigListFiltrada()).filter(function(a){
-      return !tipoTrabajoSel || a.tipo === tipoTrabajoSel;
-    }).forEach(function(a){
-      var cuad=getCuad(a.cuadrillaId);
-      rows.push([fmtDate(a.fecha),cuad?cuad.nombre:'—','Asignación',a.cliente||'—',a.ot||'—',a.tecnico||'—',
-        a.horaInicio||'—',a.horaFin||'—',
-        (a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';}).join(' | '),
-        a.obs||'']);
-    });
-  }
-  if(tipo==='kardex'||tipo==='ambos'){
-    filtrarPorRango(kardexListFiltrada()).forEach(function(k){
-      var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
-      rows.push([fmtDTK(k),cuad?cuad.nombre:'—',k.tipo,k.ref||'—','—',k.resp||'—','—','—',
-        (mat?mat.nombre:'—')+' × '+k.qty+' '+(mat?mat.unidad:''),k.obs||'']);
-    });
-  }
-  rows.sort(function(a,b){return new Date(b[0])-new Date(a[0]);});
-  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
-  var a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
-  a.download='BodegaNet_Reporte_'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();
-  toast('Reporte descargado ('+( rows.length-1)+' registros)','success');
+  _repObtenerDatos(function(datos){
+    var tipo = tipoEl ? tipoEl.value : 'asignaciones';
+    var rows=[['Fecha','Cuadrilla','Tipo','Cliente/Referencia','OT','Técnico','Hora Inicio','Hora Fin','Materiales','Observaciones']];
+    if(tipo==='asignaciones'||tipo==='ambos'||!tipoEl){
+      datos.asigs.filter(function(a){ return !tipoTrabajoSel || a.tipo === tipoTrabajoSel; }).forEach(function(a){
+        var cuad=getCuad(a.cuadrillaId);
+        rows.push([fmtDate(a.fecha),cuad?cuad.nombre:'—','Asignación',a.cliente||'—',a.ot||'—',a.tecnico||'—',
+          a.horaInicio||'—',a.horaFin||'—',
+          (a.materiales||[]).map(function(m){var mt=getMat(m.matId);return mt?m.qty+' '+mt.unidad+' '+mt.nombre:'';}).join(' | '),
+          a.obs||'']);
+      });
+    }
+    if(tipo==='kardex'||tipo==='ambos'){
+      datos.kardex.forEach(function(k){
+        var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
+        rows.push([fmtDTK(k),cuad?cuad.nombre:'—',k.tipo,k.ref||'—','—',k.resp||'—','—','—',
+          (mat?mat.nombre:'—')+' × '+k.qty+' '+(mat?mat.unidad:''),k.obs||'']);
+      });
+    }
+    rows.sort(function(a,b){return new Date(b[0])-new Date(a[0]);});
+    var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+    var a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+    a.download='BodegaNet_Reporte_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+    toast('Reporte descargado ('+( rows.length-1)+' registros)','success');
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -13545,8 +13670,13 @@ if (window.location.protocol === 'file:') {
 
   cargarDatosIniciales();
 }
+// FIX (v2.34): se guarda el estado de conexión en una variable global para
+// que otras partes de la app (como el watcher de "conexión zombie" más abajo)
+// puedan consultarlo sin depender de leer el DOM del indicador visual.
+var _bnConectado = true;
 db.ref('.info/connected').on('value', function(snap) {
   var connected = snap.val();
+  _bnConectado = !!connected;
   var ind = document.getElementById('sync-indicator');
   if (ind) {
     if (connected) { ind.className='topbar-sync sync-ok'; ind.textContent='● En línea'; }
@@ -13601,12 +13731,14 @@ function cargarDatosIniciales() {
     safeOnce(db.ref('cuadrillas')),
     safeOnce(db.ref('materiales')),
     safeOnce(db.ref('stocks')),
-    safeOnce(db.ref('kardex')),
-    safeOnce(db.ref('asignaciones')),
+    // FIX RENDIMIENTO (v2.31): solo los últimos BN_DIAS_CARGA días, no el
+    // historial completo — ver comentario junto a BN_DIAS_CARGA más arriba.
+    safeOnce(db.ref('kardex').orderByChild('tsRegistro').startAt(_bnCutoffCarga())),
+    safeOnce(db.ref('asignaciones').orderByChild('tsRegistro').startAt(_bnCutoffCarga())),
     safeOnce(db.ref('sectores')),
     safeOnce(db.ref('herramientas')),
-    safeOnce(db.ref('redInterna')),
-    safeOnce(db.ref('visitas_fallidas')),
+    safeOnce(db.ref('redInterna').orderByChild('tsRegistro').startAt(_bnCutoffCarga())),
+    safeOnce(db.ref('visitas_fallidas').orderByChild('tsRegistro').startAt(_bnCutoffCarga())),
     safeOnce(db.ref('catalogo_herramientas')),
     safeOnce(db.ref('tipos_red_interna')),
     safeOnce(db.ref('motivos_vf')),
@@ -13708,6 +13840,7 @@ function cargarDatosIniciales() {
     })();
     initFirebaseListeners();
     initVersionWatcher();
+    initFrescuraWatcher();
   }).catch(function(err) {
     clearTimeout(timeoutId);
     if (timedOut) return;
@@ -13755,24 +13888,32 @@ function initVersionWatcher(){
     }
     if (remota && remota !== _bnVersionInicial && remota !== BN_APP_VERSION) {
       _bnVersionInicial = remota;
-      _bnForzarRecarga(remota);
+      _bnForzarRecarga('Hay una actualización disponible', 'Versión '+esc(String(remota))+'. La página se va a recargar automáticamente para aplicarla.');
     }
   });
 }
-function _bnForzarRecarga(versionNueva){
+var _bnRecargaEnCurso = false;
+function _bnForzarRecarga(titulo, mensajeListo){
+  // Evita overlays duplicados si esto se dispara más de una vez mientras ya
+  // hay una recarga en curso (ej. el técnico entra y sale de la pestaña
+  // varias veces seguidas mientras se terminan de sincronizar pendientes).
+  if (_bnRecargaEnCurso) return;
+  _bnRecargaEnCurso = true;
   // FIX (v2.28): antes esto recargaba a los 4 segundos sin importar si había
   // registros esperando subir a Firebase — solo confiaba en que sobrevivieran
   // el reload guardados en localStorage. Ahora, si hay pendientes, primero
   // se intenta sincronizarlos de verdad y SOLO se recarga una vez confirmado
   // que ya subieron (o tras un tiempo máximo de espera, para no dejar al
-  // dispositivo esperando para siempre si algo no logra sincronizar).  var overlay = document.createElement('div');
+  // dispositivo esperando para siempre si algo no logra sincronizar).
+  titulo = titulo || 'Hay una actualización disponible';
+  var overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
   document.body.appendChild(overlay);
 
   function pintar(msg, icono){
     overlay.innerHTML = '<div style="background:#fff;border-radius:16px;padding:28px 26px;max-width:360px;width:88%;text-align:center;box-shadow:0 4px 40px rgba(0,0,0,.3);">'
       + '<div style="font-size:32px;margin-bottom:10px;">'+(icono||'🔄')+'</div>'
-      + '<div style="font-weight:700;font-size:16px;margin-bottom:8px;">Hay una actualización disponible</div>'
+      + '<div style="font-weight:700;font-size:16px;margin-bottom:8px;">'+esc(titulo)+'</div>'
       + '<div style="font-size:13px;color:#666;">'+msg+'</div>'
       + '</div>';
   }
@@ -13785,7 +13926,7 @@ function _bnForzarRecarga(versionNueva){
     var pend = totalPendientes();
 
     if (pend === 0) {
-      pintar('Versión '+esc(String(versionNueva))+'. La página se va a recargar automáticamente para aplicarla.');
+      pintar(mensajeListo || 'La página se va a recargar automáticamente.');
       setTimeout(function(){ location.reload(); }, 1500);
       return;
     }
@@ -13858,7 +13999,82 @@ function _bnCargarVersionPublicada(){
 // este dispositivo — no escribe nada en Firebase, así que no fuerza la
 // recarga en ningún otro dispositivo conectado.
 function probarRecargaLocal(){
-  _bnForzarRecarga('PRUEBA — '+BN_APP_VERSION);
+  _bnForzarRecarga('Hay una actualización disponible', 'PRUEBA — Versión '+esc(BN_APP_VERSION)+'. La página se va a recargar automáticamente para aplicarla.');
+}
+
+// ══════════════════════════════════════════════════════
+// FIX OPERATIVO (v2.33): personal que deja la pestaña abierta varios días
+// ══════════════════════════════════════════════════════
+// Hasta ahora, la única forma de que un dispositivo recargara y tomara
+// código/datos nuevos era: (a) que alguien publicara una actualización desde
+// Configuración, o (b) que el técnico cerrara y volviera a abrir la app por
+// su cuenta. En campo, algunos dejan la pestaña abierta días seguidos sin
+// recargar nunca — y como el cierre de sesión por inactividad (30 min) NO
+// hace un reload real, solo cierra sesión, si siguen usando la app con
+// cierta frecuencia el dispositivo puede quedarse DÍAS corriendo el mismo
+// código cargado el primer día, sin enterarse de actualizaciones ni de que
+// la ventana de "últimos 30 días" (BN_DIAS_CARGA) ya no se mueve sola hacia
+// adelante mientras la pestaña sigue abierta.
+//
+// Esto agrega un límite de "tiempo máximo con la página abierta": pasado
+// BN_MAX_HORAS_SIN_RECARGA, se dispara el mismo mecanismo seguro de recarga
+// que ya usamos para actualizaciones (sincroniza pendientes primero, luego
+// recarga) — así el dispositivo se refresca solo aunque nadie publique nada
+// y aunque el técnico nunca cierre la app manualmente.
+//
+// El chequeo se hace principalmente cuando la pestaña VUELVE a estar visible
+// (el técnico regresa a la app después de usar otra cosa en el teléfono) en
+// vez de con un temporizador ciego — así es mucho menos probable interrumpir
+// a alguien a mitad de un formulario. Como respaldo, también se revisa cada
+// hora por si el dispositivo nunca llega a "esconderse" (ej. una tablet
+// montada con la pantalla siempre encendida).
+var BN_MAX_HORAS_SIN_RECARGA = 24;
+var _bnMomentoCarga = Date.now();
+function _bnHorasAbierta(){ return (Date.now() - _bnMomentoCarga) / (60*60*1000); }
+
+function initFrescuraWatcher(){
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState !== 'visible') return;
+    _bnChequearFrescura();          // ¿lleva ya BN_MAX_HORAS_SIN_RECARGA+ horas abierta?
+    _bnChequearConexionZombie();    // ¿la conexión a Firebase quedó "pegada" tras estar en 2do plano?
+  });
+  setInterval(_bnChequearFrescura, 60*60*1000); // respaldo: revisa cada hora
+}
+
+function _bnChequearFrescura(){
+  if (_bnHorasAbierta() < BN_MAX_HORAS_SIN_RECARGA) return;
+  _bnForzarRecarga(
+    'Actualizando por tiempo de uso',
+    'Llevas más de '+BN_MAX_HORAS_SIN_RECARGA+' horas con la página abierta sin recargar. '
+    +'Se va a recargar para asegurar que tengas la información y las funciones más recientes.'
+  );
+}
+
+// FIX (v2.34): Firebase mantiene una conexión persistente (WebSocket). Los
+// navegadores móviles suelen congelar los temporizadores de una pestaña en
+// segundo plano para ahorrar batería — si en ese lapso la red realmente
+// cambia (el teléfono pasa de wifi a datos, se bloquea la pantalla, etc.),
+// la reconexión automática de Firebase puede quedar "pegada" hasta que la
+// pestaña vuelve a primer plano. Normalmente se recupera sola en uno o dos
+// segundos apenas regresas a la app — pero si sigue en "Sin conexión" un
+// rato después de volver, ya no basta con esperar: se fuerza una recarga
+// (con el mismo resguardo de sincronizar pendientes primero) para arrancar
+// una conexión nueva desde cero, en vez de dejar al técnico viendo
+// "Sin conexión" sin saber por qué ni por cuánto tiempo más va a durar.
+// Esto es INDEPENDIENTE del límite de horas de arriba: puede dispararse
+// aunque la página lleve abierta solo unos minutos, si justo en ese rato
+// estuvo en segundo plano y la conexión no se recuperó sola.
+var BN_ESPERA_RECONEXION_MS = 8000;
+function _bnChequearConexionZombie(){
+  if (_bnConectado) return; // ya está conectado, nada que hacer
+  setTimeout(function(){
+    if (!_bnConectado) {
+      _bnForzarRecarga(
+        'Reconectando con Firebase',
+        'La conexión quedó inactiva mientras la app estaba en segundo plano. Se va a recargar para reconectar.'
+      );
+    }
+  }, BN_ESPERA_RECONEXION_MS);
 }
 
 function mostrarErrorFirebase(titulo, subtitulo, causas, tipo) {
