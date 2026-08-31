@@ -5,7 +5,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet v2.34 — Control de Materiales ISP</title>
+<title>BodegaNet v2.40 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -595,8 +595,13 @@ select option{background:var(--bg3);color:var(--ink);}
 
         <!-- Vista CUADRILLA: solo total de materiales -->
         <div id="dash-cuad-view" style="display:none;">
-          <!-- ACCESOS RÁPIDOS -->
-          <div id="dash-quick-actions" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem;"></div>
+          <!-- FIX (v2.40): se eliminó el bloque "Accesos rápidos" que estaba
+          aquí — sus 5 posibles botones (Nueva asignación, Registrar Kardex,
+          Red Interna, Retiros, Visita fallida) duplicaban exactamente los
+          mismos destinos ya disponibles todo el tiempo en la barra inferior
+          fija y el menú "Más" (móvil) o el menú lateral (escritorio). Quitar
+          la duplicación deja el dashboard más limpio sin perder ningún
+          acceso — todo sigue alcanzable desde la navegación principal. -->
 
           <!-- KPI cuadrilla: total de materiales en bodega + rendimiento del día -->
           <div class="kpi-grid" id="kpi-grid-cuad"></div>
@@ -962,7 +967,7 @@ select option{background:var(--bg3);color:var(--ink);}
               <label style="font-size:12px;font-weight:600;color:var(--ink2);white-space:nowrap;">Ver día:</label>
               <input type="date" id="hist-fecha-filtro" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;" onchange="renderHistorial()">
             </div>
-            <button class="btn btn-sm" onclick="document.getElementById('hist-fecha-filtro').value=new Date().toISOString().slice(0,10);renderHistorial();" style="white-space:nowrap;">Hoy</button>
+            <button class="btn btn-sm" onclick="document.getElementById('hist-fecha-filtro').value=hoyLocal();renderHistorial();" style="white-space:nowrap;">Hoy</button>
           </div>
         </div>
         <!-- Filtros — solo visibles para admin: cuadrilla + fechas + búsqueda libre (cliente/MAC/OT/material) -->
@@ -2425,6 +2430,7 @@ select option{background:var(--bg3);color:var(--ink);}
                 <option value="Mal Estado">⚠️ Mal Estado</option>
                 <option value="Dañada">❌ Dañada</option>
               </select>
+              <span id="herr-badge-nuevo" class="badge" style="margin-top:6px;display:inline-block;"></span>
             </div>
           </div>
 
@@ -3325,6 +3331,21 @@ function nowISOLocal() {
   var pad = function(n){ return String(n).padStart(2,'0'); };
   return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())
     +'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+}
+// FIX (v2.39): mismo problema de fondo que nowISOLocal() de arriba, pero para
+// cuando solo se necesita la FECHA (sin hora) de "hoy" — por ejemplo, el
+// filtro por defecto de Historial usaba new Date().toISOString().slice(0,10),
+// que calcula el día en UTC. Después de las 6pm hora Honduras (UTC-6) eso ya
+// cae en el día SIGUIENTE en UTC, así que "Hoy" no encontraba los registros
+// de esa misma tarde/noche — la cuadrilla no veía su propio trabajo reciente
+// en Historial (y por lo tanto tampoco el botón "Editar asignación").
+function hoyLocal() {
+  var d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function diasAtrasLocal(n) {
+  var d = new Date(); d.setDate(d.getDate()-n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function togglePass(id) { var e=document.getElementById(id); e.type=e.type==='password'?'text':'password'; }
 
@@ -6405,8 +6426,8 @@ function renderRedInterna() {
   actualizarBadgeRIPendientes();
   var sub = document.getElementById('ri-subtitle');
   if (sub && cuad) sub.textContent = cuad.nombre + ' — Trabajos en red';
-  var hoy = new Date().toISOString().slice(0,10);
-  var ini7 = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  var hoy = hoyLocal();
+  var ini7 = diasAtrasLocal(7);
   var todosItems = riList().filter(function(r){ return r.cuadrillaId === cid; });
   // KPIs
   var kpiEl = document.getElementById('ri-kpis');
@@ -6572,6 +6593,27 @@ function renderRiMaterialRows() {
       }
       unidadesHTML+='</div>';
     }
+    // FIX (v2.37): metraje inicial/final de bobina para materiales en metros.
+    var metrajeHTML = '';
+    if (mat && mat.unidad === 'metros') {
+      metrajeHTML = '<div style="margin-top:6px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">METRAJE DE BOBINA — '+esc(mat.nombre).toUpperCase()+'</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+          +'<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:120px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Inicial</span>'
+            +'<input type="text" value="'+esc(row.metrajeIni||'')+'" placeholder="ej. 4520" '
+              +'oninput="setAsigMetraje(\'ri\',\''+row.uid+'\',\'ini\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--ink);outline:none;" autocomplete="off">'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:120px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Final</span>'
+            +'<input type="text" value="'+esc(row.metrajeFin||'')+'" placeholder="ej. 4489" '
+              +'oninput="setAsigMetraje(\'ri\',\''+row.uid+'\',\'fin\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--ink);outline:none;" autocomplete="off">'
+          +'</div>'
+        +'</div>'
+      +'</div>';
+    }
     return '<div class="mat-row" style="grid-template-columns:1fr 70px auto;margin-bottom:6px;">'
       +'<div style="position:relative;">'
         +'<div onclick="abrirBuscadorFila(\'ri\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
@@ -6585,10 +6627,9 @@ function renderRiMaterialRows() {
       +'</div>'
       +'<input type="number" min="1" value="'+row.qty+'" onchange="setRiQty(\''+row.uid+'\',this.value)" style="width:64px;">'
       +'<button class="remove-row-btn" onclick="removeRiMaterialRow(\''+row.uid+'\')">✕</button>'
-      +'</div>'+unidadesHTML;
+      +'</div>'+unidadesHTML+metrajeHTML;
   }).join('');
 }
-
 // ── GUARDAR REGISTRO ──────────────────────────────────
 var riUltimoId = null; // ID del último registro de RI guardado
 
@@ -6888,6 +6929,11 @@ function guardarRedInterna() {
       var entry = { matId: r.matId, qty: r.qty };
       if(mat && (mat.requireMAC || mat.requireMac || mat.requireSerie) && r.unidades && r.unidades.length){
         entry.unidades = r.unidades.slice(0,r.qty).map(function(u){ return {mac:u.mac||'',serie:u.serie||''}; });
+      }
+      // FIX (v2.37): metraje inicial/final de bobina — dato de solo texto.
+      if(mat && mat.unidad === 'metros' && ((r.metrajeIni||'').trim() || (r.metrajeFin||'').trim())){
+        entry.metrajeIni = (r.metrajeIni||'').trim();
+        entry.metrajeFin = (r.metrajeFin||'').trim();
       }
       return entry;
     });
@@ -7206,7 +7252,11 @@ function copiarTextoRI(id) {
   var cuad = getCuad(r.cuadrillaId);
   var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
     var mat = getMat(m.matId);
-    return '  \u2022 ' + (mat?mat.nombre:'?') + ' \xd7 ' + m.qty + (mat?' '+mat.unidad:'');
+    var linea = '  \u2022 ' + (mat?mat.nombre:'?') + ' \xd7 ' + m.qty + (mat?' '+mat.unidad:'');
+    if (m.metrajeIni || m.metrajeFin) {
+      linea += '\n     Metraje: inicial ' + (m.metrajeIni||'\u2014') + '  \u2192  final ' + (m.metrajeFin||'\u2014');
+    }
+    return linea;
   }).join('\n') : '  Sin materiales';
   var dur = riDuracion(r.horaIni, r.horaFin);
   var texto = [
@@ -7238,7 +7288,11 @@ function verDetalleRI(id) {
   var cuad = getCuad(r.cuadrillaId);
   var mats = (r.materiales && r.materiales.length) ? r.materiales.map(function(m){
     var mat = getMat(m.matId);
-    return (mat?esc(mat.nombre):'?') + ' \xd7 ' + m.qty + (mat?' '+esc(mat.unidad):'');
+    var linea = (mat?esc(mat.nombre):'?') + ' \xd7 ' + m.qty + (mat?' '+esc(mat.unidad):'');
+    if (m.metrajeIni || m.metrajeFin) {
+      linea += '<br><span style="font-size:11px;color:var(--ink3);">&nbsp;&nbsp;Metraje: inicial '+esc(m.metrajeIni||'\u2014')+' → final '+esc(m.metrajeFin||'\u2014')+'</span>';
+    }
+    return linea;
   }).join('<br>') : '\u2014';
   var dur = riDuracion(r.horaIni, r.horaFin);
   var tsReg = r.tsRegistro ? fmtDT(r.tsRegistro) : (r.fecha||'\u2014');
@@ -8004,6 +8058,16 @@ function selKherrTipo(tipo) {
   });
 }
 
+// FIX (v2.36): faltaba esta función — el select "Nuevo estado" del cambio de
+// estado de herramienta llamaba a actualizarBadgeNuevo() en cada cambio, pero
+// nunca se había definido.
+function actualizarBadgeNuevo(valor){
+  var el = document.getElementById('herr-badge-nuevo');
+  if (!el) return;
+  el.className = 'badge '+(BADGE_HERR[valor]||'badge-gray');
+  el.textContent = valor;
+}
+
 function abrirModalCambioEstado(herrId) {
   var h = cache.herramientas[herrId];
   if (!h) return;
@@ -8016,6 +8080,12 @@ function abrirModalCambioEstado(herrId) {
   document.getElementById('kherr-obs').value           = '';
   var badgeEl = document.getElementById('herr-badge-actual');
   if (badgeEl) { badgeEl.className = 'badge '+(BADGE_HERR[h.estado]||'badge-gray'); badgeEl.textContent = h.estado; }
+  // FIX (v2.36): actualizarBadgeNuevo() no estaba definida — el select de
+  // "Nuevo estado" llamaba a una función inexistente en cada cambio (error
+  // silencioso en consola) y no había badge de vista previa que actualizar.
+  // Se agrega el badge y se inicializa aquí también, para que coincida con
+  // el valor seleccionado al abrir el modal, no solo al cambiarlo.
+  actualizarBadgeNuevo(h.estado);
   ['asignacion','devolucion','reparacion'].forEach(function(t){
     var el = document.getElementById('kherr-lbl-'+t);
     if (el) { el.style.borderColor='var(--border)'; el.style.background=''; el.style.color=''; }
@@ -8489,7 +8559,7 @@ function guardarRecepcionHerramientas() {
   var ids = Object.keys(herrRecSeleccion);
   if (!ids.length) { toast('Selecciona al menos una herramienta','error'); return; }
   var obs = (document.getElementById('herr-rec-obs').value||'').trim();
-  var fecha = new Date().toISOString().slice(0,10);
+  var fecha = hoyLocal();
   var ts = Date.now();
   var responsable = currentUser.nombre || currentUser.username || '';
   var updates = {};
@@ -9211,29 +9281,6 @@ function renderDashboard() {
     var matsCuad = materialesList().filter(function(m){ return tieneExistenciaRegistrada(cid, m.id); });
     var bajoCuad = matsCuad.filter(function(m){ return getStock(cid,m.id) < m.min; }).length;
 
-    // Accesos rápidos: solo muestra Red Interna / Retiros si la cuadrilla los tiene habilitados
-    // (mismo criterio que ya decide si esos ítems aparecen en el menú lateral).
-    var quickActions = document.getElementById('dash-quick-actions');
-    if (quickActions) {
-      var navRI = document.getElementById('nav-red-interna');
-      var navRet = document.getElementById('nav-retiros-cuad');
-      var accesos = [
-        { icon:'📝', label:'Nueva asignación', color:'var(--accent)', fn:"showSection('asignar')" },
-        { icon:'📇', label:'Registrar Kardex', color:'#22c55e', fn:"showSection('kardex')" }
-      ];
-      if (navRI && navRI.style.display !== 'none') accesos.push({ icon:'🖧', label:'Red Interna', color:'#6366f1', fn:"showSection('red-interna')" });
-      if (navRet && navRet.style.display !== 'none') accesos.push({ icon:'♻️', label:'Retiros', color:'#f59e0b', fn:"showSection('retiros')" });
-      accesos.push({ icon:'⚠️', label:'Visita fallida', color:'#f97316', fn:"showSection('visitas-fallidas-cuad')" });
-
-      quickActions.innerHTML = accesos.map(function(a){
-        return '<button onclick="'+a.fn+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:14px 10px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--bg2);cursor:pointer;transition:border-color .12s,transform .1s;" '
-          +'onmouseover="this.style.borderColor=\''+a.color+'\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
-          +'<span style="font-size:22px;">'+a.icon+'</span>'
-          +'<span style="font-size:12px;font-weight:600;color:var(--ink);">'+a.label+'</span>'
-          +'</button>';
-      }).join('');
-    }
-
     // Rendimiento del día: asignaciones a clientes, trabajos de red interna y movimientos de kardex
     var asigsHoyCuad = asigListFiltrada().filter(function(a){
       return !a.anulada && a.cuadrillaId===cid && fmtDate(a.fecha)===today && a.tipoRegistro!=='redInterna';
@@ -9548,8 +9595,8 @@ function abrirModalReiniciarInventario() {
     ? '📦 Se pondrán en cero <strong>'+mats.length+' material(es)</strong> con existencia (total '+totalUnidades+' unidades).'
     : 'Esta bodega ya está en cero — puedes registrar la auditoría igual, solo para dejar constancia de la fecha.';
   var fechaEl = document.getElementById('ria-fecha');
-  fechaEl.value = new Date().toISOString().slice(0,10);
-  fechaEl.max = new Date().toISOString().slice(0,10);
+  fechaEl.value = hoyLocal();
+  fechaEl.max = hoyLocal();
   document.getElementById('ria-obs').value = '';
   openModal('modal-reiniciar-inventario');
 }
@@ -9829,15 +9876,15 @@ function elegirMatFila(ctx, rowUid, matId) {
     if (r) { r.matId = matId; r.nombreRef = mat ? mat.nombre : ''; renderRetiroEquipoRows(); }
   } else if (ctx === 'em') {
     var r = editMatRows.find(function(x){ return x.uid === rowUid; });
-    if (r) { r.matId = matId; renderEmRows(); }
+    if (r) { r.matId = matId; r.unidades=[]; r.metrajeIni=''; r.metrajeFin=''; renderEmRows(); }
   } else if (ctx === 'ri') {
     var r = riMaterialRows.find(function(x){ return x.uid === rowUid; });
-    if (r) { r.matId = matId; r.unidades = []; renderRiMaterialRows(); }
+    if (r) { r.matId = matId; r.unidades = []; r.metrajeIni=''; r.metrajeFin=''; renderRiMaterialRows(); }
   } else if (ctx === 'repl') {
     setReplMat(rowUid, matId);
   } else {
     var r = asigRows.find(function(x){ return x.uid === rowUid; });
-    if (r) { r.matId = matId; renderAsigRows(); }
+    if (r) { r.matId = matId; r.metrajeIni=''; r.metrajeFin=''; renderAsigRows(); }
   }
 }
 
@@ -9856,7 +9903,7 @@ function openKardexModalTipo(tipo){
 
 function openKardexModal(){
   initKardexRows();
-  document.getElementById('km-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('km-fecha').value=hoyLocal();
   document.getElementById('km-ref').value=''; document.getElementById('km-resp').value=''; document.getElementById('km-obs').value='';
   var cf=document.getElementById('km-cuadrilla-field');
   if(currentUser.tipo==='admin'){
@@ -10471,6 +10518,30 @@ function renderAsigRows(){
       unidadesHTML += '</div>';
     }
 
+    // FIX (v2.37): metraje inicial/final de bobina — dato de solo texto que
+    // pide la cuadrilla para materiales medidos en metros (cable). No afecta
+    // el stock ni hace cálculos, solo se guarda y se muestra como referencia.
+    var metrajeHTML = '';
+    if (mat && mat.unidad === 'metros') {
+      metrajeHTML = '<div style="margin-top:6px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">METRAJE DE BOBINA — '+esc(mat.nombre).toUpperCase()+'</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+          +'<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:120px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Inicial</span>'
+            +'<input type="text" value="'+esc(row.metrajeIni||'')+'" placeholder="ej. 4520" '
+              +'oninput="setAsigMetraje(\'ar\',\''+row.uid+'\',\'ini\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--ink);outline:none;" autocomplete="off">'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:120px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Final</span>'
+            +'<input type="text" value="'+esc(row.metrajeFin||'')+'" placeholder="ej. 4489" '
+              +'oninput="setAsigMetraje(\'ar\',\''+row.uid+'\',\'fin\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--ink);outline:none;" autocomplete="off">'
+          +'</div>'
+        +'</div>'
+      +'</div>';
+    }
+
     return '<div class="mat-row" style="grid-template-columns:1fr auto auto auto;">'
       +'<div style="position:relative;">'
         +'<div onclick="abrirBuscadorFila(\'ar\',\''+row.uid+'\')" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(mat?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
@@ -10487,13 +10558,14 @@ function renderAsigRows(){
       +'<input type="number" min="1" value="'+row.qty+'" onchange="setARQ(\''+row.uid+'\',this.value)" style="width:64px;">'
       +'<button class="remove-row-btn" onclick="removeAsigRow(\''+row.uid+'\')">✕</button>'
       +'</div>'
-      +unidadesHTML;
+      +unidadesHTML
+      +metrajeHTML;
   }).join('');
 }
 
 // Actualiza MAC o Serie de una unidad específica de una fila (contexto 'ar' o 'ri')
 function setAsigUnit(ctx, rowUid, idx, campo, valor) {
-  var rows = ctx==='ar' ? asigRows : ctx==='repl' ? reemplazadosRows : riMaterialRows;
+  var rows = ctx==='ar' ? asigRows : ctx==='repl' ? reemplazadosRows : ctx==='em' ? editMatRows : riMaterialRows;
   var row = rows.find(function(r){ return r.uid===rowUid; });
   if (!row) return;
   if (!row.unidades) row.unidades = [];
@@ -10505,6 +10577,16 @@ function setAsigUnit(ctx, rowUid, idx, campo, valor) {
   } else {
     row.unidades[idx].serie = valor;
   }
+}
+
+// FIX (v2.37): metraje inicial/final de bobina (contexto 'ar' o 'ri') — dato
+// de solo texto, no se valida ni se calcula nada con él, solo se guarda y
+// se muestra como referencia para la cuadrilla.
+function setAsigMetraje(ctx, rowUid, campo, valor){
+  var rows = ctx==='ar' ? asigRows : ctx==='em' ? editMatRows : riMaterialRows;
+  var row = rows.find(function(r){ return r.uid===rowUid; });
+  if (!row) return;
+  if (campo === 'ini') row.metrajeIni = valor; else row.metrajeFin = valor;
 }
 
 function setARM(u,v){var r=asigRows.find(function(x){return x.uid===u;});if(r){r.matId=v;r.unidades=[];renderAsigRows();}}
@@ -10613,6 +10695,11 @@ function registrarAsignacion(){
         var entry={matId:mid,qty:r.qty};
         if(mat&&(mat.requireMAC||mat.requireMac||mat.requireSerie)&&r.unidades&&r.unidades.length){
           entry.unidades=r.unidades.slice(0,r.qty).map(function(u){return{mac:u.mac||'',serie:u.serie||''};});
+        }
+        // FIX (v2.37): metraje inicial/final de bobina — dato de solo texto.
+        if(mat&&mat.unidad==='metros'&&((r.metrajeIni||'').trim()||(r.metrajeFin||'').trim())){
+          entry.metrajeIni=(r.metrajeIni||'').trim();
+          entry.metrajeFin=(r.metrajeFin||'').trim();
         }
         return entry;
       });
@@ -10815,7 +10902,12 @@ function abrirModalEditarMateriales(asigId) {
   if (idClienteEl) idClienteEl.value = asig.idCliente || '';
 
   editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
-    return { uid: uid(), matId: m.matId, qty: m.qty };
+    // FIX (v2.38): antes solo se copiaban matId/qty — al guardar la edición
+    // se perdían las MAC/Serie y el metraje de bobina que ya se habían
+    // capturado al registrar. Ahora se preservan para poder verlos/editarlos.
+    return { uid: uid(), matId: m.matId, qty: m.qty,
+      unidades: (m.unidades||[]).map(function(u){ return {mac:u.mac||'', serie:u.serie||''}; }),
+      metrajeIni: m.metrajeIni||'', metrajeFin: m.metrajeFin||'' };
   });
   if (!editMatRows.length) editMatRows = [{ uid: uid(), matId: '', qty: 1 }];
   renderEmRows();
@@ -10856,7 +10948,12 @@ function abrirModalEditarMaterialesAdmin(asigId) {
   if (idClienteElAdm) idClienteElAdm.value = asig.idCliente || '';
 
   editMatRows = (asig.materiales||[]).filter(function(m){ return m.matId; }).map(function(m){
-    return { uid: uid(), matId: m.matId, qty: m.qty };
+    // FIX (v2.38): antes solo se copiaban matId/qty — al guardar la edición
+    // se perdían las MAC/Serie y el metraje de bobina que ya se habían
+    // capturado al registrar. Ahora se preservan para poder verlos/editarlos.
+    return { uid: uid(), matId: m.matId, qty: m.qty,
+      unidades: (m.unidades||[]).map(function(u){ return {mac:u.mac||'', serie:u.serie||''}; }),
+      metrajeIni: m.metrajeIni||'', metrajeFin: m.metrajeFin||'' };
   });
   if (!editMatRows.length) editMatRows = [{ uid: uid(), matId: '', qty: 1 }];
   renderEmRows();
@@ -10882,6 +10979,70 @@ function renderEmRows() {
   document.getElementById('em-rows').innerHTML = editMatRows.map(function(row){
     var mat = row.matId ? getMat(row.matId) : null;
     var label = mat ? mat.nombre : '— Seleccionar material —';
+    if (!row.unidades) row.unidades = [];
+
+    // FIX (v2.38): mismo bloque de MAC/Serie que Asignar Cliente y Red
+    // Interna, para poder ver/editar lo ya capturado en vez de perderlo.
+    var needsMAC   = mat && (mat.requireMAC || mat.requireMac);
+    var needsSerie = mat && mat.requireSerie;
+    var needsUnits = needsMAC || needsSerie;
+    var unidadesHTML = '';
+    if (needsUnits && mat) {
+      var qty = row.qty || 1;
+      unidadesHTML = '<div style="margin-top:6px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">IDENTIFICADORES — '+esc(mat.nombre).toUpperCase()+'</div>';
+      for (var i=0;i<qty;i++) {
+        var u = row.unidades[i] || {mac:'',serie:''};
+        var macVal = u.mac||'', serieVal = u.serie||'';
+        var macValid = macVal.replace(/[^0-9a-fA-F]/g,'').length===12;
+        unidadesHTML += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:'+(i<qty-1?'6px':'0')+';flex-wrap:wrap;">'
+          +'<span style="font-size:11px;font-weight:700;color:var(--ink3);min-width:20px;">'+(i+1)+'.</span>';
+        if (needsMAC) {
+          unidadesHTML += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:160px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">MAC</span>'
+            +'<input type="text" value="'+macVal+'" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" '
+              +'oninput="setAsigUnit(\'em\',\''+row.uid+'\','+i+',\'mac\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(macVal&&macValid?'var(--green)':'var(--border)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;" autocomplete="off" spellcheck="false">'
+            +(macVal&&macValid?'<span style="color:var(--green);font-size:10px;">✓</span>':'')
+          +'</div>';
+        }
+        if (needsSerie) {
+          unidadesHTML += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:140px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Serie</span>'
+            +'<input type="text" value="'+serieVal+'" placeholder="N.º de serie" '
+              +'oninput="setAsigUnit(\'em\',\''+row.uid+'\','+i+',\'serie\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid '+(serieVal?'var(--green)':'var(--border)')+';border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--ink);outline:none;" autocomplete="off" spellcheck="false">'
+            +(serieVal?'<span style="color:var(--green);font-size:10px;">✓</span>':'')
+          +'</div>';
+        }
+        unidadesHTML += '</div>';
+      }
+      unidadesHTML += '</div>';
+    }
+
+    // FIX (v2.38): mismo bloque de metraje de bobina que Asignar Cliente y
+    // Red Interna — dato de solo texto.
+    var metrajeHTML = '';
+    if (mat && mat.unidad === 'metros') {
+      metrajeHTML = '<div style="margin-top:6px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.06em;margin-bottom:6px;">METRAJE DE BOBINA — '+esc(mat.nombre).toUpperCase()+'</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+          +'<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:120px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Inicial</span>'
+            +'<input type="text" value="'+esc(row.metrajeIni||'')+'" placeholder="ej. 4520" '
+              +'oninput="setAsigMetraje(\'em\',\''+row.uid+'\',\'ini\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--ink);outline:none;" autocomplete="off">'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:120px;">'
+            +'<span style="font-size:10px;color:var(--ink3);white-space:nowrap;">Final</span>'
+            +'<input type="text" value="'+esc(row.metrajeFin||'')+'" placeholder="ej. 4489" '
+              +'oninput="setAsigMetraje(\'em\',\''+row.uid+'\',\'fin\',this.value)" '
+              +'style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--ink);outline:none;" autocomplete="off">'
+          +'</div>'
+        +'</div>'
+      +'</div>';
+    }
+
     return '<div class="mat-row" style="margin-bottom:6px;grid-template-columns:1fr 72px auto;">'
       +'<div style="position:relative;">'
         +'<div onclick="abrirBuscadorFila(\'em\',\''+row.uid+'\')" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:'+(row.matId?'var(--ink)':'var(--ink3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:space-between;gap:6px;">'
@@ -10895,7 +11056,9 @@ function renderEmRows() {
       +'</div>'
       +'<input type="number" min="1" value="'+row.qty+'" onchange="setEmQty(\''+row.uid+'\',this.value)" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--ink);outline:none;width:100%;">'
       +'<button onclick="removeEmRow(\''+row.uid+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--ink3);font-size:14px;">✕</button>'
-      +'</div>';
+      +'</div>'
+      +unidadesHTML
+      +metrajeHTML;
   }).join('');
 }
 
@@ -10925,9 +11088,18 @@ function guardarEdicionMateriales() {
   // Validar duración razonable si cambió la hora de inicio o el tipo de trabajo
   // (no bloquea: advierte y, si se confirma, queda marcado para revisar en Historial)
   var infoDuracionEdit = null;
+  var seRevisoLaDuracion = false;
   if ((cambioHora || cambioTipo) && asig.horaFin) {
+    seRevisoLaDuracion = true;
     infoDuracionEdit = validarDuracionRazonable(nuevoTipo||asig.tipo, calcDuracionMin(nuevaHora, asig.horaFin), 'cliente');
   }
+  // FIX (v2.35): antes, si la edición corregía un tiempo que antes excedía
+  // (o que era sospechosamente corto), la marca "excedeTiempo" y el aviso de
+  // tiempo mayor/menor en Historial se quedaban con el valor VIEJO — porque
+  // solo se escribía cuando SEGUÍA habiendo problema, nunca para limpiarlo.
+  // seLimpiaAvisoDuracion detecta ese caso (sí se revisó la duración, y esta
+  // vez salió razonable) para poder borrar la marca más abajo.
+  var seLimpiaAvisoDuracion = seRevisoLaDuracion && !infoDuracionEdit && asig.excedeTiempo;
 
   var nuevos = editMatRows.filter(function(r){ return r.matId && r.qty > 0; });
   var cid = asig.cuadrillaId;
@@ -10977,11 +11149,16 @@ function guardarEdicionMateriales() {
   if (cambioHora) resumenPartes.push('Hora de inicio: '+(asig.horaInicio||'—')+' → '+nuevaHora);
   if (cambioOT) resumenPartes.push('OT: '+(asig.ot||'—')+' → '+(nuevoOT||'—'));
   if (cambioIdCliente) resumenPartes.push('ID Cliente: '+(asig.idCliente||'—')+' → '+(nuevoIdCliente||'—'));
+  if (infoDuracionEdit) resumenPartes.push('Tiempo: marcado como sospechoso ('+infoDuracionEdit.tipoProblema+')');
+  else if (seLimpiaAvisoDuracion) resumenPartes.push('Tiempo: se corrigió, ya no está marcado como sospechoso');
   var resumenCambios = resumenPartes.join(' · ');
   var avisoDuracionEdit = infoDuracionEdit
     ? '<div style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);border-radius:var(--r);padding:8px 10px;margin-bottom:.75rem;font-size:12px;color:var(--ink2);">'
       + '⚠️ '+infoDuracionEdit.mensaje+' Se guardará marcado para revisión.</div>'
-    : '';
+    : (seLimpiaAvisoDuracion
+      ? '<div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);border-radius:var(--r);padding:8px 10px;margin-bottom:.75rem;font-size:12px;color:var(--ink2);">'
+        + '✅ La duración ahora es razonable — se quitará la marca de "tiempo sospechoso" que tenía este registro.</div>'
+      : '');
 
   showConfirm(
     'Confirmar edición de la asignación',
@@ -11007,7 +11184,20 @@ function guardarEdicionMateriales() {
       });
       // Actualizar el array de materiales de la asignación
       if (Object.keys(diffs).length) {
-        updates['asignaciones/'+asigId+'/materiales'] = nuevos.map(function(r){ return { matId:r.matId, qty:r.qty }; });
+        // FIX (v2.38): antes se guardaba solo {matId,qty} — se perdían las
+        // MAC/Serie y el metraje de bobina ya capturados. Ahora se preservan.
+        updates['asignaciones/'+asigId+'/materiales'] = nuevos.map(function(r){
+          var mat = getMat(r.matId);
+          var entry = { matId:r.matId, qty:r.qty };
+          if (mat && (mat.requireMAC || mat.requireMac || mat.requireSerie) && r.unidades && r.unidades.length) {
+            entry.unidades = r.unidades.slice(0,r.qty).map(function(u){ return {mac:u.mac||'', serie:u.serie||''}; });
+          }
+          if (mat && mat.unidad === 'metros' && ((r.metrajeIni||'').trim() || (r.metrajeFin||'').trim())) {
+            entry.metrajeIni = (r.metrajeIni||'').trim();
+            entry.metrajeFin = (r.metrajeFin||'').trim();
+          }
+          return entry;
+        });
       }
       if (cambioTipo) updates['asignaciones/'+asigId+'/tipo'] = nuevoTipo;
       if (cambioHora) updates['asignaciones/'+asigId+'/horaInicio'] = nuevaHora;
@@ -11018,6 +11208,14 @@ function guardarEdicionMateriales() {
         updates['asignaciones/'+asigId+'/tiempoProblema'] = infoDuracionEdit.tipoProblema;
         updates['asignaciones/'+asigId+'/tiempoEstimadoMin'] = infoDuracionEdit.estimadoMin;
         updates['asignaciones/'+asigId+'/tiempoExcesoMin'] = infoDuracionEdit.excesoMin;
+      } else if (seLimpiaAvisoDuracion) {
+        // FIX (v2.35): la duración se revisó de nuevo y esta vez es razonable
+        // — se limpia la marca y los datos viejos para que la notificación
+        // de tiempo mayor/menor deje de mostrar el problema ya corregido.
+        updates['asignaciones/'+asigId+'/excedeTiempo'] = false;
+        updates['asignaciones/'+asigId+'/tiempoProblema'] = null;
+        updates['asignaciones/'+asigId+'/tiempoEstimadoMin'] = null;
+        updates['asignaciones/'+asigId+'/tiempoExcesoMin'] = null;
       }
       // Auditoría: visible solo para admin (no se muestra en la vista de cuadrilla)
       updates['asignaciones/'+asigId+'/editadoPor'] = currentUser.nombre || currentUser.username || '';
@@ -11246,7 +11444,8 @@ function generarPDF(asig){
     var nombreLines = wrapLines(mat.nombre, 88); // ancho disponible antes de la columna Unidad
     var unidadesConDato = (m.unidades||[]).filter(function(u){ return u.mac||u.serie; });
     var rowH = Math.max(6.5, nombreLines.length*4.2 + 2.3);
-    checkPageBreak(rowH + unidadesConDato.length*4.5, materialesHeader);
+    var metrajeExtra = (m.metrajeIni || m.metrajeFin) ? 4.5 : 0;
+    checkPageBreak(rowH + unidadesConDato.length*4.5 + metrajeExtra, materialesHeader);
     doc.setTextColor(30,30,30);doc.setFont('helvetica','normal');doc.setFontSize(9);
     if(i%2===0){doc.setFillColor(249,248,245);doc.rect(L,y,170,rowH,'F');}
     doc.text(mat.codigo||'—',L+2,y+4.5);
@@ -11261,6 +11460,13 @@ function generarPDF(asig){
       if(u.serie) line+='  Serie: '+u.serie;
       doc.text(line,L+27,y+3.5);y+=4.5;
     });
+    // FIX (v2.37): metraje inicial/final de bobina, si se registró.
+    if (m.metrajeIni || m.metrajeFin) {
+      checkPageBreak(4.5, materialesHeader);
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+      doc.text('  Metraje: inicial '+(m.metrajeIni||'—')+'  →  final '+(m.metrajeFin||'—'),L+27,y+3.5);
+      y+=4.5;
+    }
   });
   checkPageBreak(11);
   y+=4;doc.setFillColor(232,68,10);doc.rect(L,y,170,7,'F');
@@ -11387,6 +11593,10 @@ function mostrarResumenTextoAsig(asigId) {
           if(u.serie) line += '  Serie: '+u.serie;
           lineas.push(line);
         });
+      }
+      // FIX (v2.37): metraje inicial/final de bobina, si se registró.
+      if (m.metrajeIni || m.metrajeFin) {
+        lineas.push('   Metraje: inicial '+(m.metrajeIni||'—')+'  →  final '+(m.metrajeFin||'—'));
       }
     });
     lineas.push('');
@@ -12014,7 +12224,7 @@ function buildReemplazadosHTML(equiposReemplazados) {
 }
 
 function filtrarHistAdminHoy(){
-  var hoy = new Date().toISOString().slice(0,10);
+  var hoy = hoyLocal();
   document.getElementById('hist-admin-fecha-ini').value = hoy;
   document.getElementById('hist-admin-fecha-fin').value = hoy;
   renderHistorial();
@@ -12141,7 +12351,7 @@ function renderHistorial(){
     if (filtroAdminElCuad) filtroAdminElCuad.style.display = 'none';
 
     var fechaInput = document.getElementById('hist-fecha-filtro');
-    if (!fechaInput.value) fechaInput.value = new Date().toISOString().slice(0,10);
+    if (!fechaInput.value) fechaInput.value = hoyLocal();
     var fechaSel = fechaInput.value;
 
     var theadCuad = document.querySelector('#sec-historial table thead tr');
@@ -13600,8 +13810,39 @@ function renderSesionesActivasConfig(){
   });
 }
 
+// FIX (v2.36): antes, entrar a esta pantalla llamaba a renderAdminLogs(),
+// que en realidad SOLO armaba un CSV y lo descargaba de inmediato — es decir,
+// cada visita a "Registro de accesos" descargaba un archivo sin que nadie lo
+// pidiera, Y la tabla en pantalla (#logs-tbody) nunca se llenaba porque nada
+// la actualizaba. Ahora quedan separadas: renderAdminLogs() sí llena la
+// tabla en pantalla (últimos 200), y exportarLogsCSV() —la que llama el
+// botón "Exportar CSV"— descarga el archivo solo cuando se pide.
 function renderAdminLogs(){
   if (!currentUser || currentUser.rol !== 'superadmin') return;
+  var tbody = document.getElementById('logs-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:1rem;">Cargando...</td></tr>';
+  db.ref('logs').orderByChild('fecha').limitToLast(200).once('value', function(snap){
+    var rows = [];
+    snap.forEach(function(c){ rows.unshift(c.val()); });
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:1rem;">Sin registros</td></tr>'; return; }
+    tbody.innerHTML = rows.map(function(l){
+      return '<tr>'
+        + '<td style="font-size:12px;white-space:nowrap;">'+fmtDT(l.fecha)+'</td>'
+        + '<td>'+esc(l.usuario||'—')+'</td>'
+        + '<td><span class="badge badge-gray">'+esc(l.tipo||'—')+'</span></td>'
+        + '<td style="font-size:11px;color:var(--ink3);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(l.agente||'—')+'</td>'
+        + '<td><span class="badge '+(l.estado==='exitoso'?'badge-green':'badge-red')+'">'+esc(l.estado||'—')+'</span></td>'
+        + '</tr>';
+    }).join('');
+  }, function(){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--red);padding:1rem;">Error al cargar los logs</td></tr>';
+  });
+}
+
+function exportarLogsCSV(){
+  if (!currentUser || currentUser.rol !== 'superadmin') { toast('Solo el SuperAdmin puede exportar logs','error'); return; }
+  toast('Generando CSV...','info');
   db.ref('logs').orderByChild('fecha').once('value',function(snap){
     var rows=[['Fecha','Usuario','Tipo','Estado','Agente']];
     snap.forEach(function(c){
@@ -13613,6 +13854,9 @@ function renderAdminLogs(){
     a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
     a.download='BodegaNet_Logs_'+new Date().toISOString().slice(0,10)+'.csv';
     a.click();
+    toast('Logs exportados ('+(rows.length-1)+' registros)','success');
+  }, function(e){
+    toast('No se pudo exportar: '+e.message,'error');
   });
 }
 
@@ -13621,6 +13865,10 @@ function renderAdminLogs(){
 // ══════════════════════════════════════════════════════
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+// FIX (v2.36): faltaba esta función — varios botones "Cerrar" generados
+// dinámicamente (modales de detalle/confirmación) llamaban a closeConfirm()
+// sin que existiera, así que no respondían al hacer clic.
+function closeConfirm(){ closeModal('modal-confirm'); }
 function toast(msg,type){
   var c=document.getElementById('toasts'),icons={success:'✓',error:'✕',info:'i'};
   var el=document.createElement('div');el.className='toast t-'+(type||'info');
