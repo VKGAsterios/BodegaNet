@@ -5,7 +5,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet v2.40 — Control de Materiales ISP</title>
+<title>BodegaNet v2.41 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -3007,12 +3007,21 @@ const db = firebase.database();
 // FIX ACTUALIZACIONES (v2.27): forzar recarga al publicar versión nueva
 // ══════════════════════════════════════════════════════
 // Cada vez que subas un archivo nuevo a tu hosting (GitHub Pages, Netlify...),
-// sube también el número de BN_APP_VERSION. Cuando publiques la actualización
-// desde Configuración → Actualizar dispositivos, todos los navegadores que
-// tengan BodegaNet abierto (login o ya adentro, de cualquier cuadrilla/sector)
-// recargan la página automáticamente para tomar el código nuevo — sin tener
-// que avisarle uno por uno a cada técnico que refresque manualmente.
-const BN_APP_VERSION = '2.27';
+// actualiza el número en <title> (arriba del todo del archivo). Cuando
+// publiques la actualización desde Configuración → Actualizar dispositivos,
+// todos los navegadores que tengan BodegaNet abierto (login o ya adentro, de
+// cualquier cuadrilla/sector) recargan la página automáticamente para tomar
+// el código nuevo — sin tener que avisarle uno por uno a cada técnico.
+//
+// FIX (v2.41): antes BN_APP_VERSION era un texto fijo aparte del <title>, y
+// se quedó pegada en '2.27' varias versiones seguidas porque actualizar el
+// <title> no actualizaba esta constante — nadie se dio cuenta hasta que la
+// pantalla de Configuración mostró "2.27" con un archivo que ya iba en 2.40.
+// Ahora se calcula SOLA a partir del <title>, así que con solo cambiar el
+// número ahí (que de todas formas hay que hacer en cada versión) esta
+// constante queda sincronizada automáticamente, sin un segundo lugar que
+// se pueda olvidar actualizar.
+const BN_APP_VERSION = (document.title.match(/v(\d+\.\d+)/i) || [null,'0.0'])[1];
 
 // ══════════════════════════════════════════════════════
 // FIX RENDIMIENTO (v2.31): ventana de carga de 30 días
@@ -14147,6 +14156,14 @@ function _bnForzarRecarga(titulo, mensajeListo){
   // varias veces seguidas mientras se terminan de sincronizar pendientes).
   if (_bnRecargaEnCurso) return;
   _bnRecargaEnCurso = true;
+  // FIX (v2.41): si la recarga nunca llega a completarse de verdad —por
+  // ejemplo, el navegador mostró el aviso nativo de "¿seguro que quieres
+  // salir?" (por tener pendientes) y alguien le dio "Cancelar"— esta bandera
+  // se quedaba en "true" para siempre, y todos los intentos futuros (botón
+  // de prueba, o la recarga real al publicar una versión) no hacían
+  // absolutamente nada, sin ningún error visible. Este watchdog la libera
+  // sola a los 90 segundos como red de seguridad, incluso en ese caso.
+  setTimeout(function(){ _bnRecargaEnCurso = false; }, 90000);
   // FIX (v2.28): antes esto recargaba a los 4 segundos sin importar si había
   // registros esperando subir a Firebase — solo confiaba en que sobrevivieran
   // el reload guardados en localStorage. Ahora, si hay pendientes, primero
