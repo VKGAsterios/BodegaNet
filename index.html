@@ -5,7 +5,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet v2.43 — Control de Materiales ISP</title>
+<title>BodegaNet v2.46 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -432,9 +432,6 @@ select option{background:var(--bg3);color:var(--ink);}
               <button class="nav-item" onclick="showSection('admin-reportes')">
                 <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Reportes / Excel
               </button>
-              <button class="nav-item" onclick="showSection('admin-auditoria')">
-                <svg viewBox="0 0 20 20" fill="none"><path d="M10 3l6 3v4c0 4-2.7 6.7-6 8-3.3-1.3-6-4-6-8V6l6-3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 10l2 2 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Auditoría de stock
-              </button>
               <button class="nav-item" onclick="showSection('admin-visitas-fallidas')" style="color:#f97316;">
                 <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#f97316" stroke-width="1.5"/><path d="M10 7v4M10 14h.01" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/></svg>Visitas fallidas
               </button>
@@ -605,6 +602,15 @@ select option{background:var(--bg3);color:var(--ink);}
 
           <!-- KPI cuadrilla: total de materiales en bodega + rendimiento del día -->
           <div class="kpi-grid" id="kpi-grid-cuad"></div>
+
+          <!-- RENDIMIENTO DEL MES: (tickets realizados + visitas) / tickets asignados -->
+          <div class="card" style="margin-bottom:.75rem;">
+            <div class="card-header" style="margin-bottom:.5rem;">
+              <h3 style="font-size:14px;">📈 Rendimiento del mes</h3>
+              <span style="font-size:12px;color:var(--ink3);" id="dash-cuad-mes-label"></span>
+            </div>
+            <div id="dash-cuad-mes"></div>
+          </div>
 
           <!-- RENDIMIENTO DEL DÍA -->
           <div class="card" style="margin-bottom:.75rem;">
@@ -1371,44 +1377,6 @@ select option{background:var(--bg3);color:var(--ink);}
         </div>
       </section>
 
-      <!-- ADMIN AUDITORÍA DE STOCK -->
-      <section class="section" id="sec-admin-auditoria">
-        <div class="page-header">
-          <div><h2>Auditoría de stock</h2><p>Compara el stock real de cada bodega contra lo que dice el historial de Kardex, y detecta anulaciones antiguas sin reverso registrado</p></div>
-          <button class="btn" onclick="renderAuditoriaStock()">↻ Volver a calcular</button>
-        </div>
-
-        <div class="card" style="margin-bottom:1rem;">
-          <div style="font-size:13px;color:var(--ink2);line-height:1.5;">
-            <strong>¿Qué hace esto?</strong> Para cada material y cuadrilla, se recalcula el stock <em>"teórico"</em> sumando
-            todos los ingresos y restando todos los egresos registrados en Kardex, y se compara contra el stock real
-            guardado en la bodega. Si no coinciden, aquí puedes generar un ajuste de corrección que quede documentado
-            en el Kardex — nunca se modifica el stock directamente desde aquí.
-          </div>
-        </div>
-
-        <div id="auditoria-resumen" style="margin-bottom:1rem;"></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Cuadrilla</th><th>Material</th><th>Stock real</th><th>Stock teórico (Kardex)</th><th>Diferencia</th><th>Posible causa</th><th></th></tr></thead>
-            <tbody id="auditoria-tbody"><tr><td colspan="7">Cargando…</td></tr></tbody>
-          </table>
-        </div>
-
-        <div style="margin-top:2rem;">
-          <div class="page-header" style="margin-bottom:.75rem;">
-            <div><h3 style="margin:0;font-size:15px;">Ajustes de auditoría aplicados</h3><p>Movimientos con referencia "AJUSTE DE AUDITORÍA" — si alguno se aplicó por error, puedes deshacerlo aquí</p></div>
-            <button class="btn" id="btn-deshacer-todos-aud" style="display:none;border-color:var(--red);color:var(--red);" onclick="confirmarDeshacerTodosAjustes()">Deshacer todos</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Material</th><th>Tipo</th><th>Cantidad</th><th></th></tr></thead>
-              <tbody id="auditoria-ajustes-tbody"><tr><td colspan="6">Cargando…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
       <!-- ADMIN LOGS DE ACCESO -->
       <section class="section" id="sec-admin-logs">
         <div class="page-header">
@@ -2048,6 +2016,9 @@ select option{background:var(--bg3);color:var(--ink);}
             <label>Equipos recuperados *</label>
             <div id="ret-equipos-rows"></div>
             <button class="btn btn-sm btn-ghost" onclick="addRetiroEquipoRow()" style="margin-top:6px;">+ Agregar equipo</button>
+          </div>
+          <div class="field"><label>Observación (opcional)</label>
+            <textarea id="ret-observacion" rows="3" maxlength="500" placeholder="Ej: Cliente entregó el equipo en buen estado / equipo dañado / falta cable de poder..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;resize:vertical;font-family:inherit;"></textarea>
           </div>
           <input type="hidden" id="ret-edit-id">
           <div class="btn-row" style="margin-top:1rem;">
@@ -2970,6 +2941,20 @@ select option{background:var(--bg3);color:var(--ink);}
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">Cancelar</button>
       <button class="btn btn-accent" id="confirm-ok-btn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-retiro-texto">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeModal('modal-retiro-texto')">✕</button>
+    <h3>📋 Texto de cierre del retiro</h3>
+    <p style="font-size:13px;color:var(--ink3);margin-bottom:1rem;">Copia este texto para el cierre o envíalo por WhatsApp. Puedes editarlo antes de copiar.</p>
+    <textarea id="retiro-texto-box" style="width:100%;min-height:240px;padding:12px;border:1.5px solid var(--border);border-radius:var(--r);font-family:monospace;font-size:13px;background:var(--bg3);color:var(--ink);resize:vertical;line-height:1.6;outline:none;"></textarea>
+    <div class="btn-row" style="margin-top:1rem;">
+      <button class="btn btn-accent" onclick="copiarTextoRetiro()">Copiar texto</button>
+      <button class="btn btn-ghost" onclick="enviarWhatsappRetiro()">📲 WhatsApp</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-retiro-texto')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -5868,7 +5853,6 @@ function renderCurrentSection() {
     historial: renderHistorial, 'admin-materiales': renderAdminMateriales,
     'admin-cuadrillas': renderAdminCuadrillas,
     'admin-reportes': renderAdminReportes,
-    'admin-auditoria': renderAuditoriaStock,
     'admin-logs': renderAdminLogs,
     'admin-config': function(){ renderSesionesActivasConfig(); renderBloqueosLogin(); if(currentUser&&currentUser.rol==='superadmin') renderCfgSectores(); initConfigSeccion(); initLimpiezaDatos(); },
     'herramientas': renderHerramientas,
@@ -6036,7 +6020,7 @@ function expandNavGroupForSection(section) {
     'dashboard':'navg-principal','kardex':'navg-principal','asignar':'navg-principal',
     'inventario':'navg-inventario','alertas':'navg-inventario','historial':'navg-inventario',
     'herramientas':'navg-inventario','red-interna':'navg-inventario',
-    'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion','admin-auditoria':'navg-gestion',
+    'admin-materiales':'navg-gestion','admin-cuadrillas':'navg-gestion','admin-reportes':'navg-gestion',
     'admin-visitas-fallidas':'navg-gestion','admin-herramientas':'navg-control','admin-catalogo-herramientas':'navg-control','admin-tipos-ri':'navg-control','admin-tipos-trabajo':'navg-control','admin-motivos-vf':'navg-control','admin-red-interna':'navg-control',
     'admin-logs':'navg-sistema','admin-config':'navg-sistema'
   };
@@ -7484,7 +7468,7 @@ function renderRetPendientes() {
     (r.equipos||[]).forEach(function(eq){
       if (eq.estado !== 'cuadrado') {
         equiposPendientes.push({
-          retiroId:r.id, cliente:r.cliente||'—', numTrabajo:r.numTrabajo||'—',
+          retiroId:r.id, cliente:r.cliente||'—', numTrabajo:r.numTrabajo||'—', observacion:r.observacion||'',
           fechaRetiro:r.fecha||'', equipoId:eq.equipoId,
           nombreRef:eq.nombreRef||'—', cantidad:eq.cantidad||1
         });
@@ -7505,7 +7489,7 @@ function renderRetPendientes() {
 
   lista.innerHTML = '<div class="table-wrap"><table><thead><tr>'
     +'<th style="width:36px;"></th><th>Equipo</th><th>Cant.</th>'
-    +'<th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th><th></th>'
+    +'<th>Cliente</th><th># Trabajo</th><th>Fecha retiro</th><th>Observación</th><th></th>'
     +'</tr></thead><tbody>'
     + equiposPendientes.map(function(ep){
         var key = ep.retiroId+'__'+ep.equipoId;
@@ -7517,7 +7501,8 @@ function renderRetPendientes() {
           +'<td style="font-size:12px;">'+esc(ep.cliente)+'</td>'
           +'<td style="font-family:monospace;font-size:12px;">'+esc(ep.numTrabajo)+'</td>'
           +'<td style="font-size:12px;white-space:nowrap;">'+fmtDate(ep.fechaRetiro)+'</td>'
-          +'<td><button class="btn btn-sm btn-ghost" onclick="eliminarEquipoPendiente(\''+ep.retiroId+'\',\''+ep.equipoId+'\')">✕</button></td>'
+          +'<td style="font-size:12px;max-width:200px;">'+(ep.observacion?esc(ep.observacion):'<span style="color:var(--ink3);">—</span>')+'</td>'
+          +'<td style="white-space:nowrap;"><button class="btn btn-sm btn-ghost" title="Texto para copiar / WhatsApp" onclick="abrirTextoRetiro(cache.retiros[\''+ep.retiroId+'\']&&Object.assign({id:\''+ep.retiroId+'\'},cache.retiros[\''+ep.retiroId+'\']))">📋</button> <button class="btn btn-sm btn-ghost" onclick="eliminarEquipoPendiente(\''+ep.retiroId+'\',\''+ep.equipoId+'\')">✕</button></td>'
           +'</tr>';
       }).join('')
     +'</tbody></table></div>';
@@ -7606,6 +7591,7 @@ function abrirModalRetiro() {
   retiroEquipoRows = [{uid:uid(), matId:'', nombreRef:'', cantidad:1}];
   document.getElementById('ret-cliente').value = '';
   document.getElementById('ret-num-trabajo').value = '';
+  document.getElementById('ret-observacion').value = '';
   var h=new Date(), pad=function(n){return String(n).padStart(2,'0');};
   document.getElementById('ret-fecha').value = h.getFullYear()+'-'+pad(h.getMonth()+1)+'-'+pad(h.getDate());
   document.getElementById('ret-edit-id').value = '';
@@ -7661,6 +7647,8 @@ function guardarRetiro() {
   });
   var data = { cliente:cliente, numTrabajo:(document.getElementById('ret-num-trabajo').value||'').trim(),
     fecha:fecha, cuadrillaId:cid, tsRegistro:Date.now(), equipos:equiposData };
+  var obsRet = (document.getElementById('ret-observacion').value||'').trim();
+  if (obsRet) data.observacion = obsRet;
 
   // FIX CONECTIVIDAD: guardarConRespaldo evita perder el retiro si Firebase
   // no responde por una desconexión momentánea (se guarda en el dispositivo
@@ -7668,7 +7656,44 @@ function guardarRetiro() {
   var updatesRet = {}; updatesRet['retiros/'+rid] = data;
   guardarConRespaldo(updatesRet, 'Retiro: '+cliente+' — '+equiposValidos.length+' equipo(s)', 'retiro', function(){
     toast('Retiro registrado correctamente','success'); closeModal('modal-retiro');
+    abrirTextoRetiro(Object.assign({id:rid}, data));
   });
+}
+
+function textoRetiro(r) {
+  var cuad = getCuad(r.cuadrillaId);
+  var equipos = (r.equipos||[]).map(function(eq){
+    return '  \u2022 ' + (eq.nombreRef||'\u2014') + ' \xd7 ' + (eq.cantidad||1);
+  }).join('\n') || '  Sin equipos';
+  return [
+    '\ud83d\udce4 RETIRO / RECUPERACI\xd3N DE EQUIPOS',
+    '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+    'Cuadrilla: ' + (cuad?cuad.nombre:'\u2014'),
+    'Cliente: ' + (r.cliente||'\u2014'),
+    '# Trabajo: ' + (r.numTrabajo||'\u2014'),
+    'Fecha: ' + (r.fecha?fmtDate(r.fecha+'T00:00:00'):'\u2014'),
+    'Equipos recuperados:\n' + equipos,
+    r.observacion ? 'Observaci\xf3n: ' + r.observacion : ''
+  ].filter(Boolean).join('\n');
+}
+function abrirTextoRetiro(r) {
+  if (!r) return;
+  document.getElementById('retiro-texto-box').value = textoRetiro(r);
+  openModal('modal-retiro-texto');
+}
+function copiarTextoRetiro() {
+  var el = document.getElementById('retiro-texto-box');
+  navigator.clipboard.writeText(el.value).then(function(){
+    toast('Texto copiado al portapapeles','success');
+  }).catch(function(){
+    el.select(); el.setSelectionRange(0,99999);
+    try { document.execCommand('copy'); toast('Texto copiado al portapapeles','success'); }
+    catch(e){ toast('Selecciona el texto y c\xf3pialo manualmente','info'); }
+  });
+}
+function enviarWhatsappRetiro() {
+  var t = document.getElementById('retiro-texto-box').value;
+  window.open('https://wa.me/?text='+encodeURIComponent(t), '_blank');
 }
 
 function abrirModalCuadre() {
@@ -9193,7 +9218,7 @@ function showSection(id) {
   if (!currentUser) return;
 
   // ── Guardia de roles ─────────────────────────────────
-  var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes','admin-auditoria',
+  var adminOnly = ['admin-materiales','admin-cuadrillas','admin-reportes',
                    'admin-logs','admin-config','admin-visitas-fallidas','admin-herramientas','admin-catalogo-herramientas','admin-tipos-ri','admin-tipos-trabajo','admin-motivos-vf','admin-red-interna'];
   var superOnly = ['admin-logs'];
   var cuadOnly  = ['herramientas','red-interna','visitas-fallidas-cuad','alertas','retiros'];
@@ -9310,6 +9335,8 @@ function renderDashboard() {
       kpi('Clientes atendidos hoy', asigsHoyCuad.length, 'asignaciones del día', 'c-green') +
       kpi('Unidades entregadas hoy', materialesEntregadosHoy, 'entre clientes y red interna', '');
 
+    renderRendimientoMesCuad(cid);
+
     var fechaEl = document.getElementById('dash-cuad-rend-fecha');
     if (fechaEl) fechaEl.textContent = new Date().toLocaleDateString('es-HN',{weekday:'long',day:'numeric',month:'long'});
 
@@ -9352,6 +9379,61 @@ function renderDashboard() {
           }).join('');
     }
   }
+}
+
+// ══════════════════════════════════════════════════════
+// RENDIMIENTO DEL MES (dashboard de cuadrilla)
+// Rendimiento = (tickets realizados + visitas fallidas) / tickets asignados.
+// Tickets realizados = clientes atendidos + trabajos de red interna del mes
+// (sin anulados). Tickets asignados = meta diaria de la cuadrilla (campo
+// "meta" definido por el administrador) x d\u00edas del mes seg\u00fan el calendario.
+// ══════════════════════════════════════════════════════
+function _mesClave(d) { d = d || new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function _enMes(fecha, clave) {
+  var d = new Date(fecha); if (isNaN(d)) return false;
+  return _mesClave(d) === clave;
+}
+function renderRendimientoMesCuad(cid) {
+  var cont = document.getElementById('dash-cuad-mes');
+  if (!cont) return;
+  var clave = _mesClave();
+  var lbl = document.getElementById('dash-cuad-mes-label');
+  var nombreMes = new Date().toLocaleDateString('es-HN',{month:'long',year:'numeric'});
+  if (lbl) lbl.textContent = nombreMes;
+
+  var asigMes = asigListFiltrada().filter(function(a){
+    return !a.anulada && a.cuadrillaId===cid && _enMes(a.fecha, clave);
+  });
+  var clientes = asigMes.filter(function(a){ return a.tipoRegistro!=='redInterna'; }).length;
+  var ri       = asigMes.filter(function(a){ return a.tipoRegistro==='redInterna'; }).length;
+  var realizados = clientes + ri;
+  var visitas = visitasFallidasListFiltrada().filter(function(v){
+    return v.cuadrillaId===cid && _enMes(v.fecha, clave);
+  }).length;
+  var cuad = cache.cuadrillas[cid] || {};
+  var metaDia = parseInt(cuad.meta) || 0;
+  var hoyD = new Date();
+  var diasMes = new Date(hoyD.getFullYear(), hoyD.getMonth()+1, 0).getDate();
+  var asignados = metaDia * diasMes;
+  var cumplidos = realizados + visitas;
+
+  var pct = asignados>0 ? Math.round(cumplidos/asignados*100) : null;
+  var color = pct===null ? 'var(--ink3)' : pct>=100 ? 'var(--green)' : pct>=70 ? 'var(--amber)' : 'var(--red)';
+  var caja = function(n, t, c){ return '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:'+c+';">'+n+'</div><div style="font-size:11px;color:var(--ink3);">'+t+'</div></div>'; };
+
+  cont.innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:.75rem;">'
+    + caja(realizados, 'Tickets realizados', 'var(--accent)')
+    + caja(visitas, 'Visitas fallidas', 'var(--amber)')
+    + caja(asignados||'—', 'Tickets asignados', 'var(--ink)')
+    + caja(pct===null?'—':pct+'%', 'Rendimiento', color)
+    + '</div>'
+    + (pct!==null ? '<div style="height:8px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:.5rem;"><div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+color+';"></div></div>' : '')
+    + '<p style="font-size:12px;color:var(--ink3);margin-bottom:.5rem;">'
+    + (pct!==null
+        ? '('+realizados+' realizados + '+visitas+' visitas) \u00f7 '+asignados+' asignados ('+metaDia+' por d\u00eda \u00d7 '+diasMes+' d\u00edas) \u00b7 clientes: '+clientes+', red interna: '+ri
+        : 'Tu cuadrilla no tiene meta diaria definida. P\u00eddele al administrador que la configure para calcular el rendimiento.')
+    + '</p>';
 }
 
 // 5. Gráfico de materiales más usados (barras horizontales con Canvas)
@@ -12735,288 +12817,6 @@ function exportCSV(){
 }
 
 // ══════════════════════════════════════════════════════
-// ADMIN — AUDITORÍA DE STOCK
-// Recalcula el stock "teórico" de cada bodega replicando todo el historial
-// de Kardex (ingresos - egresos) y lo compara contra el stock real guardado
-// en stocks/. Si difieren, permite generar un ajuste de corrección que queda
-// documentado en el Kardex, sin tocar nunca el stock directamente desde aquí.
-// ══════════════════════════════════════════════════════
-function calcularAuditoriaStock() {
-  var cuads = getCuadrillasFiltradas();
-  var kx = kardexListFiltrada();
-  // Anulaciones históricas cuyo reverso NO quedó registrado en Kardex
-  // (asignaciones anuladas antes de este parche, o cuyo reverso falló).
-  var anuladasSinReverso = asigListFiltrada().filter(function(a){
-    return a.anulada && !a.reversoKardexRegistrado;
-  });
-
-  var filas = [];
-  cuads.forEach(function(cuad){
-    var cid = cuad.id;
-    // Teórico: replica ingresos (+) y egresos (-) de este Kardex
-    var teorico = {};
-    kx.filter(function(k){ return k.cuadrillaId === cid; }).forEach(function(k){
-      var mid = k.matId, qty = parseInt(k.qty) || 0;
-      if (!teorico.hasOwnProperty(mid)) teorico[mid] = 0;
-      teorico[mid] += (k.tipo === 'ingreso' ? qty : -qty);
-    });
-    // Universo de materiales a revisar: los que tienen movimientos + los que tienen stock real
-    var idsAVerificar = {};
-    Object.keys(teorico).forEach(function(mid){ idsAVerificar[mid] = true; });
-    Object.keys(cache.stocks[cid] || {}).forEach(function(mid){ idsAVerificar[mid] = true; });
-
-    Object.keys(idsAVerificar).forEach(function(mid){
-      var real = getStock(cid, mid);
-      var teo  = teorico.hasOwnProperty(mid) ? teorico[mid] : 0;
-      var diff = real - teo;
-      if (diff === 0) return; // cuadra, no hay nada que mostrar
-      var mat = getMat(mid);
-      if (!mat) return; // material eliminado del catálogo, se ignora
-
-      // Buscar anulaciones sin reverso de este material/cuadrilla como posible causa
-      var candidatas = anuladasSinReverso.filter(function(a){
-        return a.cuadrillaId === cid && (a.materiales||[]).some(function(m){ return m.matId === mid; });
-      });
-      var causa = '—';
-      if (candidatas.length) {
-        var sumaCandidatas = candidatas.reduce(function(s,a){
-          var mr=(a.materiales||[]).find(function(m){return m.matId===mid;});
-          return s + (mr?(parseInt(mr.qty)||0):0);
-        }, 0);
-        causa = candidatas.length + ' anulación(es) anterior(es) al parche sin reverso en Kardex'
-          + (sumaCandidatas === diff ? ' — coincide exactamente' : ' (suma '+sumaCandidatas+' '+ (mat.unidad||'') +')');
-      }
-
-      filas.push({
-        cuadrillaId: cid, cuadrillaNombre: cuad.nombre, matId: mid,
-        matNombre: mat.nombre, unidad: mat.unidad||'',
-        real: real, teorico: teo, diff: diff, causa: causa,
-        candidatas: candidatas
-      });
-    });
-  });
-  filas.sort(function(a,b){ return Math.abs(b.diff) - Math.abs(a.diff); });
-  return filas;
-}
-
-function renderAuditoriaStock() {
-  var tbody = document.getElementById('auditoria-tbody');
-  var resumen = document.getElementById('auditoria-resumen');
-  if (!tbody) return;
-  var filas = calcularAuditoriaStock();
-
-  if (resumen) {
-    resumen.innerHTML = filas.length
-      ? '<span class="badge badge-accent">'+filas.length+' discrepancia(s) encontrada(s)</span>'
-      : '<span class="badge badge-green">✓ Todo cuadra — stock real y Kardex coinciden en todas las bodegas visibles</span>';
-  }
-
-  if (!filas.length) {
-    tbody.innerHTML = '<tr><td colspan="7">'+empty('Sin discrepancias. El stock real coincide con el historial de Kardex.')+'</td></tr>';
-    renderAjustesAuditoriaAplicados();
-    return;
-  }
-
-  tbody.innerHTML = filas.map(function(f){
-    var color = f.diff > 0 ? 'var(--green)' : 'var(--red)';
-    var signo = f.diff > 0 ? '+' : '';
-    return '<tr>'
-      + '<td><span class="badge badge-gray">'+esc(f.cuadrillaNombre)+'</span></td>'
-      + '<td style="font-size:12px;">'+esc(f.matNombre)+'</td>'
-      + '<td>'+f.real+' '+esc(f.unidad)+'</td>'
-      + '<td>'+f.teorico+' '+esc(f.unidad)+'</td>'
-      + '<td style="font-weight:700;color:'+color+';">'+signo+f.diff+' '+esc(f.unidad)+'</td>'
-      + '<td style="font-size:11px;color:var(--ink3);max-width:220px;">'+esc(f.causa)+'</td>'
-      + '<td><button class="btn btn-sm btn-accent" onclick="confirmarAjusteAuditoria(\''+f.cuadrillaId+'\',\''+f.matId+'\')">Corregir</button></td>'
-      + '</tr>';
-  }).join('');
-
-  renderAjustesAuditoriaAplicados();
-}
-
-function listarAjustesAuditoria() {
-  return kardexListFiltrada().filter(function(k){ return k.ref === 'AJUSTE DE AUDITORÍA'; })
-    .sort(function(a,b){ return (b.tsRegistro||0) - (a.tsRegistro||0); });
-}
-
-function renderAjustesAuditoriaAplicados() {
-  var tbody = document.getElementById('auditoria-ajustes-tbody');
-  var btnTodos = document.getElementById('btn-deshacer-todos-aud');
-  if (!tbody) return;
-  var ajustes = listarAjustesAuditoria();
-
-  if (btnTodos) btnTodos.style.display = ajustes.length ? '' : 'none';
-
-  if (!ajustes.length) {
-    tbody.innerHTML = '<tr><td colspan="6">'+empty('No hay ajustes de auditoría aplicados actualmente.')+'</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = ajustes.map(function(k){
-    var mat = getMat(k.matId), cuad = getCuad(k.cuadrillaId);
-    var color = k.tipo === 'ingreso' ? 'var(--green)' : 'var(--red)';
-    return '<tr>'
-      + '<td style="font-size:11px;white-space:nowrap;">'+fmtDTK(k)+'</td>'
-      + '<td><span class="badge badge-gray">'+esc(cuad?cuad.nombre:'—')+'</span></td>'
-      + '<td style="font-size:12px;">'+esc(mat?mat.nombre:'?')+'</td>'
-      + '<td style="color:'+color+';font-weight:600;">'+k.tipo+'</td>'
-      + '<td>'+k.qty+' '+esc(mat?mat.unidad:'')+'</td>'
-      + '<td>'
-      + '<button class="btn btn-sm" style="border-color:var(--ink3);color:var(--ink2);margin-right:4px;" onclick="deshacerAjusteAuditoria(\''+k.id+'\')">Deshacer (solo Kardex)</button>'
-      + '<button class="btn btn-sm" style="border-color:var(--red);color:var(--red);" onclick="deshacerYCorregirStock(\''+k.id+'\')">Deshacer + corregir stock</button>'
-      + '</td>'
-      + '</tr>';
-  }).join('');
-}
-
-function deshacerAjusteAuditoria(kid) {
-  var k = cache.kardex[kid];
-  if (!k) { toast('Ese ajuste ya no existe','info'); renderAuditoriaStock(); return; }
-  var mat = getMat(k.matId), cuad = getCuad(k.cuadrillaId);
-  showConfirm(
-    'Deshacer ajuste (solo Kardex)',
-    '<strong>Bodega:</strong> '+esc(cuad?cuad.nombre:'—')+'<br>'
-    +'<strong>Material:</strong> '+esc(mat?mat.nombre:'?')+'<br>'
-    +'<strong>Movimiento a eliminar:</strong> '+k.tipo+' de '+k.qty+' '+esc(mat?mat.unidad:'')+'<br><br>'
-    +'Esto <strong>no modifica el stock actual</strong> (este ajuste nunca lo tocó) — solo elimina el asiento '
-    +'de Kardex, y las anulaciones relacionadas volverán a aparecer como pendientes en la auditoría. '
-    +'Úsalo si vas a resolver la salida real del material por otra vía (asignación nueva, edición de asignación, etc). '
-    +'Si necesitas que el stock también se corrija de una vez, usa el botón "Deshacer + corregir stock real". ¿Confirmas?',
-    function(){
-      var updates = {};
-      updates['kardex/'+kid] = null;
-      // Revertir el flag en las asignaciones relacionadas para que vuelvan a evaluarse
-      (k.asigIdsRelacionadas||[]).forEach(function(aid){
-        updates['asignaciones/'+aid+'/reversoKardexRegistrado'] = null;
-      });
-      updates['_lastUpdate'] = Date.now();
-      db.ref().update(updates).then(function(){
-        toast('Ajuste deshecho','success');
-        renderAuditoriaStock();
-      }).catch(function(e){ toast('Error: '+e.message,'error'); });
-    }
-  );
-}
-
-// Deshacer el ajuste de auditoría Y, además, ejecutar sobre el stock real el
-// movimiento que en verdad correspondía — para los casos donde el ajuste de
-// auditoría asumió que el stock real estaba bien (Escenario A) pero en
-// realidad el material sí salió/entró de verdad (Escenario B) y hace falta
-// corregir la bodega directamente, por ejemplo mientras "Editar asignación"
-// no esté descontando materiales correctamente.
-function deshacerYCorregirStock(kid) {
-  var k = cache.kardex[kid];
-  if (!k) { toast('Ese ajuste ya no existe','info'); renderAuditoriaStock(); return; }
-  var mat = getMat(k.matId), cuad = getCuad(k.cuadrillaId);
-  var cur = getStock(k.cuadrillaId, k.matId);
-  // Si el ajuste fue un "ingreso" (el stock real estaba de más), la corrección
-  // real es un egreso de esa cantidad. Si fue "egreso", la corrección real es
-  // un ingreso — devuelve la simetría del ajuste original.
-  var tipoReal = k.tipo === 'ingreso' ? 'egreso' : 'ingreso';
-  var delta = k.tipo === 'ingreso' ? -k.qty : k.qty;
-  var nuevoStock = Math.max(0, cur + delta);
-
-  showConfirm(
-    'Deshacer + corregir stock real',
-    '<strong>Bodega:</strong> '+esc(cuad?cuad.nombre:'—')+'<br>'
-    +'<strong>Material:</strong> '+esc(mat?mat.nombre:'?')+'<br>'
-    +'<strong>Stock actual:</strong> '+cur+' '+esc(mat?mat.unidad:'')+'<br>'
-    +'<strong>Se ejecutará un '+tipoReal+' real de:</strong> '+k.qty+' '+esc(mat?mat.unidad:'')+'<br>'
-    +'<strong>Stock quedará en:</strong> '+nuevoStock+' '+esc(mat?mat.unidad:'')+'<br><br>'
-    +'⚠️ A diferencia de "Deshacer (solo Kardex)", esta acción <strong>sí modifica el stock real</strong> '
-    +'de la bodega. Úsala cuando el material efectivamente salió/entró de verdad y necesitas corregir '
-    +'la bodega de una vez, sin depender de editar la asignación. ¿Confirmas?',
-    function(){
-      var updates = {};
-      updates['kardex/'+kid] = null; // quita el ajuste "de papel"
-      updates['stocks/'+k.cuadrillaId+'/'+k.matId] = nuevoStock;
-      var kidNuevo = uid();
-      updates['kardex/'+kidNuevo] = {
-        fecha: nowISO(), tsRegistro: Date.now(), tipo: tipoReal, matId: k.matId, qty: k.qty,
-        ref: 'CORRECCIÓN DE STOCK', resp: currentUser.nombre||currentUser.username||'',
-        obs: 'Reverso de ajuste de auditoría — se ejecuta el movimiento real que correspondía en la bodega',
-        cuadrillaId: k.cuadrillaId, saldo: nuevoStock
-      };
-      updates['_lastUpdate'] = Date.now();
-      db.ref().update(updates).then(function(){
-        toast('Stock corregido y ajuste reemplazado por el movimiento real','success');
-        renderAuditoriaStock();
-      }).catch(function(e){ toast('Error: '+e.message,'error'); });
-    }
-  );
-}
-
-function confirmarDeshacerTodosAjustes() {
-  var ajustes = listarAjustesAuditoria();
-  if (!ajustes.length) return;
-  showConfirm(
-    'Deshacer todos los ajustes de auditoría',
-    'Se eliminarán <strong>'+ajustes.length+' movimiento(s)</strong> de Kardex con referencia "AJUSTE DE AUDITORÍA" '
-    +'en las bodegas que puedes ver.<br><br>'
-    +'Esto <strong>no modifica ningún stock actual</strong> — solo borra esos asientos y las anulaciones '
-    +'relacionadas vuelven a quedar pendientes de revisión. ¿Confirmas?',
-    function(){
-      var updates = {};
-      ajustes.forEach(function(k){
-        updates['kardex/'+k.id] = null;
-        (k.asigIdsRelacionadas||[]).forEach(function(aid){
-          updates['asignaciones/'+aid+'/reversoKardexRegistrado'] = null;
-        });
-      });
-      updates['_lastUpdate'] = Date.now();
-      db.ref().update(updates).then(function(){
-        toast('Todos los ajustes fueron deshechos','success');
-        renderAuditoriaStock();
-      }).catch(function(e){ toast('Error: '+e.message,'error'); });
-    }
-  );
-}
-
-function confirmarAjusteAuditoria(cid, mid) {
-  // Se recalcula en el momento de confirmar, no se usa el array cacheado del render,
-  // por si hubo cambios en la bodega entre que se abrió la pantalla y se hizo clic.
-  var fila = calcularAuditoriaStock().filter(function(f){ return f.cuadrillaId===cid && f.matId===mid; })[0];
-  if (!fila) { toast('Ya no hay discrepancia para ese material — puede que ya se haya corregido','info'); renderAuditoriaStock(); return; }
-
-  var tipoAjuste = fila.diff > 0 ? 'ingreso' : 'egreso';
-  var qtyAjuste = Math.abs(fila.diff);
-  var cuad = getCuad(cid);
-
-  showConfirm(
-    'Aplicar ajuste de auditoría',
-    '<strong>Bodega:</strong> '+esc(cuad?cuad.nombre:'—')+'<br>'
-    +'<strong>Material:</strong> '+esc(fila.matNombre)+'<br>'
-    +'<strong>Stock real:</strong> '+fila.real+' '+esc(fila.unidad)+'<br>'
-    +'<strong>Stock según Kardex:</strong> '+fila.teorico+' '+esc(fila.unidad)+'<br>'
-    +'<strong>Se registrará un '+tipoAjuste+' de:</strong> '+qtyAjuste+' '+esc(fila.unidad)+'<br><br>'
-    +'Esto <strong>no modifica el stock actual</strong> (que ya es correcto) — solo agrega el movimiento '
-    +'faltante en Kardex para que el historial cuadre con la realidad. ¿Confirmas?',
-    function(){
-      var updates = {};
-      var kid = uid();
-      var asigIdsRelacionadas = (fila.candidatas||[]).map(function(a){ return a.id; });
-      updates['kardex/'+kid] = {
-        fecha: nowISO(), tsRegistro: Date.now(), tipo: tipoAjuste, matId: mid, qty: qtyAjuste,
-        ref: 'AJUSTE DE AUDITORÍA', resp: currentUser.nombre||currentUser.username||'',
-        obs: 'Corrección para que el Kardex cuadre con el stock real de la bodega',
-        cuadrillaId: cid, saldo: fila.real,
-        asigIdsRelacionadas: asigIdsRelacionadas // para poder deshacer el ajuste completo si fue un error
-      };
-      // Marca las anulaciones candidatas como ya resueltas para que no se vuelvan
-      // a reportar en próximas auditorías.
-      asigIdsRelacionadas.forEach(function(aid){
-        updates['asignaciones/'+aid+'/reversoKardexRegistrado'] = true;
-      });
-      updates['_lastUpdate'] = Date.now();
-      db.ref().update(updates).then(function(){
-        toast('Ajuste registrado en Kardex','success');
-        renderAuditoriaStock();
-      }).catch(function(e){ toast('Error: '+e.message,'error'); });
-    }
-  );
-}
-
-// ══════════════════════════════════════════════════════
 // ADMIN — MATERIALES
 // ══════════════════════════════════════════════════════
 function renderAdminMateriales(){
@@ -13292,7 +13092,7 @@ function guardarCuadrilla(){
         var metaVal = parseInt(document.getElementById('cuad-meta').value) || 0;
         var cuad={nombre:nombre,responsable:respVal,zona:zonaVal,sectorId:sectorId,sector:sectorId,username:username,pass:hashed,redInterna:riAcceso,meta:metaVal};
         var ref=editId?db.ref('cuadrillas/'+editId):db.ref('cuadrillas').push();
-        return ref.set(cuad);
+        return editId ? ref.update(cuad) : ref.set(cuad);
       }).then(function(){
         toast(editId?'Cuadrilla actualizada':'"'+nombre+'" creada','success');
         closeModal('modal-cuadrilla');
