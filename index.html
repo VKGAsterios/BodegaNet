@@ -1049,6 +1049,7 @@ select option{background:var(--bg3);color:var(--ink);}
             <button class="btn btn-sm" style="border-color:var(--accent);color:var(--accent);white-space:nowrap;" onclick="recalcularTiemposExcedidos()" title="Revisa los registros antiguos (guardados antes de tener esta validación) y los marca si exceden o si son sospechosamente cortos según el tiempo estimado configurado">🔁 Recalcular tiempos sospechosos</button>
           </div>
           <div id="hist-admin-conteo" style="font-size:12px;color:var(--ink3);margin-top:10px;"></div>
+          <div id="hist-graficos" style="margin-top:12px;"></div>
         </div>
         <div class="card"><div class="table-wrap"><table>
           <thead><tr><th>Hora</th><th>Cliente</th><th>OT</th><th>Materiales utilizados</th><th>Técnico</th></tr></thead>
@@ -1195,6 +1196,7 @@ select option{background:var(--bg3);color:var(--ink);}
 
           <!-- KPIs -->
           <div class="kpi-grid" id="rc-kpis" style="display:none;margin-bottom:1rem;"></div>
+          <div id="rc-graficos" style="display:none;margin-bottom:1rem;"></div>
 
           <div class="card" id="rc-result" style="display:none;">
             <div class="card-header">
@@ -1856,6 +1858,7 @@ select option{background:var(--bg3);color:var(--ink);}
           </div>
           <div id="limp-resultado" style="margin:12px 0;font-size:14px;"></div>
           <div class="btn-row">
+            <button class="btn btn-ghost" onclick="bnRespaldoMensualAbrir(null,true)">💾 Respaldo mensual (CSV)</button>
             <button class="btn btn-ghost" onclick="previsualizarLimpieza()">🔍 Ver cuántos se eliminarían</button>
             <button class="btn btn-red" id="limp-btn-eliminar" onclick="confirmarLimpieza()" disabled>🗑 Eliminar registros</button>
           </div>
@@ -3724,22 +3727,33 @@ function _avfPintar(base, rg, cid, motFiltro) {
       + kpi('Tiempo perdido', tiempoStr, 'acumulado', '')
       + kpi('Promedio', vfs.length ? Math.round(totalMins/vfs.length)+' min' : '—', 'por visita', '')
       + '</div>';
-    if (Object.keys(resPorMot).length) {
-      resHTML += '<div class="card" style="padding:.875rem 1rem;">'
-        + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.6rem;">Distribución por motivo</div>';
-      Object.keys(resPorMot).sort(function(a,b){ return resPorMot[b]-resPorMot[a]; }).forEach(function(m){
-        var pct = Math.round(resPorMot[m]/vfs.length*100);
-        var mStr = (minsPorMot[m]||0) >= 60 ? Math.floor((minsPorMot[m]||0)/60)+'h '+((minsPorMot[m]||0)%60)+'min' : (minsPorMot[m]||0)+'min';
-        resHTML += '<div style="margin-bottom:8px;">'
-          + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;gap:8px;">'
-          + '<span style="flex:1;">'+esc(m)+'</span>'
-          + '<span style="white-space:nowrap;color:var(--ink3);font-size:11px;">'+mStr+'</span>'
-          + '<strong style="white-space:nowrap;">'+resPorMot[m]+' ('+pct+'%)</strong></div>'
-          + '<div style="height:7px;background:var(--bg3);border-radius:4px;">'
-          + '<div style="height:100%;width:'+pct+'%;background:#f97316;border-radius:4px;transition:width .4s;"></div>'
-          + '</div></div>';
+    if (cid || motFiltro) {
+      var chips = [];
+      if (cid) { var cc = getCuad(cid); chips.push('Cuadrilla: ' + esc(cc ? cc.nombre : cid)); }
+      if (motFiltro) chips.push('Motivo: ' + esc(motFiltro));
+      resHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:.6rem;font-size:12px;">'
+        + chips.map(function(t){ return '<span class="badge badge-blue">' + t + '</span>'; }).join('')
+        + '<button class="btn btn-sm btn-ghost" onclick="bnAvfFiltrar(\'limpiar\')">✕ Quitar filtros</button></div>' + resHTML;
+    }
+    if (vfs.length) {
+      var serie = bnSerieTiempo(iniStr, hoyStr, vfs, function(v){ return v.fecha; }, function(v){ return v.minutosPercibidos; }, 'visita(s)');
+      var porCuad = {}, porMot = {};
+      vfs.forEach(function(v){
+        var c = getCuad(v.cuadrillaId), kc = v.cuadrillaId || '—', km = v.motivo || 'Sin motivo';
+        porCuad[kc] = porCuad[kc] || { key:kc, label:c ? c.nombre : '—', v:0, mins:0 };
+        porCuad[kc].v++; porCuad[kc].mins += v.minutosPercibidos || 0;
+        porMot[km] = porMot[km] || { key:km, label:km, v:0, mins:0 };
+        porMot[km].v++; porMot[km].mins += v.minutosPercibidos || 0;
       });
-      resHTML += '</div>';
+      var conSub = function(o){ o.sub = o.mins ? fmtDuracion(o.mins) : ''; return o; };
+      var itC = _bnTopItems(porCuad, 10).map(conSub), itM = _bnTopItems(porMot, 10).map(conSub);
+      resHTML += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.75rem;margin-bottom:.75rem;">'
+        + bnCardViz('📈 Visitas por ' + (serie.porMes ? 'mes' : 'día'), bnChartDias(serie.items, '#f97316'))
+        + bnCardViz('👷 Por cuadrilla <span style="text-transform:none;font-weight:400;">· clic para filtrar</span>',
+            bnChartHBarras(itC, { color:'#f97316', total:vfs.length, fn:"bnAvfFiltrar('cuadrilla',this.dataset.k)" }))
+        + '</div>'
+        + bnCardViz('Distribución por motivo <span style="text-transform:none;font-weight:400;">· clic para filtrar</span>',
+            bnChartHBarras(itM, { color:'#f97316', total:vfs.length, fn:"bnAvfFiltrar('motivo',this.dataset.k)" }));
     }
     resEl.innerHTML = resHTML;
   }
@@ -4430,6 +4444,7 @@ function renderReincidencias() {
 
   if (!grupos.length) {
     kpis.style.display = 'none';
+    var gEl0 = document.getElementById('rc-graficos'); if (gEl0) gEl0.style.display = 'none';
     result.style.display = 'block';
     document.getElementById('rc-count').textContent = '0 clientes';
     tbody.innerHTML = '<tr><td colspan="7">'+empty('Sin clientes reincidentes con estos filtros')+'</td></tr>';
@@ -4446,6 +4461,28 @@ function renderReincidencias() {
     kpi('Visitas totales (reincidentes)', totalVisitasReinc, 'suma de todas sus visitas', 'c-accent') +
     kpi('Promedio entre visitas', fmtDiasEntre(promGeneral), 'tiempo típico de retorno', 'c-red');
   kpis.style.display = 'grid';
+
+  // Resumen visual: distribución por N.º de visitas, top clientes (clic = detalle) y tipos de trabajo repetidos
+  var gEl = document.getElementById('rc-graficos');
+  if (gEl) {
+    var dist = {}, tiposRep = {};
+    grupos.forEach(function(g){
+      var n = g.visitas.length, kk = n >= 6 ? '6+' : String(n);
+      dist[kk] = dist[kk] || { key:kk, label:kk + ' visitas', v:0 }; dist[kk].v++;
+      Object.keys(g.tiposUnicos).forEach(function(t){ tiposRep[t] = tiposRep[t] || { key:t, label:t, v:0 }; tiposRep[t].v += g.tiposUnicos[t]; });
+    });
+    var itDist = Object.keys(dist).sort(function(a,b){ return parseInt(a) - parseInt(b); }).map(function(k){ return dist[k]; });
+    var itTop = grupos.map(function(g, idx){ return { key:String(idx), label:g.nombreCliente + ' · ' + g.idCliente, v:g.visitas.length, sub:'prom. ' + fmtDiasEntre(g.promedioDias) }; })
+      .sort(function(a,b){ return b.v - a.v; }).slice(0, 8);
+    gEl.innerHTML = '<details open><summary style="cursor:pointer;font-size:13px;font-weight:600;margin-bottom:.6rem;">📊 Resumen visual</summary>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.75rem;">'
+      + bnCardViz('Clientes según N.º de visitas', bnChartHBarras(itDist, { color:'#ef4444', total:grupos.length }))
+      + bnCardViz('Top clientes <span style="text-transform:none;font-weight:400;">· clic para ver detalle</span>',
+          bnChartHBarras(itTop, { color:'#f59e0b', total:totalVisitasReinc, fn:"verDetalleReincidencia(parseInt(this.dataset.k))" }))
+      + bnCardViz('Tipos de trabajo más repetidos', bnChartHBarras(_bnTopItems(tiposRep, 8), { color:'var(--accent)' }))
+      + '</div></details>';
+    gEl.style.display = 'block';
+  }
 
   result.style.display = 'block';
   document.getElementById('rc-count').textContent = grupos.length + ' cliente(s)';
@@ -12918,6 +12955,37 @@ function renderHistorial(){
     }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
     _histUltimo = asigs;
 
+    // Resumen visual del período filtrado
+    var hgEl = document.getElementById('hist-graficos');
+    if (hgEl) {
+      if (!asigs.length) { hgEl.innerHTML = ''; }
+      else {
+        var fechasA = asigs.map(function(a){ return String(a.fecha||'').slice(0,10); }).sort();
+        var sIni = fIni || fechasA[0], sFin = fFin || fechasA[fechasA.length-1];
+        var serieH = bnSerieTiempo(sIni, sFin, asigs, function(a){ return a.fecha; }, function(a){ return calcDuracionMin(a.horaInicio, a.horaFin); }, 'trabajo(s)');
+        var porTipo = {}, porCuadH = {}, totMin = 0, conDur = 0, nRI = 0;
+        asigs.forEach(function(a){
+          var t = a.tipoRegistro === 'redInterna' ? '🖧 ' + (a.tipo || 'Red interna') : (a.tipo || 'Sin tipo');
+          porTipo[t] = porTipo[t] || { key:t, label:t, v:0 }; porTipo[t].v++;
+          var c = getCuad(a.cuadrillaId), kc = a.cuadrillaId || '—';
+          porCuadH[kc] = porCuadH[kc] || { key:kc, label:c ? c.nombre : '—', v:0 }; porCuadH[kc].v++;
+          if (a.tipoRegistro === 'redInterna') nRI++;
+          var d = calcDuracionMin(a.horaInicio, a.horaFin); if (d !== null) { totMin += d; conDur++; }
+        });
+        hgEl.innerHTML = '<details open><summary style="cursor:pointer;font-size:13px;font-weight:600;margin-bottom:.6rem;">📊 Resumen visual del período</summary>'
+          + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-bottom:.75rem;">'
+          + kpi('Trabajos', asigs.length, (asigs.length - nRI) + ' clientes · ' + nRI + ' red interna', 'c-accent')
+          + kpi('Tiempo registrado', fmtDuracion(totMin), conDur + ' trabajo(s) con hora', '')
+          + kpi('Promedio', conDur ? fmtDuracion(Math.round(totMin / conDur)) : '—', 'por trabajo', '')
+          + '</div>'
+          + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.75rem;">'
+          + bnCardViz('📈 Trabajos por ' + (serieH.porMes ? 'mes' : 'día'), bnChartDias(serieH.items, 'var(--accent)'))
+          + bnCardViz('Por tipo de trabajo', bnChartHBarras(_bnTopItems(porTipo, 8), { color:'var(--accent)', total:asigs.length }))
+          + bnCardViz('Por cuadrilla', bnChartHBarras(_bnTopItems(porCuadH, 8), { color:'#22c55e', total:asigs.length, fn:"var s=document.getElementById('hist-admin-cuadrilla');if(s){s.value=(s.value===this.dataset.k?'':this.dataset.k);renderHistorial();}" }))
+          + '</div></details>';
+      }
+    }
+
     var conteoEl = document.getElementById('hist-admin-conteo');
     if (conteoEl) {
       var rangoTxt = (fIni||fFin) ? ('Del '+(fIni||'—')+' al '+(fFin||'—')+' · ') : '';
@@ -13851,6 +13919,277 @@ function _kardexGralRango() {
   envolver('renderKardex',             'kgral', ['kardex'],        _kardexGralRango);
   // Historial de asignaciones: rango desde–hasta (admin) o día elegido (cuadrilla)
   envolver('renderHistorial',          'hist',  ['asignaciones'],  _histRango, 0, true);
+})();
+
+// ══════════════════════════════════════════════════════
+// v2.48 — COMPONENTES VISUALES DE REPORTES (gráficos sin librerías, interactivos)
+// ══════════════════════════════════════════════════════
+function bnCardViz(titulo, cuerpo) {
+  return '<div class="card" style="padding:.875rem 1rem;margin-bottom:0;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.6rem;">' + titulo + '</div>'
+    + cuerpo + '</div>';
+}
+// Serie por día (o por mes si el rango es largo). regs: registros; fechaFn(r)->fecha; sumFn(r)->minutos opcionales
+function bnSerieTiempo(iniStr, finStr, regs, fechaFn, sumFn, unidad) {
+  var d0 = new Date(iniStr + 'T00:00:00'), d1 = new Date(finStr + 'T00:00:00');
+  var dias = Math.round((d1 - d0) / 86400000) + 1;
+  if (!(dias > 0) || dias > 1500) return { items: [], porMes: false };
+  var porMes = dias > 62, map = {}, orden = [];
+  var MES3 = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var cur = new Date(d0);
+  while (cur <= d1) {
+    var iso = _isoLocalDia(cur), k = porMes ? iso.slice(0,7) : iso;
+    if (!map[k]) {
+      map[k] = { k:k, v:0, mins:0,
+        label: porMes ? MES3[cur.getMonth()] + ' ' + String(cur.getFullYear()).slice(2) : iso.slice(8,10) + '/' + iso.slice(5,7) };
+      orden.push(k);
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  regs.forEach(function(r){
+    var f = String(fechaFn(r) || '').slice(0,10), k = porMes ? f.slice(0,7) : f;
+    if (map[k]) { map[k].v++; map[k].mins += (sumFn ? (sumFn(r) || 0) : 0); }
+  });
+  var items = orden.map(function(k){
+    var m = map[k];
+    m.tip = m.label + ': ' + m.v + ' ' + (unidad || '') + (m.mins ? ' · ' + fmtDuracion(m.mins) : '');
+    return m;
+  });
+  return { items: items, porMes: porMes };
+}
+function bnChartDias(items, color) {
+  if (!items || !items.length) return '<p style="font-size:12px;color:var(--ink3);">Sin datos.</p>';
+  var max = Math.max.apply(null, items.map(function(i){ return i.v; }).concat([1]));
+  var n = items.length, paso = Math.ceil(n / 10), gap = n > 40 ? 1 : 3;
+  var barras = items.map(function(it){
+    var h = it.v ? Math.max(5, Math.round(it.v / max * 100)) : 0;
+    return '<div title="' + esc(it.tip) + '" style="flex:1;min-width:2px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;">'
+      + (n <= 31 && it.v ? '<span style="font-size:9px;color:var(--ink3);margin-bottom:2px;">' + it.v + '</span>' : '')
+      + '<div style="width:100%;height:' + h + '%;background:' + (color || 'var(--accent)') + ';border-radius:3px 3px 0 0;opacity:.92;transition:height .4s,opacity .15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.92"></div></div>';
+  }).join('');
+  var etiquetas = items.map(function(it, i){
+    return '<div style="flex:1;min-width:2px;font-size:9px;color:var(--ink3);text-align:center;white-space:nowrap;overflow:visible;">' + (i % paso === 0 ? it.label : '') + '</div>';
+  }).join('');
+  return '<div style="display:flex;align-items:flex-end;gap:' + gap + 'px;height:130px;">' + barras + '</div>'
+    + '<div style="display:flex;gap:' + gap + 'px;margin-top:4px;">' + etiquetas + '</div>';
+}
+// Barras horizontales. items: [{key,label,v,sub}] ; opts: {color,total,fn} (fn = código onclick; usa this.dataset.k)
+function bnChartHBarras(items, opts) {
+  opts = opts || {};
+  if (!items || !items.length) return '<p style="font-size:12px;color:var(--ink3);">Sin datos.</p>';
+  var total = opts.total || items.reduce(function(s,i){ return s + i.v; }, 0) || 1;
+  var max = Math.max.apply(null, items.map(function(i){ return i.v; }).concat([1]));
+  return items.map(function(it){
+    var pct = Math.round(it.v / total * 100), w = Math.max(3, Math.round(it.v / max * 100));
+    return '<div ' + (opts.fn ? 'data-k="' + esc(it.key) + '" onclick="' + opts.fn + '" style="cursor:pointer;margin-bottom:8px;" onmouseover="this.style.opacity=.75" onmouseout="this.style.opacity=1"' : 'style="margin-bottom:8px;"') + '>'
+      + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;gap:8px;">'
+      + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(it.label) + '</span>'
+      + (it.sub ? '<span style="white-space:nowrap;color:var(--ink3);font-size:11px;">' + esc(it.sub) + '</span>' : '')
+      + '<strong style="white-space:nowrap;">' + it.v + ' (' + pct + '%)</strong></div>'
+      + '<div style="height:7px;background:var(--bg3);border-radius:4px;"><div style="height:100%;width:' + w + '%;background:' + (opts.color || 'var(--accent)') + ';border-radius:4px;transition:width .4s;"></div></div></div>';
+  }).join('');
+}
+function _bnTopItems(mapa, n) {
+  return Object.keys(mapa).map(function(k){ return mapa[k]; }).sort(function(a,b){ return b.v - a.v; }).slice(0, n || 8);
+}
+// Filtros por clic en los gráficos de Visitas fallidas (admin)
+function bnAvfFiltrar(tipo, val) {
+  var cu = document.getElementById('avf-cuadrilla'), mo = document.getElementById('avf-motivo');
+  if (tipo === 'limpiar') { if (cu) cu.value = ''; if (mo) mo.value = ''; }
+  else if (tipo === 'cuadrilla' && cu) cu.value = (cu.value === val ? '' : val);
+  else if (tipo === 'motivo' && mo) mo.value = (mo.value === val ? '' : val);
+  renderAdminVF();
+}
+
+// ══════════════════════════════════════════════════════
+// v2.48 — RESPALDO MENSUAL (alerta a las 5:00 PM del último día de cada mes)
+// Genera 3 archivos CSV del mes: Visitas fallidas, Reincidencias y Trabajos realizados
+// (solo de las cuadrillas del sector del administrador). La alerta aparece cuando la
+// app está abierta a partir de las 17:00 del último día del mes; si no se pudo ese
+// día, sigue apareciendo durante los primeros 7 días del mes siguiente hasta que se
+// descargue. Cada respaldo hecho se registra en Firebase (config/respaldosMensuales)
+// para no volver a avisar. Una página web no puede avisar con la app cerrada.
+// ══════════════════════════════════════════════════════
+(function _bnRespaldoMensual(){
+  var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var HORA_ALERTA = 17;
+  var hechoMem = {};   // clave -> true/false (cache de consulta a Firebase)
+  var abierto = false;
+
+  function clave(y, m){ return y + '-' + String(m+1).padStart(2,'0'); }
+  function sectorKey(){ return String(getSectorActivo() || 'todos'); }
+  function refHecho(k){ return db.ref('config/respaldosMensuales/' + sectorKey() + '/' + k); }
+  function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+
+  function mesPendiente(){
+    var n = new Date(), y = n.getFullYear(), m = n.getMonth();
+    var ult = new Date(y, m+1, 0).getDate();
+    if (n.getDate() === ult && n.getHours() >= HORA_ALERTA) return { y:y, m:m, atrasado:false };
+    if (n.getDate() <= 7) { var pr = new Date(y, m-1, 1); return { y:pr.getFullYear(), m:pr.getMonth(), atrasado:true }; }
+    return null;
+  }
+
+  function esc2(t){ return (typeof esc === 'function') ? esc(t) : String(t); }
+  function csvTxt(rows){
+    return rows.map(function(r){ return r.map(function(c){ return '"' + String(c===undefined||c===null?'':c).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
+  }
+  function descargar(nombre, rows){
+    var a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,﻿' + encodeURIComponent(csvTxt(rows));
+    a.download = nombre; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
+  // Trae asignaciones y visitas fallidas del mes y las limita al sector del admin
+  function datosDelMes(y, m){
+    var iniStr = _isoLocalDia(new Date(y, m, 1)), finStr = _isoLocalDia(new Date(y, m+1, 0));
+    var iniMs = new Date(iniStr + 'T00:00:00').getTime(), finMs = new Date(finStr + 'T23:59:59').getTime();
+    var cuads = getCuadrillasFiltradas().map(function(c){ return c.id; });
+    var dentro = function(f){ var d = String(f||'').slice(0,10); return d >= iniStr && d <= finStr; };
+    return Promise.all([
+      _bnFetchRangoColeccion('asignaciones', iniMs, finMs),
+      _bnFetchRangoColeccion('visitas_fallidas', iniMs, finMs)
+    ]).then(function(res){
+      var toList = function(o){ return Object.keys(o).map(function(k){ return Object.assign({id:k}, o[k]); }); };
+      return {
+        iniStr: iniStr, finStr: finStr,
+        asigs: toList(res[0]).filter(function(a){ return !a.anulada && cuads.indexOf(a.cuadrillaId) > -1 && dentro(a.fecha); })
+                 .sort(function(a,b){ return new Date(a.fecha) - new Date(b.fecha); }),
+        vfs:   toList(res[1]).filter(function(v){ return cuads.indexOf(v.cuadrillaId) > -1 && dentro(v.fecha); })
+                 .sort(function(a,b){ return (a.tsRegistro||0) - (b.tsRegistro||0); })
+      };
+    });
+  }
+
+  function generar(y, m){
+    return datosDelMes(y, m).then(function(d){
+      var tag = clave(y, m);
+      var nomCuad = function(id){ var c = getCuad(id); return c ? c.nombre : ''; };
+
+      // 1) Visitas fallidas
+      var rVF = [['Fecha','Hora Registro','Cuadrilla','Cliente','Motivo','Observacion','Hora Inicio','Hora Fin','Minutos Perdidos','OT','Tecnico']];
+      d.vfs.forEach(function(v){
+        var ts = v.tsRegistro ? new Date(v.tsRegistro) : null;
+        rVF.push([v.fecha||'', ts ? ts.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'}) : '', nomCuad(v.cuadrillaId),
+          v.cliente||'', v.motivo||'', v.obs||'', v.horaIni||'', v.horaFin||'', v.minutosPercibidos||0, v.ot||'', v.tecnico||'']);
+      });
+
+      // 2) Trabajos realizados (clientes + red interna)
+      var rTR = [['Fecha','Hora Inicio','Hora Fin','Duración (min)','Tipo de registro','Cuadrilla','Cliente / Nodo','ID Cliente','OT','Tipo de trabajo','Técnico','Dirección','Materiales']];
+      d.asigs.forEach(function(a){
+        var dur = calcDuracionMin(a.horaInicio, a.horaFin);
+        var mats = (a.materiales||[]).map(function(mm){
+          var mt = getMat(mm.matId);
+          var ids = (mm.unidades||[]).map(function(u){ return u.mac || u.serie || ''; }).filter(Boolean).join('/');
+          return mm.qty + ' ' + (mt ? mt.nombre : '—') + (ids ? ' [' + ids + ']' : '');
+        }).join('; ');
+        rTR.push([String(a.fecha||'').slice(0,10), a.horaInicio||'', a.horaFin||'', dur!==null?dur:'',
+          a.tipoRegistro==='redInterna' ? 'Red Interna' : 'Cliente', nomCuad(a.cuadrillaId), a.cliente||'', a.idCliente||'',
+          a.ot||'', a.tipo||'', a.tecnico||a.responsable||'', (a.direccion||'') + (a.municipio ? ', ' + a.municipio : ''), mats]);
+      });
+
+      // 3) Reincidencias: clientes (mismo ID) con N o más visitas en el mes (N = filtro del reporte, 3 por defecto)
+      var minV = parseInt((document.getElementById('rc-min-visitas')||{value:3}).value) || 3;
+      var grupos = {};
+      d.asigs.forEach(function(a){
+        if (!a.idCliente || !String(a.idCliente).trim()) return;
+        var k = String(a.idCliente).trim();
+        (grupos[k] = grupos[k] || []).push(a);
+      });
+      var rRE = [['ID Cliente','Nombre Cliente','Total Visitas del mes','N.º de visita','Fecha y hora','Tipo de trabajo','Cuadrilla','Técnico','Días desde la visita anterior']];
+      Object.keys(grupos).filter(function(k){ return grupos[k].length >= minV; })
+        .sort(function(a,b){ return grupos[b].length - grupos[a].length; })
+        .forEach(function(k){
+          var vs = grupos[k];
+          vs.forEach(function(a, i){
+            var gap = i === 0 ? '' : ((new Date(a.fecha) - new Date(vs[i-1].fecha)) / 86400000).toFixed(2);
+            rRE.push([k, vs[vs.length-1].cliente||'', vs.length, i+1, a.fecha||'', a.tipo||'Sin tipo', nomCuad(a.cuadrillaId), a.tecnico||'', gap]);
+          });
+        });
+
+      var nVF = rVF.length - 1, nTR = rTR.length - 1, nRE = Object.keys(grupos).filter(function(k){ return grupos[k].length >= minV; }).length;
+      // Tres descargas escalonadas (algunos navegadores bloquean varias a la vez)
+      descargar('Respaldo_' + tag + '_VisitasFallidas.csv', rVF);
+      setTimeout(function(){ descargar('Respaldo_' + tag + '_TrabajosRealizados.csv', rTR); }, 600);
+      setTimeout(function(){ descargar('Respaldo_' + tag + '_Reincidencias.csv', rRE); }, 1200);
+      var info = { vf:nVF, trabajos:nTR, reincidentes:nRE, minVisitasReincidencia:minV };
+      return refHecho(tag).set({ fecha: new Date().toISOString(), por: (currentUser && (currentUser.nombre || currentUser.usuario || currentUser.rol)) || 'admin', resumen: info })
+        .catch(function(e){ console.warn('No se pudo registrar el respaldo', e); })
+        .then(function(){ hechoMem[tag] = true; return info; });
+    });
+  }
+
+  function cerrar(){ var el = document.getElementById('bn-respaldo-modal'); if (el) el.remove(); abierto = false; }
+
+  // manual = true cuando se abre desde el botón de Configuración (permite elegir el mes)
+  window.bnRespaldoMensualAbrir = function(pend, manual){
+    if (abierto) return;
+    if (!currentUser || currentUser.tipo !== 'admin') { toast('Solo el administrador puede generar el respaldo mensual','error'); return; }
+    var n = new Date();
+    var def = pend || (function(){ var pr = new Date(n.getFullYear(), n.getMonth()-1, 1); return { y:pr.getFullYear(), m:pr.getMonth() }; })();
+    abierto = true;
+    var ov = document.createElement('div');
+    ov.id = 'bn-respaldo-modal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:6000;background:rgba(20,25,40,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1rem;';
+    var titulo = manual ? '💾 Respaldo mensual' : (pend && pend.atrasado ? '⚠ Respaldo mensual pendiente' : '⏰ Respaldo de fin de mes');
+    ov.innerHTML =
+      '<div style="background:var(--bg2,#fff);border-radius:var(--r-xl,20px);padding:1.5rem;max-width:460px;width:100%;box-shadow:0 8px 48px rgba(20,25,40,.25);">'
+      + '<h3 style="font-family:var(--display);font-size:18px;margin-bottom:6px;">' + titulo + '</h3>'
+      + '<p style="font-size:13px;color:var(--ink2);margin-bottom:12px;">Guarda una copia de los reportes de <strong id="bn-resp-mes-txt"></strong> en tu equipo: '
+      + '<strong>Visitas fallidas</strong>, <strong>Reincidencias</strong> y <strong>Trabajos realizados</strong> (3 archivos CSV).</p>'
+      + '<div class="field" style="margin-bottom:12px;"><label style="font-size:11px;">Mes a respaldar</label>'
+      + '<input type="month" id="bn-resp-mes" value="' + def.y + '-' + String(def.m+1).padStart(2,'0') + '" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;"></div>'
+      + '<div id="bn-resp-estado" style="font-size:12px;color:var(--ink3);margin-bottom:12px;min-height:18px;"></div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+      + '<button class="btn btn-accent" id="bn-resp-btn">⬇ Descargar respaldo</button>'
+      + (manual ? '' : '<button class="btn btn-ghost" id="bn-resp-luego">Recordármelo en 1 hora</button>')
+      + '<button class="btn btn-ghost" id="bn-resp-cerrar">' + (manual ? 'Cerrar' : 'Cerrar') + '</button>'
+      + '</div></div>';
+    document.body.appendChild(ov);
+    var inp = document.getElementById('bn-resp-mes');
+    var actTxt = function(){
+      var p = (inp.value||'').split('-'); var y = parseInt(p[0]), m = parseInt(p[1]) - 1;
+      document.getElementById('bn-resp-mes-txt').textContent = (isNaN(m) ? '—' : MESES[m] + ' ' + y);
+    };
+    inp.onchange = actTxt; actTxt();
+    document.getElementById('bn-resp-cerrar').onclick = cerrar;
+    var luego = document.getElementById('bn-resp-luego');
+    if (luego) luego.onclick = function(){ lsSet('bn_resp_snooze_' + sectorKey(), String(Date.now() + 3600000)); cerrar(); toast('Te lo recordaré en 1 hora','info'); };
+    document.getElementById('bn-resp-btn').onclick = function(){
+      var p = (inp.value||'').split('-'); var y = parseInt(p[0]), m = parseInt(p[1]) - 1;
+      if (!y || isNaN(m)) { toast('Elige un mes válido','error'); return; }
+      var btn = this, est = document.getElementById('bn-resp-estado');
+      btn.disabled = true; est.textContent = 'Consultando Firebase y generando archivos…';
+      generar(y, m).then(function(info){
+        est.innerHTML = '✔ Respaldo guardado: ' + info.vf + ' visitas fallidas, ' + info.trabajos + ' trabajos realizados, ' + info.reincidentes + ' cliente(s) reincidente(s). Revisa tu carpeta de descargas.';
+        btn.textContent = 'Descargar de nuevo'; btn.disabled = false;
+        toast('Respaldo mensual descargado','success');
+      }).catch(function(e){
+        console.error('respaldo mensual', e);
+        est.textContent = 'No se pudo generar el respaldo. Revisa tu conexión e inténtalo de nuevo.';
+        btn.disabled = false;
+      });
+    };
+  };
+
+  function tick(){
+    try {
+      if (abierto || !currentUser || currentUser.tipo !== 'admin' || typeof db === 'undefined' || !db) return;
+      var pend = mesPendiente(); if (!pend) return;
+      var k = clave(pend.y, pend.m);
+      var sn = parseInt(lsGet('bn_resp_snooze_' + sectorKey()) || '0');
+      if (sn && Date.now() < sn) return;
+      if (hechoMem[k] === true) return;
+      if (hechoMem[k] === 'consultando') return;
+      hechoMem[k] = 'consultando';
+      refHecho(k).once('value').then(function(snap){
+        hechoMem[k] = snap.exists();
+        if (!snap.exists() && !abierto && currentUser && currentUser.tipo === 'admin') window.bnRespaldoMensualAbrir(pend, false);
+      }).catch(function(){ hechoMem[k] = false; });
+    } catch(e){ console.warn('tick respaldo', e); }
+  }
+  setInterval(tick, 60000);
+  setTimeout(tick, 8000);
 })();
 
 // ══════════════════════════════════════════════════════
