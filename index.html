@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BodegaNet v2.46 — Control de Materiales ISP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, interactive-widget=resizes-content">
+<title>BodegaNet v2.48 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -69,6 +69,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15p
 
 /* ── APP ── */
 #app{display:none;height:100vh;flex-direction:column;}
+@supports (height:100dvh){#app{height:100dvh;}}
 .topbar{background:rgba(240,242,245,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;height:54px;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:100;}
 .topbar-logo{font-family:var(--display);font-size:17px;font-weight:700;color:var(--ink);}
 .topbar-logo span{color:var(--accent);}
@@ -234,7 +235,14 @@ tr:hover td{background:rgba(59,130,246,.05);}
   .mat-row{grid-template-columns:1fr auto auto;}
   .stock-label{display:none;}
   .bottom-nav{display:flex;}
-  .asignar-action-bar{position:sticky;top:54px;z-index:50;background:var(--bg);padding:10px 0 6px;margin-bottom:0;border-bottom:1px solid var(--border);}
+  /* v2.48 — scroll móvil: en pantallas chicas muchos .card con backdrop-filter (blur) + listas largas
+     (ej. más de 5 materiales en Asignar) hacen que el navegador deje de deslizar la pantalla.
+     Se quita el blur en móvil, se fija el alto al viewport real (dvh) y se habilita el deslizamiento táctil. */
+  .card,.kpi,.topbar,.modal{backdrop-filter:none;-webkit-backdrop-filter:none;}
+  .layout{min-height:0;}
+  body.kb-open .bottom-nav{display:none;}
+  .main-content{min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;}
+  .asignar-action-bar{position:sticky;top:0;z-index:50;background:var(--bg);padding:10px 0 6px;margin-bottom:0;border-bottom:1px solid var(--border);}
   .asignar-action-bar .btn{font-size:13px;padding:10px 8px;}
 }
 @media(min-width:769px){
@@ -526,6 +534,23 @@ select option{background:var(--bg3);color:var(--ink);}
             <div id="efec-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;"></div>
           </div>
 
+          <!-- PANEL TIEMPO EFECTIVO POR CUADRILLA (v2.48) -->
+          <div class="card" id="dash-tef-wrap" style="margin-bottom:.75rem;padding:1.25rem 1.25rem 1rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:.75rem;">
+              <div>
+                <div class="card-title" style="margin-bottom:2px;">⏱ Tiempo efectivo por cuadrilla</div>
+                <p id="tef-desc" style="font-size:12px;color:var(--ink3);">Solo cuenta el tiempo registrado (hora inicio–fin) en cada tarea · jornada de 8 h por día activo</p>
+              </div>
+              <div style="display:flex;border:1.5px solid var(--border2);border-radius:var(--r);overflow:hidden;">
+                <button id="tp-dia"    onclick="setTefPeriodo('dia')"    style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:600;">Día</button>
+                <button id="tp-semana" onclick="setTefPeriodo('semana')" style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:rgba(255,255,255,.6);color:var(--ink2);">Semana</button>
+                <button id="tp-mes"    onclick="setTefPeriodo('mes')"    style="padding:5px 14px;font-size:12px;border:none;cursor:pointer;background:rgba(255,255,255,.6);color:var(--ink2);">Mes</button>
+              </div>
+            </div>
+            <div id="tef-resumen" style="margin-bottom:.75rem;"></div>
+            <div id="tef-lista"></div>
+          </div>
+
           <!-- MODAL detalle efectividad cuadrilla -->
           <div id="modal-efec-detalle" style="display:none;position:fixed;inset:0;z-index:1300;background:rgba(20,25,40,.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
             <div style="background:rgba(245,246,248,.98);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.85);border-radius:var(--r-xl);padding:1.5rem;max-width:680px;width:94%;max-height:82vh;overflow-y:auto;box-shadow:0 8px 48px rgba(20,25,40,.18);position:relative;">
@@ -719,6 +744,24 @@ select option{background:var(--bg3);color:var(--ink);}
               </div>
               <button class="btn btn-accent" onclick="buscarUsoMaterial()" style="white-space:nowrap;">Ver usos</button>
               <button class="btn btn-ghost" onclick="limpiarBusquedaMaterial()" style="white-space:nowrap;">✕ Limpiar</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:.75rem;">
+              <div class="field" style="margin:0;min-width:170px;"><label style="font-size:11px;">Período de búsqueda</label>
+                <select id="traz-periodo" onchange="toggleTrazFechas();if(trazMatId||document.getElementById('kardex-mat-search').value)buscarUsoMaterial();" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;">
+                  <option value="cache">Últimos 30 días (rápido)</option>
+                  <option value="mes">Este mes</option>
+                  <option value="mesant">Mes anterior</option>
+                  <option value="90">Últimos 90 días</option>
+                  <option value="anio">Este año</option>
+                  <option value="personalizado">Personalizado (desde – hasta)</option>
+                </select>
+              </div>
+              <div class="field" id="traz-fechas" style="margin:0;display:none;gap:8px;flex-wrap:wrap;">
+                <div><label style="font-size:11px;">Desde</label>
+                  <input type="date" id="traz-desde" onchange="if(trazMatId)buscarUsoMaterial()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;"></div>
+                <div><label style="font-size:11px;">Hasta</label>
+                  <input type="date" id="traz-hasta" onchange="if(trazMatId)buscarUsoMaterial()" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg);color:var(--ink);outline:none;"></div>
+              </div>
             </div>
             <!-- Resultados de trazabilidad -->
             <div id="kardex-traz-result" style="display:none;margin-top:1rem;">
@@ -1335,12 +1378,15 @@ select option{background:var(--bg3);color:var(--ink);}
                   <option value="hoy">Hoy</option>
                   <option value="semana">Esta semana</option>
                   <option value="mes" selected>Este mes</option>
-                  <option value="personalizado">Personalizado</option>
+                  <option value="mesant">Mes anterior</option>
+                  <option value="personalizado">Personalizado (desde – hasta)</option>
                 </select>
               </div>
               <div class="field" id="vf-fechas" style="display:none;">
-                <label>Fecha</label>
+                <label>Desde</label>
                 <input type="date" id="vf-fecha" onchange="renderVisitasFallidas()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
+                <label style="margin-top:6px;">Hasta</label>
+                <input type="date" id="vf-fecha-fin" onchange="renderVisitasFallidas()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;">
               </div>
             </div>
             <div class="btn-row">
@@ -2078,11 +2124,24 @@ select option{background:var(--bg3);color:var(--ink);}
             <div class="field"><label>Período</label>
               <select id="avf-periodo" onchange="renderAdminVF()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
                 <option value="hoy">Hoy</option>
-                <option value="semana">Esta semana</option>
+                <option value="semana">Últimos 7 días</option>
                 <option value="mes" selected>Este mes</option>
+                <option value="mesant">Mes anterior</option>
+                <option value="mesel">Elegir mes…</option>
+                <option value="rango">Rango de fechas…</option>
               </select>
             </div>
+            <div class="field" id="avf-mes-wrap" style="display:none;"><label>Mes</label>
+              <input type="month" id="avf-mes" onchange="renderAdminVF()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field" id="avf-desde-wrap" style="display:none;"><label>Desde</label>
+              <input type="date" id="avf-desde" onchange="renderAdminVF()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
+            <div class="field" id="avf-hasta-wrap" style="display:none;"><label>Hasta</label>
+              <input type="date" id="avf-hasta" onchange="renderAdminVF()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:var(--bg);color:var(--ink);outline:none;">
+            </div>
           </div>
+          <p id="avf-rango-info" style="font-size:12px;color:var(--ink3);margin:.25rem 0 .5rem;"></p>
           <div class="btn-row">
             <button class="btn btn-green" onclick="exportarVFAdmin()">⬇ Descargar CSV</button>
           </div>
@@ -3563,24 +3622,81 @@ function renderAdminVF() {
       + allMotivosVF().map(function(n){ return '<option value="'+esc(n)+'"'+(curMot===n?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
   }
 
-  // Calcular rango como strings YYYY-MM-DD locales para evitar desfase UTC
-  var periodo = (document.getElementById('avf-periodo')||{value:'mes'}).value;
-  var pad = function(n){ return String(n).padStart(2,'0'); };
-  var hoyD = new Date();
-  var hoyStr = hoyD.getFullYear()+'-'+pad(hoyD.getMonth()+1)+'-'+pad(hoyD.getDate());
-  var iniD = new Date(); iniD.setHours(0,0,0,0);
-  if (periodo === 'semana')  { iniD.setDate(iniD.getDate()-7); }
-  else if (periodo === 'mes') { iniD = new Date(hoyD.getFullYear(), hoyD.getMonth(), 1); }
-  var iniStr = iniD.getFullYear()+'-'+pad(iniD.getMonth()+1)+'-'+pad(iniD.getDate());
+  var rg = _avfRango();
   var cid = (document.getElementById('avf-cuadrilla')||{value:''}).value;
   var motFiltro = (document.getElementById('avf-motivo')||{value:''}).value;
+  var info = document.getElementById('avf-rango-info');
+  if (info) info.textContent = rg.valido ? ('Mostrando del ' + rg.iniStr.split('-').reverse().join('/') + ' al ' + rg.finStr.split('-').reverse().join('/')) : 'Elige un rango de fechas válido (desde ≤ hasta).';
+  if (!rg.valido) { _avfUltimo = []; var tb0=document.getElementById('avf-tbody'); if (tb0) tb0.innerHTML='<tr><td colspan="10">'+empty('Elige un rango de fechas válido')+'</td></tr>'; return; }
 
-  var vfs = visitasFallidasListFiltrada().filter(function(v){
+  // Los datos en caché cubren solo los últimos BN_DIAS_CARGA días; si el rango es más
+  // antiguo se consulta Firebase directamente (indexado por tsRegistro).
+  var token = ++_avfToken;
+  var iniMs = new Date(rg.iniStr+'T00:00:00').getTime();
+  var finMs = new Date(rg.finStr+'T23:59:59').getTime();
+  if (iniMs >= _bnCutoffCarga()) {
+    _avfPintar(visitasFallidasListFiltrada(), rg, cid, motFiltro);
+  } else {
+    var tb1 = document.getElementById('avf-tbody');
+    if (tb1) tb1.innerHTML = '<tr><td colspan="10"><div style="padding:1.25rem;text-align:center;color:var(--ink3);font-size:13px;">Consultando visitas fallidas del período…</div></td></tr>';
+    _repFetchRango('visitas_fallidas', iniMs, finMs).then(function(res){
+      if (token !== _avfToken) return; // llegó una consulta más nueva
+      var cuadsDelSector = getCuadrillasFiltradas().map(function(c){ return c.id; });
+      var lista = Object.keys(res).map(function(k){ return Object.assign({id:k}, res[k]); })
+        .filter(function(v){ return cuadsDelSector.indexOf(v.cuadrillaId) > -1; });
+      _avfPintar(lista, rg, cid, motFiltro);
+    });
+  }
+}
+
+var _avfToken = 0;
+var _avfUltimo = [];   // último conjunto filtrado mostrado (lo usa la exportación a CSV)
+var _avfUltimoRango = null;
+
+function _isoLocalDia(d){
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+
+// Calcula el rango (YYYY-MM-DD locales) según el selector de período de VF admin
+function _avfRango(){
+  var periodo = (document.getElementById('avf-periodo')||{value:'mes'}).value;
+  var hoyD = new Date();
+  var mesWrap = document.getElementById('avf-mes-wrap');
+  var dWrap = document.getElementById('avf-desde-wrap'), hWrap = document.getElementById('avf-hasta-wrap');
+  if (mesWrap) mesWrap.style.display = periodo==='mesel' ? '' : 'none';
+  if (dWrap) dWrap.style.display = periodo==='rango' ? '' : 'none';
+  if (hWrap) hWrap.style.display = periodo==='rango' ? '' : 'none';
+  var iniD, finD = new Date(hoyD.getFullYear(), hoyD.getMonth(), hoyD.getDate());
+  if (periodo === 'hoy') { iniD = new Date(finD); }
+  else if (periodo === 'semana') { iniD = new Date(finD); iniD.setDate(iniD.getDate()-6); }
+  else if (periodo === 'mesant') { iniD = new Date(hoyD.getFullYear(), hoyD.getMonth()-1, 1); finD = new Date(hoyD.getFullYear(), hoyD.getMonth(), 0); }
+  else if (periodo === 'mesel') {
+    var mEl = document.getElementById('avf-mes');
+    if (mEl && !mEl.value) mEl.value = hoyD.getFullYear()+'-'+String(hoyD.getMonth()+1).padStart(2,'0');
+    var pm = (mEl.value||'').split('-');
+    var y = parseInt(pm[0]), m = parseInt(pm[1]);
+    if (!y || !m) return {valido:false};
+    iniD = new Date(y, m-1, 1); finD = new Date(y, m, 0);
+  }
+  else if (periodo === 'rango') {
+    var dv = (document.getElementById('avf-desde')||{}).value, hv = (document.getElementById('avf-hasta')||{}).value;
+    if (!dv || !hv || dv > hv) return {valido:false};
+    return {valido:true, iniStr:dv, finStr:hv, periodo:periodo};
+  }
+  else { iniD = new Date(hoyD.getFullYear(), hoyD.getMonth(), 1); } // mes actual
+  return {valido:true, iniStr:_isoLocalDia(iniD), finStr:_isoLocalDia(finD), periodo:periodo};
+}
+
+function _avfPintar(base, rg, cid, motFiltro) {
+  var iniStr = rg.iniStr, hoyStr = rg.finStr;
+  var vfs = base.filter(function(v){
     var f = (v.fecha||'').slice(0,10);
     return f >= iniStr && f <= hoyStr
       && (!cid || v.cuadrillaId === cid)
       && (!motFiltro || v.motivo === motFiltro);
   }).sort(function(a,b){ return (b.tsRegistro||0) - (a.tsRegistro||0); });
+  _avfUltimo = vfs; _avfUltimoRango = rg;
 
   // Count
   var countEl = document.getElementById('avf-count');
@@ -3652,7 +3768,9 @@ function renderAdminVF() {
 }
 
 function exportarVFAdmin() {
-  var vfs = visitasFallidasListFiltrada().sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
+  // Exporta exactamente lo que se ve en pantalla (período, cuadrilla y motivo seleccionados)
+  var vfs = (_avfUltimo||[]).slice().sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
+  if (!vfs.length) { toast('No hay visitas fallidas en el período para exportar','error'); return; }
   var rows = [['Fecha Registro','Hora Registro','Cuadrilla','Cliente','Motivo','Observacion','Hora Inicio','Hora Fin','Minutos Perdidos','OT','Tecnico']];
   vfs.forEach(function(v){
     var c = getCuad(v.cuadrillaId);
@@ -3667,10 +3785,11 @@ function exportarVFAdmin() {
   var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v||'').replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
   var a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
-  a.download = 'VisitasFallidas_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download = 'VisitasFallidas_'+(_avfUltimoRango ? _avfUltimoRango.iniStr+'_a_'+_avfUltimoRango.finStr : new Date().toISOString().slice(0,10))+'.csv';
   a.click();
 }
 
+var _vfRepUltimo = null;   // último conjunto mostrado en el reporte (para exportar lo que se ve)
 function renderVisitasFallidas() {
   // Poblar select cuadrilla
   var sel = document.getElementById('vf-cuadrilla');
@@ -3685,20 +3804,14 @@ function renderVisitasFallidas() {
   poblarSelectMotivosVF();
 
   var cid     = (document.getElementById('vf-cuadrilla')||{value:''}).value;
-  var periodo = (document.getElementById('vf-periodo')||{value:'mes'}).value;
-  var hoy = new Date(); hoy.setHours(23,59,59,999);
-  var ini = new Date(); ini.setHours(0,0,0,0);
-  if (periodo==='semana')       { ini.setDate(ini.getDate()-7); }
-  else if (periodo==='mes')     { ini = new Date(hoy.getFullYear(),hoy.getMonth(),1); }
-  else if (periodo==='personalizado') {
-    var fi = document.getElementById('vf-fecha'); if (fi&&fi.value){ ini=new Date(fi.value+'T00:00:00'); hoy=new Date(fi.value+'T23:59:59'); }
-  }
+  var _rgVF   = _vfRango(); var ini = _rgVF.ini, hoy = _rgVF.fin;
   var motivoFiltro = (document.getElementById('vf-motivo-filtro')||{value:''}).value;
 
   var vfs = visitasFallidasListFiltrada().filter(function(v){
     var f = new Date(v.fecha);
     return f>=ini && f<=hoy && (!cid||v.cuadrillaId===cid) && (!motivoFiltro||v.motivo===motivoFiltro);
   }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
+  _vfRepUltimo = vfs;
 
   var countEl = document.getElementById('vf-count');
   if (countEl) countEl.textContent = vfs.length+' registro(s)';
@@ -3798,20 +3911,7 @@ function renderVisitasFallidasCuad() {
 function renderGraficosVisitasFallidas() {
   var tipo = (document.getElementById('vf-chart-tipo')||{value:'motivos'}).value;
   var cid = (document.getElementById('vf-cuadrilla')||{value:''}).value;
-  var periodo = (document.getElementById('vf-periodo')||{value:'mes'}).value;
-  var hoy = new Date(); hoy.setHours(23,59,59,999);
-  var ini = new Date(); ini.setHours(0,0,0,0);
-  
-  if (periodo === 'hoy') {}
-  else if (periodo === 'semana') { ini.setDate(ini.getDate() - 7); }
-  else if (periodo === 'mes') { ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
-  else if (periodo === 'personalizado') {
-    var fechaInput = document.getElementById('vf-fecha');
-    if (fechaInput && fechaInput.value) {
-      ini = new Date(fechaInput.value + 'T00:00:00');
-      hoy = new Date(fechaInput.value + 'T23:59:59');
-    }
-  }
+  var _rgG = _vfRango(); var ini = _rgG.ini, hoy = _rgG.fin;
 
   var vfs = visitasFallidasListFiltrada().filter(function(v){
     var f = new Date(v.fecha);
@@ -3916,7 +4016,7 @@ function eliminarVisitaFallida(vfId) {
 
 function exportarVisitasFallidas() {
   var rows = [['Fecha Registro','Hora Registro','Cuadrilla','Cliente','Motivo','Observacion','Hora Inicio','Hora Fin','Minutos Perdidos','OT','Tecnico']];
-  visitasFallidasListFiltrada().sort(function(a,b){return (b.tsRegistro||0)-(a.tsRegistro||0);}).forEach(function(v){
+  (_vfRepUltimo || visitasFallidasListFiltrada()).slice().sort(function(a,b){return (b.tsRegistro||0)-(a.tsRegistro||0);}).forEach(function(v){
     var c = getCuad(v.cuadrillaId);
     var tsReg = v.tsRegistro ? new Date(v.tsRegistro) : null;
     var fechaReg = tsReg ? tsReg.toLocaleDateString('es-HN') : (v.fecha||'');
@@ -4160,6 +4260,7 @@ function toggleKmRepFechas() {
   if (p && f) f.style.display = p.value === 'personalizado' ? '' : 'none';
 }
 
+var _kmRepUltimo = null;  // última lista mostrada en el reporte de Kardex (para exportar lo que se ve)
 function renderRepKardex() {
   var cid    = (document.getElementById('km-rep-cuadrilla')||{value:''}).value;
   var tipo   = (document.getElementById('km-rep-tipo')||{value:''}).value;
@@ -4179,6 +4280,7 @@ function renderRepKardex() {
       && (!cid  || k.cuadrillaId===cid)
       && (!tipo || k.tipo===tipo);
   }).sort(function(a,b){return new Date(b.fecha)-new Date(a.fecha);});
+  _kmRepUltimo = rows;
 
   var card = document.getElementById('km-rep-result');
   if (card) card.style.display = 'block';
@@ -4205,7 +4307,7 @@ function renderRepKardex() {
 
 function exportarKardexCSV() {
   var rows=[['Fecha','Cuadrilla','Tipo','Material','MAC','Cantidad','Unidad','Responsable','Referencia']];
-  kardexListFiltrada().forEach(function(k){
+  (_kmRepUltimo || kardexListFiltrada()).forEach(function(k){
     var c=getCuad(k.cuadrillaId), m=getMat(k.matId);
     rows.push([fmtDTK(k), c?c.nombre:'—', k.tipo, m?m.nombre:'—', k.mac||'', k.qty, m?m.unidad:'', k.resp||'', k.ref||'']);
   });
@@ -5503,13 +5605,178 @@ function grafGetAsig(sectorId) {
   });
 }
 
-function drawBarChart(containerId, labels, values, colors, onBarClick) {
+// D\u00edas en que una cuadrilla registr\u00f3 trabajo (asignaciones, red interna o visitas
+// fallidas, sin anulados) dentro de [ini, fin] (YYYY-MM-DD). Sirve para calcular
+// los tickets asignados = meta diaria x d\u00edas con trabajo registrado.
+// ══════════════════════════════════════════════════════
+// TIEMPO EFECTIVO (v2.48)
+// Tiempo efectivo = suma del tiempo REGISTRADO (horaInicio–horaFin) en cada
+// tarea realizada por la cuadrilla (clientes + red interna, sin anuladas).
+// Si dos tareas se traslapan en el mismo día, el traslape se cuenta una sola
+// vez. No se estima nada: tareas sin hora fin válida no suman (se avisan).
+// Jornada regular = 8 h (480 min) por cada día activo (día con al menos una
+// tarea o visita fallida registrada).
+// ══════════════════════════════════════════════════════
+var TEF_JORNADA_MIN = 480;
+var tefPeriodo = 'dia';
+
+function _tefIntervalo(a) {
+  if (!a || !a.horaInicio || !a.horaFin) return null;
+  var p = String(a.horaInicio).split(':'), q = String(a.horaFin).split(':');
+  var i = parseInt(p[0],10)*60 + parseInt(p[1],10), f = parseInt(q[0],10)*60 + parseInt(q[1],10);
+  if (isNaN(i) || isNaN(f) || f <= i) return null;
+  return [i, f];
+}
+function _tefUnirMin(ints) {
+  if (!ints.length) return 0;
+  var arr = ints.slice().sort(function(a,b){ return a[0]-b[0]; });
+  var total = 0, cs = arr[0][0], ce = arr[0][1];
+  for (var k = 1; k < arr.length; k++) {
+    if (arr[k][0] <= ce) { if (arr[k][1] > ce) ce = arr[k][1]; }
+    else { total += ce - cs; cs = arr[k][0]; ce = arr[k][1]; }
+  }
+  return total + (ce - cs);
+}
+// ini/fin: 'YYYY-MM-DD' locales (inclusive)
+function calcTiempoEfectivo(cid, ini, fin) {
+  var porDia = {}, tareas = 0, sinHora = 0;
+  asigList().forEach(function(a){
+    if (a.anulada || a.cuadrillaId !== cid) return;
+    var f = String(a.fecha||'').slice(0,10);
+    if (!f || f < ini || f > fin) return;
+    tareas++;
+    var iv = _tefIntervalo(a);
+    if (!iv) { sinHora++; return; }
+    (porDia[f] = porDia[f] || []).push(iv);
+  });
+  var detalleDia = {}, total = 0;
+  Object.keys(porDia).forEach(function(f){ detalleDia[f] = _tefUnirMin(porDia[f]); total += detalleDia[f]; });
+  var dias = diasConTrabajoCuad(cid, ini, fin);
+  var jornada = dias * TEF_JORNADA_MIN;
+  return {
+    total: total, dias: dias, jornada: jornada, tareas: tareas, sinHora: sinHora, porDia: detalleDia,
+    pct: jornada > 0 ? Math.round(total / jornada * 100) : null,
+    promedio: dias > 0 ? Math.round(total / dias) : 0
+  };
+}
+function _tefRango(periodo) {
+  var hoy = new Date();
+  var fin = _isoLocalDia(hoy), ini;
+  if (periodo === 'dia') ini = fin;
+  else if (periodo === 'semana') { var d = new Date(hoy); d.setDate(d.getDate()-6); ini = _isoLocalDia(d); }
+  else ini = _isoLocalDia(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+  return { ini: ini, fin: fin };
+}
+function setTefPeriodo(p) {
+  tefPeriodo = p;
+  ['dia','semana','mes'].forEach(function(k){
+    var btn = document.getElementById('tp-'+k); if (!btn) return;
+    btn.style.background = k===p ? 'var(--accent)' : 'rgba(255,255,255,.6)';
+    btn.style.color      = k===p ? '#fff' : 'var(--ink2)';
+    btn.style.fontWeight = k===p ? '600' : '400';
+  });
+  renderTiempoEfectivo();
+}
+function _tefColor(pct) {
+  if (pct === null) return 'var(--ink3)';
+  return pct >= 90 ? '#16a34a' : pct >= 75 ? '#d97706' : '#dc2626';
+}
+function renderTiempoEfectivo() {
+  if (!currentUser || currentUser.tipo !== 'admin') return;
+  var lista = document.getElementById('tef-lista'), resEl = document.getElementById('tef-resumen');
+  if (!lista || !resEl) return;
+  var rg = _tefRango(tefPeriodo);
+  var label = {dia:'Hoy',semana:'Últimos 7 días',mes:'Este mes'}[tefPeriodo];
+  var desc = document.getElementById('tef-desc');
+  if (desc) desc.textContent = label + ' · solo tiempo registrado en cada tarea · jornada de 8 h por día activo';
+
+  var cuads = getCuadrillasFiltradas().sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+  var datos = cuads.map(function(cu){ var r = calcTiempoEfectivo(cu.id, rg.ini, rg.fin); r.cu = cu; return r; })
+    .filter(function(d){ return d.dias > 0; })
+    .sort(function(a,b){ return (b.pct||0) - (a.pct||0); });
+
+  if (!datos.length) {
+    resEl.innerHTML = '';
+    lista.innerHTML = '<p style="color:var(--ink3);font-size:13px;">Sin actividad registrada en el período.</p>';
+    return;
+  }
+  var tTot = 0, tJor = 0, tSin = 0;
+  datos.forEach(function(d){ tTot += d.total; tJor += d.jornada; tSin += d.sinHora; });
+  var pctG = tJor > 0 ? Math.round(tTot / tJor * 100) : null;
+  var caja = function(n, t, c){ return '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:'+c+';">'+n+'</div><div style="font-size:11px;color:var(--ink3);">'+t+'</div></div>'; };
+  resEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">'
+    + caja(fmtDuracion(tTot), 'Tiempo efectivo total', 'var(--accent)')
+    + caja(fmtDuracion(tJor), 'Jornada disponible', 'var(--ink)')
+    + caja(pctG === null ? '—' : pctG + '%', 'Aprovechamiento', _tefColor(pctG))
+    + '</div>';
+
+  lista.innerHTML = datos.map(function(d){
+    var col = _tefColor(d.pct), w = Math.min(d.pct || 0, 100);
+    var dias = Object.keys(d.porDia).sort().reverse();
+    var desglose = '';
+    if (tefPeriodo !== 'dia' && dias.length) {
+      desglose = '<details style="margin-top:6px;"><summary style="font-size:11px;color:var(--accent);cursor:pointer;">Ver por día</summary>'
+        + '<div style="margin-top:6px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;">'
+        + dias.map(function(f){
+            var m = d.porDia[f], pc = Math.round(m / TEF_JORNADA_MIN * 100);
+            return '<div style="font-size:11px;background:var(--bg);border-radius:6px;padding:4px 8px;display:flex;justify-content:space-between;gap:6px;"><span>'
+              + f.slice(8,10)+'/'+f.slice(5,7)+'</span><strong style="color:'+_tefColor(pc)+';">'+fmtDuracion(m)+' · '+pc+'%</strong></div>';
+          }).join('') + '</div></details>';
+    }
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;">'
+      + '<strong style="font-size:13px;">'+esc(d.cu.nombre)+'</strong>'
+      + '<span style="font-size:13px;"><strong style="color:'+col+';">'+fmtDuracion(d.total)+'</strong> <span style="color:var(--ink3);font-size:11px;">de '+fmtDuracion(d.jornada)+' · '+(d.pct===null?'—':d.pct+'%')+'</span></span></div>'
+      + '<div style="height:7px;background:var(--bg3);border-radius:99px;overflow:hidden;margin:6px 0 4px;"><div style="height:100%;width:'+w+'%;background:'+col+';"></div></div>'
+      + '<div style="font-size:11px;color:var(--ink3);">'+d.dias+' día(s) activo(s) · promedio '+fmtDuracion(d.promedio)+'/día · '+d.tareas+' tarea(s)'
+      + (d.sinHora ? ' · <span style="color:#d97706;">⚠ '+d.sinHora+' sin hora inicio/fin (no suman)</span>' : '')
+      + '</div>' + desglose + '</div>';
+  }).join('')
+  + (tSin ? '<p style="font-size:11px;color:var(--ink3);margin-top:8px;">Las tareas sin hora de inicio y fin válidas no se cuentan: completa esos datos para un tiempo efectivo exacto.</p>' : '');
+}
+
+// Bloque de tiempo efectivo para el dashboard de la cuadrilla (hoy y mes)
+function htmlTiempoEfectivoCuad(cid) {
+  var hoy = _tefRango('dia'), mes = _tefRango('mes');
+  var d = calcTiempoEfectivo(cid, hoy.ini, hoy.fin);
+  var m = calcTiempoEfectivo(cid, mes.ini, mes.fin);
+  var jd = TEF_JORNADA_MIN;
+  var pctHoy = Math.round(d.total / jd * 100);
+  var caja = function(n, t, c){ return '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:'+c+';">'+n+'</div><div style="font-size:11px;color:var(--ink3);">'+t+'</div></div>'; };
+  return '<div style="border-top:1px solid var(--border);margin-top:.75rem;padding-top:.75rem;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.5rem;">⏱ Tiempo efectivo</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:.5rem;">'
+    + caja(fmtDuracion(d.total), 'Hoy (de 8h)', _tefColor(pctHoy))
+    + caja(pctHoy + '%', 'Jornada de hoy', _tefColor(pctHoy))
+    + caja(fmtDuracion(m.total), 'Total del mes', 'var(--accent)')
+    + caja(m.pct === null ? '—' : m.pct + '%', 'Mes ('+m.dias+' d × 8h)', _tefColor(m.pct))
+    + '</div>'
+    + '<p style="font-size:12px;color:var(--ink3);">Promedio del mes: '+fmtDuracion(m.promedio)+' por día activo'
+    + ((d.sinHora || m.sinHora) ? ' · <span style="color:#d97706;">⚠ '+m.sinHora+' tarea(s) del mes sin hora inicio/fin no suman</span>' : '')
+    + '</p></div>';
+}
+
+function diasConTrabajoCuad(cid, ini, fin) {
+  var dias = {};
+  var dentro = function(f){ f = String(f||'').slice(0,10); return f && f>=ini && f<=fin ? f : null; };
+  asigList().forEach(function(a){
+    if (a.anulada || a.cuadrillaId!==cid) return;
+    var f = dentro(a.fecha); if (f) dias[f] = true;
+  });
+  Object.values(cache.visitas_fallidas||{}).forEach(function(v){
+    if (v.cuadrillaId!==cid) return;
+    var f = dentro(v.fecha); if (f) dias[f] = true;
+  });
+  return Object.keys(dias).length;
+}
+
+function drawBarChart(containerId, labels, values, colors, onBarClick, totals) {
   var cont = document.getElementById(containerId);
   if (!cont) return;
   var W = cont.offsetWidth || 480;
   var H = 190, pL=40, pB=52, pT=18, pR=12;
   var cW=W-pL-pR, cH=H-pT-pB;
-  var maxVal = Math.max.apply(null, values.concat([1]));
+  var maxVal = Math.max.apply(null, values.concat(totals||[], [1]));
   var n = labels.length;
   var barW = Math.max(8, Math.min(56, Math.floor(cW/(n*1.55))));
   var gap  = n > 1 ? (cW - n*barW)/(n-1) : 0;
@@ -5526,15 +5793,23 @@ function drawBarChart(containerId, labels, values, colors, onBarClick) {
     var bx = pL + i*(barW+gap);
     var bh = values[i]>0 ? Math.max(4, (values[i]/maxVal)*cH) : 3;
     var by = pT + cH - bh;
+    var tot = totals ? (totals[i]||0) : 0;
+    if (tot > 0) {
+      // Parte gris: tickets asignados (meta diaria x d\u00edas con trabajo registrado)
+      var th = Math.max(4, (tot/maxVal)*cH), ty = pT + cH - th;
+      parts.push('<rect x="'+bx+'" y="'+ty+'" width="'+barW+'" height="'+th+'" rx="4" fill="#cbd5e1" fill-opacity="0.7" style="cursor:pointer;" onclick="grafBarClick(\''+containerId+'\','+i+')"><title>Asignados: '+tot+'</title></rect>');
+    }
     parts.push('<rect x="'+bx+'" y="'+by+'" width="'+barW+'" height="'+bh+'" rx="4" fill="'+(colors[i]||'var(--accent)')+'" fill-opacity="0.82" style="cursor:pointer;transition:fill-opacity .15s;" onmouseover="this.setAttribute(\'fill-opacity\',1)" onmouseout="this.setAttribute(\'fill-opacity\',0.82)" onclick="grafBarClick(\''+containerId+'\','+i+')"/>');
-    if (values[i]>0) parts.push('<text x="'+(bx+barW/2)+'" y="'+(by-5)+'" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ink)">'+values[i]+'</text>');
+    var topY = Math.min(by, tot>0 ? pT + cH - Math.max(4,(tot/maxVal)*cH) : by);
+    if (totals && tot>0) parts.push('<text x="'+(bx+barW/2)+'" y="'+(topY-5)+'" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ink)">'+values[i]+'/'+tot+'</text>');
+    else if (values[i]>0) parts.push('<text x="'+(bx+barW/2)+'" y="'+(by-5)+'" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ink)">'+values[i]+'</text>');
     // Label (truncado a 2 líneas)
     var lbl = labels[i]; var ll1 = lbl.length>11 ? lbl.slice(0,10)+'…' : lbl;
     parts.push('<text x="'+(bx+barW/2)+'" y="'+(H-pB+16)+'" text-anchor="middle" font-size="9" fill="var(--ink2)">'+ll1+'</text>');
   }
   parts.push('<line x1="'+pL+'" y1="'+(pT+cH)+'" x2="'+(W-pR)+'" y2="'+(pT+cH)+'" stroke="var(--border)" stroke-width="1"/>');
   parts.push('</svg>');
-  cont.innerHTML = parts.join('');
+  cont.innerHTML = parts.join('') + (totals ? '<div style="display:flex;gap:14px;font-size:11px;color:var(--ink3);margin-top:6px;"><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3b82f6;margin-right:4px;"></span>Tickets realizados</span><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#cbd5e1;margin-right:4px;"></span>Tickets asignados (meta diaria \u00d7 d\u00edas con trabajo)</span></div>' : '');
   cont._grafLabels = labels; cont._grafValues = values; cont._grafOnClick = onBarClick;
 }
 
@@ -5575,15 +5850,17 @@ function renderGrafPorCuadrilla(containerId, sectorId) {
     ? cuadrillasList().filter(function(cu){ return (cu.sectorId||cu.sector)===sectorId; })
     : getCuadrillasFiltradas();
   var asigs = grafGetAsig(sectorId);
-  var labels=[], values=[], colors=[];
+  var labels=[], values=[], colors=[], totals=[];
+  var rg = grafRango(), rIni = rg.ini.slice(0,10), rFin = rg.fin.slice(0,10);
   cuads.forEach(function(cu,i){
     labels.push(cu.nombre);
     values.push(asigs.filter(function(a){return a.cuadrillaId===cu.id;}).length);
     colors.push(GRAF_PALETTE[i%GRAF_PALETTE.length]);
+    totals.push((parseInt(cu.meta)||0) * diasConTrabajoCuad(cu.id, rIni, rFin));
   });
   if (!labels.length) { document.getElementById(containerId).innerHTML='<p style="color:var(--ink3);font-size:13px;padding:1.5rem 0;text-align:center;">Sin datos.</p>'; return; }
   _grafDetalleData = {tipo:'cuadrilla',cuads:cuads,asigs:asigs,sectorId:sectorId};
-  drawBarChart(containerId, labels, values, colors, function(idx){ abrirGrafDetalleCuadrilla(cuads[idx],asigs); });
+  drawBarChart(containerId, labels, values, colors, function(idx){ abrirGrafDetalleCuadrilla(cuads[idx],asigs); }, totals);
 }
 
 function renderGrafPorTipo(containerId, sectorId) {
@@ -9301,6 +9578,7 @@ function renderDashboard() {
     renderGraficosAdmin();
     // 5. Renderizar panel de efectividad por cuadrilla
     renderEfectividad();
+    renderTiempoEfectivo();
 
   } else {
     // ── Vista CUADRILLA: KPIs de bodega + rendimiento del día + preview inventario ──
@@ -9333,7 +9611,8 @@ function renderDashboard() {
       kpi('Materiales en bodega', matsCuad.length, 'tipos de material registrados', 'c-accent') +
       kpi('Stock bajo', bajoCuad, 'materiales bajo el mínimo', bajoCuad>0?'c-red':'c-green') +
       kpi('Clientes atendidos hoy', asigsHoyCuad.length, 'asignaciones del día', 'c-green') +
-      kpi('Unidades entregadas hoy', materialesEntregadosHoy, 'entre clientes y red interna', '');
+      kpi('Unidades entregadas hoy', materialesEntregadosHoy, 'entre clientes y red interna', '') +
+      kpi('Tiempo efectivo hoy', fmtDuracion(calcTiempoEfectivo(cid, _tefRango('dia').ini, _tefRango('dia').fin).total), 'de 8 h de jornada', 'c-accent');
 
     renderRendimientoMesCuad(cid);
 
@@ -9413,7 +9692,8 @@ function renderRendimientoMesCuad(cid) {
   var cuad = cache.cuadrillas[cid] || {};
   var metaDia = parseInt(cuad.meta) || 0;
   var hoyD = new Date();
-  var diasMes = new Date(hoyD.getFullYear(), hoyD.getMonth()+1, 0).getDate();
+  var iniMes = clave+'-01', finMes = clave+'-31';
+  var diasMes = diasConTrabajoCuad(cid, iniMes, finMes);
   var asignados = metaDia * diasMes;
   var cumplidos = realizados + visitas;
 
@@ -9431,9 +9711,10 @@ function renderRendimientoMesCuad(cid) {
     + (pct!==null ? '<div style="height:8px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:.5rem;"><div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+color+';"></div></div>' : '')
     + '<p style="font-size:12px;color:var(--ink3);margin-bottom:.5rem;">'
     + (pct!==null
-        ? '('+realizados+' realizados + '+visitas+' visitas) \u00f7 '+asignados+' asignados ('+metaDia+' por d\u00eda \u00d7 '+diasMes+' d\u00edas) \u00b7 clientes: '+clientes+', red interna: '+ri
+        ? '('+realizados+' realizados + '+visitas+' visitas) \u00f7 '+asignados+' asignados ('+metaDia+' por d\u00eda \u00d7 '+diasMes+' d\u00edas con trabajo) \u00b7 clientes: '+clientes+', red interna: '+ri
         : 'Tu cuadrilla no tiene meta diaria definida. P\u00eddele al administrador que la configure para calcular el rendimiento.')
-    + '</p>';
+    + '</p>'
+    + htmlTiempoEfectivoCuad(cid);
 }
 
 // 5. Gráfico de materiales más usados (barras horizontales con Canvas)
@@ -9849,6 +10130,10 @@ function abrirBuscadorFila(ctx, rowUid) {
 
   drop.style.display = 'block';
   buscarEnFila(ctx, rowUid, '');
+  // Móvil: asegurar que la lista desplegada quede visible dentro del área deslizable
+  if (window.innerWidth <= 768 && drop.parentElement && drop.parentElement.scrollIntoView) {
+    setTimeout(function(){ try { drop.parentElement.scrollIntoView({block:'center', behavior:'smooth'}); } catch(e){} }, 80);
+  }
   var inp = drop.querySelector('input');
   if (inp) setTimeout(function(){ inp.focus(); }, 50);
 }
@@ -10261,7 +10546,39 @@ function seleccionarMaterialBusqueda(matId, nombre) {
   buscarUsoMaterial();
 }
 
+function toggleTrazFechas() {
+  var p = (document.getElementById('traz-periodo')||{value:'cache'}).value;
+  var el = document.getElementById('traz-fechas');
+  if (el) el.style.display = p === 'personalizado' ? 'flex' : 'none';
+}
+
+// Rango de la búsqueda de uso de material. null = últimos 30 días (lo que ya está en caché).
+function _trazRango() {
+  var p = (document.getElementById('traz-periodo')||{value:'cache'}).value;
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini;
+  if (p === 'cache') return null;
+  if (p === 'mes') ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  else if (p === 'mesant') { ini = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1); hoy = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59, 59, 999); }
+  else if (p === '90') { ini = new Date(); ini.setHours(0,0,0,0); ini.setDate(ini.getDate()-90); }
+  else if (p === 'anio') ini = new Date(hoy.getFullYear(), 0, 1);
+  else {
+    var d = (document.getElementById('traz-desde')||{}).value, h = (document.getElementById('traz-hasta')||{}).value;
+    if (!d) return null;
+    ini = new Date(d+'T00:00:00');
+    if (h) hoy = new Date(h+'T23:59:59');
+  }
+  return { ini: ini, fin: hoy };
+}
+
 function buscarUsoMaterial() {
+  var r = _trazRango();
+  if (!r) return _buscarUsoMaterialImpl();
+  var m = _bnMs(r);
+  bnConRango('traz', ['kardex','asignaciones'], m.ini, m.fin, _buscarUsoMaterialImpl);
+}
+
+function _buscarUsoMaterialImpl() {
   var drop = document.getElementById('kardex-mat-dropdown');
   if (drop) drop.style.display = 'none';
 
@@ -10295,15 +10612,20 @@ function buscarUsoMaterial() {
     : (adminBodegaVista || null); // null = todas las cuadrillas visibles
 
   // Egresos de kardex para este material
+  var _rgT = _trazRango();
+  var _iniT = _rgT ? _isoLocalDia(_rgT.ini) : null, _finT = _rgT ? _isoLocalDia(_rgT.fin) : null;
+  var _enRgT = function(f) { if (!_rgT) return true; var d = String(f||'').slice(0,10); return d >= _iniT && d <= _finT; };
   var egresos = kardexListFiltrada().filter(function(k) {
     return k.matId === trazMatId
       && k.tipo === 'egreso'
+      && _enRgT(k.fecha)
       && (!cidFiltro || k.cuadrillaId === cidFiltro);
   }).sort(function(a, b) { return new Date(b.fecha) - new Date(a.fecha); });
 
   // Asignaciones que usaron este material (excluye anuladas, igual que el resto de reportes)
   var asigs = asigListFiltrada().filter(function(a) {
     if (a.anulada) return false;
+    if (!_enRgT(a.fecha)) return false;
     if (cidFiltro && a.cuadrillaId !== cidFiltro) return false;
     return (a.materiales || []).some(function(m) { return m.matId === trazMatId; });
   }).sort(function(a, b) { return new Date(b.fecha) - new Date(a.fecha); });
@@ -10328,6 +10650,7 @@ function buscarUsoMaterial() {
     var cuadNom = getCuad(cidFiltro) ? getCuad(cidFiltro).nombre : cidFiltro;
     headerHTML += ' <span class="badge badge-gray">Bodega: ' + esc(cuadNom) + '</span>';
   }
+  if (_rgT) headerHTML += ' <span class="badge badge-gray">Período: ' + _iniT.split('-').reverse().join('/') + ' – ' + _finT.split('-').reverse().join('/') + '</span>';
   headerHTML += '<button onclick="limpiarBusquedaMaterial()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--ink3);font-size:20px;line-height:1;padding:0 4px;">×</button>';
   document.getElementById('kardex-traz-header').innerHTML = headerHTML;
 
@@ -10383,7 +10706,7 @@ function buscarUsoMaterial() {
   if (!asigs.length && !egresos.length) {
     html = '<div style="text-align:center;padding:1.5rem;color:var(--ink3);font-size:13px;">'
       + 'No se encontraron usos de <strong>' + esc(mat.nombre) + '</strong>'
-      + (cidFiltro ? ' en la bodega seleccionada' : ' en el período visible') + '.'
+      + (cidFiltro ? ' en la bodega seleccionada' : '') + (_rgT ? ' en el período elegido' : ' en los últimos 30 días') + '.'
       + '</div>';
   }
 
@@ -11741,6 +12064,11 @@ function generarInformePDF(tipo) {
     }
     toast('Consultando Firebase...','info');
     _repObtenerDatos(function(datos){ _generarInformePDFInterno(tipo, datos); });
+    return;
+  }
+  if (tipo === 'rep-kardex') {
+    var rk = _bnMs(_kmRepRango());
+    bnConRango('pdfkardex', ['kardex'], rk.ini, rk.fin, function(){ _generarInformePDFInterno(tipo, null); });
     return;
   }
   _generarInformePDFInterno(tipo, null);
@@ -13328,6 +13656,181 @@ function _repFetchRango(coleccion, iniMs, finMs){
     .then(function(snap){ return snap.val() || {}; })
     .catch(function(e){ console.warn('_repFetchRango', coleccion, e); return {}; });
 }
+
+// ══════════════════════════════════════════════════════
+// v2.48 — CONSULTA A FIREBASE POR RANGO PARA TODOS LOS REPORTES
+// La caché solo guarda los últimos BN_DIAS_CARGA días. bnConRango() ejecuta la
+// función de render/exportación `fn` con los datos del rango pedido:
+//  · si el rango empieza dentro de la ventana en caché → ejecuta `fn` directo.
+//  · si es más antiguo → consulta Firebase (indexado por tsRegistro) solo para
+//    ese rango, fusiona temporalmente los resultados en cache[coleccion], ejecuta
+//    `fn` (síncrona) y restaura la caché. Así todas las funciones existentes
+//    (asigListFiltrada, kardexListFiltrada, retirosListFiltrada, etc.) funcionan
+//    sin cambios sobre el período elegido.
+// Los resultados se recuerdan 90 s para que cambiar filtros (cuadrilla, tipo…)
+// no vuelva a consultar. Si dos consultas se pisan, solo se pinta la última.
+// ══════════════════════════════════════════════════════
+var _bnRangoMem = {};
+var _bnRangoTok = {};
+var BN_RANGO_TTL = 90000;
+
+function _bnAvisoCarga(on) {
+  var el = document.getElementById('bn-aviso-carga-rango');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'bn-aviso-carga-rango';
+    el.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(30,35,50,.92);color:#fff;font-size:13px;padding:9px 18px;border-radius:99px;z-index:5000;display:none;box-shadow:0 4px 18px rgba(0,0,0,.25);';
+    el.textContent = 'Consultando historial en Firebase…';
+    document.body.appendChild(el);
+  }
+  el.style.display = on ? 'block' : 'none';
+}
+
+function _bnFetchRangoColeccion(col, iniMs, finMs) {
+  return db.ref(col).orderByChild('tsRegistro').startAt(iniMs).endAt(finMs).once('value')
+    .then(function(snap){ return snap.val() || {}; });
+}
+
+function bnConRango(tag, cols, iniMs, finMs, fn) {
+  var tok = _bnRangoTok[tag] = (_bnRangoTok[tag] || 0) + 1;
+  if (iniMs === null || iniMs === undefined || isNaN(iniMs) || iniMs >= _bnCutoffCarga() || typeof db === 'undefined' || !db) return fn();
+  var ahora = Date.now();
+  Object.keys(_bnRangoMem).forEach(function(k){ if (ahora - _bnRangoMem[k].t > BN_RANGO_TTL * 4) delete _bnRangoMem[k]; });
+  var keyDe = function(c){ return c+'|'+iniMs+'|'+finMs; };
+  var pend = [];
+  cols.forEach(function(c){
+    var m = _bnRangoMem[keyDe(c)];
+    if (m && ahora - m.t < BN_RANGO_TTL) return;
+    pend.push(_bnFetchRangoColeccion(c, iniMs, finMs).then(function(d){ _bnRangoMem[keyDe(c)] = { t: Date.now(), d: d }; }));
+  });
+  var aplicar = function(){
+    var saved = {};
+    cols.forEach(function(c){
+      saved[c] = cache[c];
+      cache[c] = Object.assign({}, cache[c] || {}, (_bnRangoMem[keyDe(c)] || {d:{}}).d);
+    });
+    try { return fn(); } finally { cols.forEach(function(c){ cache[c] = saved[c]; }); }
+  };
+  if (!pend.length) return aplicar();
+  _bnAvisoCarga(true);
+  Promise.all(pend).then(function(){
+    _bnAvisoCarga(false);
+    if (tok !== _bnRangoTok[tag]) return; // llegó una consulta más nueva
+    aplicar();
+  }).catch(function(e){
+    _bnAvisoCarga(false);
+    console.error('bnConRango', tag, e);
+    toast('No se pudo consultar el historial en Firebase. Revisa tu conexión.', 'error');
+  });
+}
+
+// Rango (ms) desde objetos Date {ini, fin}; un valor 'todo' (año 2000) consulta todo el historial.
+function _bnMs(r, margenDiasIni) {
+  return { ini: r.ini.getTime() - (margenDiasIni||0)*86400000, fin: Math.min(r.fin.getTime(), Date.now() + 86400000) };
+}
+
+// Rango del reporte Kardex (km-rep-*)
+function _kmRepRango() {
+  var periodo = (document.getElementById('km-rep-periodo')||{value:'mes'}).value;
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini = new Date(); ini.setHours(0,0,0,0);
+  if (periodo==='semana') ini.setDate(ini.getDate()-7);
+  else if (periodo==='mes') ini = new Date(hoy.getFullYear(),hoy.getMonth(),1);
+  else if (periodo==='personalizado') {
+    var i=document.getElementById('km-rep-ini'), f=document.getElementById('km-rep-fin');
+    if(i&&i.value) ini=new Date(i.value+'T00:00:00');
+    if(f&&f.value) hoy=new Date(f.value+'T23:59:59');
+  }
+  return { ini: ini, fin: hoy };
+}
+// Rango del reporte de Visitas fallidas (vf-*): hoy/semana/mes/mes anterior/personalizado (desde–hasta)
+function _vfRango() {
+  var periodo = (document.getElementById('vf-periodo')||{value:'mes'}).value;
+  var hoy = new Date(); hoy.setHours(23,59,59,999);
+  var ini = new Date(); ini.setHours(0,0,0,0);
+  if (periodo==='semana') ini.setDate(ini.getDate()-7);
+  else if (periodo==='mes') ini = new Date(hoy.getFullYear(),hoy.getMonth(),1);
+  else if (periodo==='mesant') { ini = new Date(hoy.getFullYear(),hoy.getMonth()-1,1); hoy = new Date(hoy.getFullYear(),hoy.getMonth(),0,23,59,59,999); }
+  else if (periodo==='personalizado') {
+    var fi = document.getElementById('vf-fecha'), ff = document.getElementById('vf-fecha-fin');
+    if (fi && fi.value) {
+      ini = new Date(fi.value+'T00:00:00');
+      hoy = new Date(((ff && ff.value) ? ff.value : fi.value)+'T23:59:59');
+    }
+  }
+  return { ini: ini, fin: hoy };
+}
+// Rango del Kardex general (kardex-fecha-desde/hasta); null si no hay "desde" (usa la caché)
+function _kardexGralRango() {
+  var d = (document.getElementById('kardex-fecha-desde')||{}).value;
+  var h = (document.getElementById('kardex-fecha-hasta')||{}).value;
+  if (!d) return null;
+  return { ini: new Date(d+'T00:00:00'), fin: h ? new Date(h+'T23:59:59') : new Date() };
+}
+
+(function _bnEnvolverReportes(){
+  var envolver = function(nombre, tag, cols, rangoFn, margenDias) {
+    var orig = window[nombre];
+    if (typeof orig !== 'function') return;
+    window[nombre] = function() {
+      var self = this, args = arguments;
+      var r = rangoFn();
+      if (!r) return orig.apply(self, args);
+      var m = _bnMs(r, margenDias);
+      return bnConRango(tag, cols, m.ini, m.fin, function(){ return orig.apply(self, args); });
+    };
+  };
+  envolver('renderRepKardex',          'kmrep', ['kardex'],        _kmRepRango);
+  envolver('renderReincidencias',      'rc',    ['asignaciones'],  getRcRango);
+  // Los cuadres se registran después del retiro: se amplía el rango hacia atrás 180 días
+  envolver('renderRepCuadres',         'rc2',   ['retiros'],       getRc2Rango, 180);
+  envolver('renderTiemposTrabajo',     'tm',    ['asignaciones','visitas_fallidas','retiros'], getTmRango);
+  envolver('exportarTiemposCSV',       'tmx',   ['asignaciones'],  getTmRango);
+  envolver('renderVisitasFallidas',    'vf',    ['visitas_fallidas'], _vfRango);
+  envolver('renderGraficosVisitasFallidas', 'vfg', ['visitas_fallidas'], _vfRango);
+  envolver('renderKardex',             'kgral', ['kardex'],        _kardexGralRango);
+})();
+
+// ══════════════════════════════════════════════════════
+// v2.48 — TECLADO MÓVIL: el campo enfocado no debe quedar tapado por el teclado.
+// En Android/iOS modernos el teclado se dibuja ENCIMA de la página sin cambiar su
+// alto, y como el área deslizable es #main-scroll (no el body) el campo quedaba
+// debajo del teclado. Se mide el teclado con visualViewport, se agrega espacio al
+// final del área deslizable, se oculta la barra inferior y se centra el campo.
+// ══════════════════════════════════════════════════════
+(function _bnTecladoMovil(){
+  var vv = window.visualViewport;
+  var esCampo = function(t){ return t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && t.type !== 'hidden' && t.type !== 'checkbox' && t.type !== 'radio'; };
+  function alturaTeclado(){ return vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0; }
+  function actualizar(){
+    var h = alturaTeclado(), abierto = h > 120 && window.innerWidth <= 900;
+    document.body.classList.toggle('kb-open', abierto);
+    var mc = document.getElementById('main-scroll');
+    if (mc) mc.style.paddingBottom = abierto ? (h + 140) + 'px' : '';
+  }
+  function centrar(t){
+    try {
+      var mc = document.getElementById('main-scroll');
+      if (!mc || !mc.contains(t)) { t.scrollIntoView({block:'center', behavior:'smooth'}); return; }
+      var vh = vv ? vv.height : window.innerHeight;
+      var r = t.getBoundingClientRect();
+      var mcTop = mc.getBoundingClientRect().top;
+      // Posición deseada: campo a ~35% de la parte visible (por encima del teclado)
+      var objetivo = mcTop + (vh - mcTop) * 0.35;
+      mc.scrollTo({ top: mc.scrollTop + (r.top - objetivo), behavior: 'smooth' });
+    } catch(e){}
+  }
+  if (vv) { vv.addEventListener('resize', actualizar); vv.addEventListener('scroll', actualizar); }
+  window.addEventListener('orientationchange', function(){ setTimeout(actualizar, 400); });
+  document.addEventListener('focusin', function(e){
+    if (!esCampo(e.target) || window.innerWidth > 900) return;
+    var t = e.target;
+    // El teclado tarda en abrir; se recentra cuando ya cambió el tamaño visible
+    setTimeout(function(){ actualizar(); centrar(t); }, 300);
+    setTimeout(function(){ actualizar(); centrar(t); }, 700);
+  });
+  document.addEventListener('focusout', function(){ setTimeout(actualizar, 200); });
+})();
 
 // Trae del servidor exactamente lo que el reporte necesita (asignaciones
 // y/o kardex, según #rep-tipo si existiera) para el rango seleccionado,
