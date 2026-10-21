@@ -1674,7 +1674,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "kardex": {
       ".read": true,
       ".write": true,
-      ".indexOn": "tsRegistro",
+      ".indexOn": ["tsRegistro","fecha"],
       "$kid": {
         ".validate": "newData.hasChildren(['fecha','tipo','matId','qty','cuadrillaId'])"
       }
@@ -1684,7 +1684,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "asignaciones": {
       ".read": true,
       ".write": true,
-      ".indexOn": "tsRegistro",
+      ".indexOn": ["tsRegistro","fecha"],
       "$aid": {
         ".validate": "newData.hasChildren(['fecha','cliente','cuadrillaId'])"
       }
@@ -1700,7 +1700,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "catalogo_herramientas": { ".read": true, ".write": true },
 
     /* ── Red Interna ── */
-    "redInterna":  { ".read": true, ".write": true, ".indexOn": "tsRegistro" },
+    "redInterna":  { ".read": true, ".write": true, ".indexOn": ["tsRegistro","fecha"] },
 
     /* ── Tipos de trabajo Red Interna ── */
     "tipos_red_interna": { ".read": true, ".write": true },
@@ -1713,7 +1713,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "cuadricontrol_registros": { ".read": true, ".write": true },
 
     /* ── Visitas fallidas ── */
-    "visitas_fallidas": { ".read": true, ".write": true, ".indexOn": "tsRegistro" },
+    "visitas_fallidas": { ".read": true, ".write": true, ".indexOn": ["tsRegistro","fecha"] },
     "motivos_vf":       { ".read": true, ".write": true },
     "bloqueos_login":   { ".read": true, ".write": true },
 
@@ -1721,7 +1721,7 @@ select option{background:var(--bg3);color:var(--ink);}
     "retiros": {
       ".read": true,
       ".write": true,
-      ".indexOn": "tsRegistro",
+      ".indexOn": ["tsRegistro","fecha"],
       "$rid": {
         ".validate": "newData.hasChildren(['cliente','fecha','cuadrillaId','equipos'])"
       }
@@ -3639,12 +3639,16 @@ function renderAdminVF() {
   } else {
     var tb1 = document.getElementById('avf-tbody');
     if (tb1) tb1.innerHTML = '<tr><td colspan="10"><div style="padding:1.25rem;text-align:center;color:var(--ink3);font-size:13px;">Consultando visitas fallidas del período…</div></td></tr>';
-    _repFetchRango('visitas_fallidas', iniMs, finMs).then(function(res){
+    _bnFetchRangoColeccion('visitas_fallidas', iniMs, finMs).then(function(res){
       if (token !== _avfToken) return; // llegó una consulta más nueva
       var cuadsDelSector = getCuadrillasFiltradas().map(function(c){ return c.id; });
       var lista = Object.keys(res).map(function(k){ return Object.assign({id:k}, res[k]); })
         .filter(function(v){ return cuadsDelSector.indexOf(v.cuadrillaId) > -1; });
       _avfPintar(lista, rg, cid, motFiltro);
+    }).catch(function(e){
+      console.error('VF por período', e);
+      var tb2 = document.getElementById('avf-tbody');
+      if (tb2) tb2.innerHTML = '<tr><td colspan="10">'+empty('No se pudo consultar Firebase. Revisa tu conexión e inténtalo de nuevo.')+'</td></tr>';
     });
   }
 }
@@ -6025,7 +6029,7 @@ function initFirebaseListeners() {
     if (currentUser) renderCurrentSection();
   });
   db.ref('asignaciones').orderByChild('tsRegistro').startAt(_bnCutoffCarga()).on('value', function(snap) {
-    cache.asignaciones = snap.val() || {};
+    cache.asignaciones = Object.assign({}, _bnExtraPersist.asignaciones || {}, snap.val() || {});
     if (currentUser) renderCurrentSection();
   });
   // Listeners de config — protegidos para no romper si la ruta no existe aún
@@ -12912,6 +12916,7 @@ function renderHistorial(){
       if (soloExceso && !a.excedeTiempo) return false;
       return true;
     }).sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
+    _histUltimo = asigs;
 
     var conteoEl = document.getElementById('hist-admin-conteo');
     if (conteoEl) {
@@ -13133,15 +13138,35 @@ function eliminarKardex(kid){
   );
 }
 
+var _histUltimo = null; // asignaciones mostradas ahora en el Historial (admin), con todos los filtros aplicados
 function exportCSV(){
-  var cid=currentUser.tipo==='admin'?null:currentUser.cuadrillaId;
-  var rows=[['Fecha','Tipo','Material','Cantidad','Referencia','Responsable','Cuadrilla']];
-  (cid ? kardexList().filter(function(k){return k.cuadrillaId===cid;}) : kardexListFiltrada()).forEach(function(k){
-    var mat=getMat(k.matId),cuad=getCuad(k.cuadrillaId);
-    rows.push([fmtDTK(k),k.tipo,mat?mat.nombre:'—',k.qty,k.ref||'',k.resp||'',cuad?cuad.nombre:'']);
+  // Exporta exactamente lo que se ve en el Historial: período, cuadrilla, búsqueda y filtro de duración
+  var lista = _histUltimo;
+  if (!lista || !lista.length) { toast('No hay registros en la consulta actual para exportar','info'); return; }
+  var rows=[['Fecha','Hora Inicio','Hora Fin','Duración (min)','Tipo de registro','Cuadrilla','Cliente / Nodo','ID Cliente','OT','Tipo de trabajo','Técnico','Dirección','Materiales','Observaciones']];
+  lista.forEach(function(a){
+    var cuad=getCuad(a.cuadrillaId);
+    var dur=calcDuracionMin(a.horaInicio,a.horaFin);
+    var mats=(a.materiales||[]).map(function(m){
+      var mt=getMat(m.matId);
+      var macs=(m.unidades||[]).map(function(u){return u.mac||u.serie||'';}).filter(Boolean).join('/');
+      return m.qty+' '+(mt?mt.nombre:'—')+(macs?' ['+macs+']':'');
+    }).join('; ');
+    rows.push([
+      fmtDate(a.fecha), a.horaInicio||'', a.horaFin||'', dur!==null?dur:'',
+      a.tipoRegistro==='redInterna'?'Red Interna':'Cliente',
+      cuad?cuad.nombre:'', a.cliente||'', a.idCliente||'', a.ot||'', a.tipo||'',
+      a.tecnico||a.responsable||'',
+      (a.direccion||'')+(a.municipio?', '+a.municipio:''),
+      mats, a.obs||a.observaciones||''
+    ]);
   });
-  var csv=rows.map(function(r){return r.map(function(c){return'"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
-  var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='historial.csv';a.click();
+  var csv=rows.map(function(r){return r.map(function(c){return'"'+String(c===undefined||c===null?'':c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var ini=(document.getElementById('hist-admin-fecha-ini')||{}).value||'', fin=(document.getElementById('hist-admin-fecha-fin')||{}).value||'';
+  var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='historial_asignaciones'+(ini||fin?'_'+(ini||'inicio')+'_a_'+(fin||'hoy'):'_'+new Date().toISOString().slice(0,10))+'.csv';
+  a.click();
+  toast('CSV descargado ('+lista.length+' registros)','success');
 }
 
 // ══════════════════════════════════════════════════════
@@ -13686,12 +13711,28 @@ function _bnAvisoCarga(on) {
   el.style.display = on ? 'block' : 'none';
 }
 
+// Consulta por tsRegistro (indexado). Si no devuelve nada o falla (registros antiguos sin
+// tsRegistro, índice ausente, etc.) reintenta por el campo `fecha` (texto YYYY-MM-DD…),
+// que todos los registros tienen. Así un período con datos nunca sale vacío por el índice.
 function _bnFetchRangoColeccion(col, iniMs, finMs) {
+  var porFecha = function(){
+    var ini = _isoLocalDia(new Date(iniMs)), fin = _isoLocalDia(new Date(finMs));
+    return db.ref(col).orderByChild('fecha').startAt(ini).endAt(fin + '\uf8ff').once('value')
+      .then(function(snap){ return snap.val() || {}; });
+  };
   return db.ref(col).orderByChild('tsRegistro').startAt(iniMs).endAt(finMs).once('value')
-    .then(function(snap){ return snap.val() || {}; });
+    .then(function(snap){
+      var v = snap.val() || {};
+      return Object.keys(v).length ? v : porFecha();
+    })
+    .catch(function(e){
+      console.warn('consulta por tsRegistro falló, se reintenta por fecha:', col, e);
+      return porFecha();
+    });
 }
 
-function bnConRango(tag, cols, iniMs, finMs, fn) {
+var _bnExtraPersist = {};  // registros históricos que deben sobrevivir a los refrescos en vivo (p. ej. acciones del Historial)
+function bnConRango(tag, cols, iniMs, finMs, fn, persist) {
   var tok = _bnRangoTok[tag] = (_bnRangoTok[tag] || 0) + 1;
   if (iniMs === null || iniMs === undefined || isNaN(iniMs) || iniMs >= _bnCutoffCarga() || typeof db === 'undefined' || !db) return fn();
   var ahora = Date.now();
@@ -13709,6 +13750,11 @@ function bnConRango(tag, cols, iniMs, finMs, fn) {
       saved[c] = cache[c];
       cache[c] = Object.assign({}, cache[c] || {}, (_bnRangoMem[keyDe(c)] || {d:{}}).d);
     });
+    if (persist) {
+      // Se conservan en caché para que PDF / editar / anular funcionen sobre registros antiguos
+      cols.forEach(function(c){ _bnExtraPersist[c] = (_bnRangoMem[keyDe(c)] || {d:{}}).d; });
+      return fn();
+    }
     try { return fn(); } finally { cols.forEach(function(c){ cache[c] = saved[c]; }); }
   };
   if (!pend.length) return aplicar();
@@ -13760,6 +13806,20 @@ function _vfRango() {
   }
   return { ini: ini, fin: hoy };
 }
+// Rango del Historial de asignaciones; null si no hay fecha (usa la caché)
+function _histRango() {
+  if (!currentUser) return null;
+  var d, h;
+  if (currentUser.tipo === 'admin') {
+    d = (document.getElementById('hist-admin-fecha-ini')||{}).value;
+    h = (document.getElementById('hist-admin-fecha-fin')||{}).value;
+    if (!d) return null;
+    return { ini: new Date(d+'T00:00:00'), fin: h ? new Date(h+'T23:59:59') : new Date() };
+  }
+  d = (document.getElementById('hist-fecha-filtro')||{}).value;
+  if (!d) return null;
+  return { ini: new Date(d+'T00:00:00'), fin: new Date(d+'T23:59:59') };
+}
 // Rango del Kardex general (kardex-fecha-desde/hasta); null si no hay "desde" (usa la caché)
 function _kardexGralRango() {
   var d = (document.getElementById('kardex-fecha-desde')||{}).value;
@@ -13769,7 +13829,7 @@ function _kardexGralRango() {
 }
 
 (function _bnEnvolverReportes(){
-  var envolver = function(nombre, tag, cols, rangoFn, margenDias) {
+  var envolver = function(nombre, tag, cols, rangoFn, margenDias, persist) {
     var orig = window[nombre];
     if (typeof orig !== 'function') return;
     window[nombre] = function() {
@@ -13777,7 +13837,7 @@ function _kardexGralRango() {
       var r = rangoFn();
       if (!r) return orig.apply(self, args);
       var m = _bnMs(r, margenDias);
-      return bnConRango(tag, cols, m.ini, m.fin, function(){ return orig.apply(self, args); });
+      return bnConRango(tag, cols, m.ini, m.fin, function(){ return orig.apply(self, args); }, persist);
     };
   };
   envolver('renderRepKardex',          'kmrep', ['kardex'],        _kmRepRango);
@@ -13789,6 +13849,8 @@ function _kardexGralRango() {
   envolver('renderVisitasFallidas',    'vf',    ['visitas_fallidas'], _vfRango);
   envolver('renderGraficosVisitasFallidas', 'vfg', ['visitas_fallidas'], _vfRango);
   envolver('renderKardex',             'kgral', ['kardex'],        _kardexGralRango);
+  // Historial de asignaciones: rango desde–hasta (admin) o día elegido (cuadrilla)
+  envolver('renderHistorial',          'hist',  ['asignaciones'],  _histRango, 0, true);
 })();
 
 // ══════════════════════════════════════════════════════
