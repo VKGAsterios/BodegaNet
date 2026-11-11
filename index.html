@@ -5,7 +5,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, interactive-widget=resizes-content">
-<title>BodegaNet v2.48 — Control de Materiales ISP</title>
+<title>BodegaNet v2.49 — Control de Materiales ISP</title>
 <!-- Favicon inline para evitar 404 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><text y='24' x='4' font-size='22' font-family='Arial' fill='white' font-weight='bold'>B</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -1619,6 +1619,39 @@ select option{background:var(--bg3);color:var(--ink);}
             solo para reconectar — esto puede pasar aunque la página lleve poco tiempo abierta, no solo tras varios días.
           </div>
         </div>
+        <!-- Jornada y reincidencias (v2.49) — solo SuperAdmin -->
+        <div class="card" id="cfg-jornada-card" style="display:none;">
+          <div class="card-title">🕗 Jornada y reincidencias</div>
+          <p style="font-size:13px;color:var(--ink2);margin-bottom:.75rem;">
+            Herramientas de verificación de la v2.49: comprueba las reglas de Firebase, reconstruye el índice de
+            reincidencias y calcula la jornada de una cuadrilla en un día real para contrastarla con tu cálculo manual.
+          </p>
+          <div id="jor-cfg-resumen" style="font-size:12.5px;color:var(--ink2);line-height:1.7;background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;"></div>
+
+          <div class="form-section-label">1 · Reglas de Firebase</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+            <button class="btn btn-sm" onclick="bnVerificarReglasJornada()">🛡 Verificar reglas de los nodos nuevos</button>
+          </div>
+          <div id="jor-verif-out" style="font-size:12.5px;color:var(--ink2);line-height:1.7;margin-bottom:14px;"></div>
+
+          <div class="form-section-label">2 · Índice de reincidencias</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+            <button class="btn btn-sm" onclick="bnReconstruirIndiceReincidencias()">🔁 Reconstruir índice de reincidencias</button>
+          </div>
+          <div id="jor-indice-out" style="font-size:12.5px;color:var(--ink2);line-height:1.7;margin-bottom:14px;"></div>
+
+          <div class="form-section-label">3 · Verificar la jornada de un día</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;margin-bottom:10px;">
+            <div class="field" style="margin:0;"><label>Cuadrilla</label>
+              <select id="jor-diag-cuad" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);"></select>
+            </div>
+            <div class="field" style="margin:0;"><label>Fecha</label>
+              <input type="date" id="jor-diag-fecha" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+            </div>
+            <div><button class="btn btn-accent" onclick="bnJornadaDiagnostico()">Calcular jornada</button></div>
+          </div>
+          <div id="jor-diag-out" style="font-size:13px;"></div>
+        </div>
         <!-- SEGURIDAD: Reglas Firebase -->
         <div class="card" id="cfg-firebase-rules-card" style="display:none;">
           <div class="card-title">🛡 Reglas de seguridad Firebase</div>
@@ -1746,6 +1779,14 @@ select option{background:var(--bg3);color:var(--ink);}
     "_lastUpdate": { ".read": true, ".write": true },
     "_csrf":       { ".read": false, ".write": true },
     "_csrfTs":     { ".read": false, ".write": true },
+
+    /* ── Jornada y reincidencias (v2.49) ── */
+    "jornadas":         { ".read": true, ".write": true },
+    "clientes_visitas": { ".read": true, ".write": true, "$idCliente": { ".indexOn": ["ts"] } },
+    "alertas_jornada":  { ".read": true, ".write": true },
+
+    /* ── Auditorías físicas de inventario (la app ya las usa; faltaba la regla) ── */
+    "auditoriasFisicas": { ".read": true, ".write": true },
 
     /* ── Bloquear todo lo demás ── */
     "$other":      { ".read": false, ".write": false }
@@ -2898,6 +2939,9 @@ select option{background:var(--bg3);color:var(--ink);}
       <div class="field"><label>OT</label>
         <input type="text" id="vf-ot" placeholder="Número de OT" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
       </div>
+      <div class="field"><label>ID de cliente</label>
+        <input type="text" id="vf-idcliente" placeholder="Ej.: 12345" autocomplete="off" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg);color:var(--ink);">
+      </div>
       <div class="field"><label>Técnico <span style="font-size:11px;color:var(--ink3);">(automático)</span></label>
         <input type="text" id="vf-tecnico" readonly style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;outline:none;background:var(--bg3);color:var(--ink2);cursor:not-allowed;">
       </div>
@@ -3283,7 +3327,11 @@ var cache = {
                           //       equipos:[{equipoId, matId, nombreRef, cantidad, estado, numCuadre, fechaCuadre}]}}
   tiemposDefault: {},    // {sectorId: {tipo: minutos}} — tiempos estimados por defecto por tipo y sector
   tiemposDefaultRI: {},  // {sectorId: {tipoRI: minutos}} — igual, pero para tipos de Red Interna
-  auditoriasFisicas: {}  // {id: {cuadrillaId, fechaAuditoria, fechaRegistro, responsable, obs, materiales:[{matId,stockAnterior}]}}
+  auditoriasFisicas: {}, // {id: {cuadrillaId, fechaAuditoria, fechaRegistro, responsable, obs, materiales:[{matId,stockAnterior}]}}
+  visitas_fallidas: {},  // {id: {...}} — se llena en cargarDatosIniciales (últimos 30 días)
+  config_jornada: {},    // v2.49: lo guardado en config/jornada (se mezcla con BN_JORNADA_DEFAULTS en bnCfg())
+  jornadas: {},          // v2.49: {cuadId: {fecha: {partida, resumen}}} — solo lo escrito/leído en este dispositivo
+  clientes_visitas: {}   // v2.49: {idNormalizado: {idRegistro: entrada}} — solo entradas escritas en este dispositivo (optimista)
 };
 
 // ── Helpers ──
@@ -3382,6 +3430,13 @@ function nowISO() { return new Date().toISOString(); }
 // (ej: 11pm Honduras = 5am UTC del día siguiente). Esta función arma un ISO
 // con la fecha/hora LOCAL del dispositivo, para que "Meta/efectividad" agrupe
 // los trabajos en el día correcto según la hora real de Honduras.
+// v2.48: new Date('2026-10-25') se interpreta en UTC (= 24/10 6:00 pm en Honduras) y desplaza
+// el día. Las visitas fallidas y los retiros guardan la fecha como 'YYYY-MM-DD', así que se
+// interpretan como fecha LOCAL para que los rangos (hoy, semana, mes) no pierdan el primer día.
+function _bnParseFecha(f) {
+  if (f && typeof f === 'string' && f.length === 10) return new Date(f + 'T00:00:00');
+  return new Date(f);
+}
 function nowISOLocal() {
   var d = new Date();
   var pad = function(n){ return String(n).padStart(2,'0'); };
@@ -3529,6 +3584,7 @@ function abrirModalVF() {
   document.getElementById('vf-minutos-display').textContent = '—';
   document.getElementById('vf-cliente').value = '';
   document.getElementById('vf-ot').value = '';
+  document.getElementById('vf-idcliente').value = '';
   document.getElementById('vf-tecnico').value = getTecnicoAutoNombre();
   var vfTecnicoEl = document.getElementById('vf-tecnico');
   var esCuadVF = currentUser && currentUser.tipo === 'cuadrilla';
@@ -3558,6 +3614,7 @@ function guardarVisitaFallida() {
   var cid      = document.getElementById('vf-cuad-sel').value;
   var cliente  = (document.getElementById('vf-cliente').value||'').trim();
   var ot       = (document.getElementById('vf-ot').value||'').trim();
+  var idCliente = (document.getElementById('vf-idcliente').value||'').trim();
   var tecnico  = (document.getElementById('vf-tecnico').value||'').trim();
   var motivo   = document.getElementById('vf-motivo').value;
   var obs      = (document.getElementById('vf-obs').value||'').trim();
@@ -3586,6 +3643,7 @@ function guardarVisitaFallida() {
     cuadrillaId: cid,
     cliente: sanitizeAdvanced(cliente),
     ot: sanitizeAdvanced(ot),
+    idCliente: sanitizeAdvanced(idCliente),
     tecnico: sanitizeAdvanced(tecnico),
     motivo: motivo,
     obs: sanitizeAdvanced(obs),
@@ -3596,6 +3654,9 @@ function guardarVisitaFallida() {
   if (!editId) data.id = uid();
 
   var updatesVF = {}; updatesVF['visitas_fallidas/'+(editId||data.id)] = data;
+  // v2.49: índice de reincidencias por ID de cliente, en el mismo update() plano que el registro.
+  var regVFIdx = bnClonar(data); regVFIdx.id = (editId||data.id);
+  bnIndexarEnUpdates(updatesVF, regVFIdx, 'visitaFallida');
   // FIX CONECTIVIDAD: mismo respaldo automático que Kardex/Retiros/Asignaciones.
   guardarConRespaldo(updatesVF, 'Visita fallida: '+cliente, 'visita-fallida', function(){
     toast(editId?'Visita fallida actualizada':'Visita fallida registrada','success');
@@ -3826,7 +3887,7 @@ function renderVisitasFallidas() {
   var motivoFiltro = (document.getElementById('vf-motivo-filtro')||{value:''}).value;
 
   var vfs = visitasFallidasListFiltrada().filter(function(v){
-    var f = new Date(v.fecha);
+    var f = _bnParseFecha(v.fecha);
     return f>=ini && f<=hoy && (!cid||v.cuadrillaId===cid) && (!motivoFiltro||v.motivo===motivoFiltro);
   }).sort(function(a,b){ return (b.tsRegistro||0)-(a.tsRegistro||0); });
   _vfRepUltimo = vfs;
@@ -3932,7 +3993,7 @@ function renderGraficosVisitasFallidas() {
   var _rgG = _vfRango(); var ini = _rgG.ini, hoy = _rgG.fin;
 
   var vfs = visitasFallidasListFiltrada().filter(function(v){
-    var f = new Date(v.fecha);
+    var f = _bnParseFecha(v.fecha);
     return f >= ini && f <= hoy && (!cid || v.cuadrillaId === cid);
   });
 
@@ -4023,12 +4084,17 @@ function toggleVFFechas() {
 
 function eliminarVisitaFallida(vfId) {
   showConfirm('Eliminar visita fallida', '¿Eliminar este registro?', function(){
-    db.ref('visitas_fallidas/'+vfId).remove().then(function(){
+    // v2.49: al borrar la visita también se saca su entrada del índice de reincidencias (mismo update plano).
+    bnRegistroParaIndice('visitas_fallidas', vfId).then(function(reg){
+      var uDel = {}; uDel['visitas_fallidas/'+vfId] = null;
+      if (reg) bnDesindexarEnUpdates(uDel, reg, vfId);
+      return db.ref().update(uDel);
+    }).then(function(){
       toast('Eliminado', 'success');
       if (currentSection === 'visitas-fallidas-cuad') renderVisitasFallidasCuad();
       if (currentSection === 'admin-visitas-fallidas') renderAdminVF();
       if (currentSection === 'admin-reportes') renderVisitasFallidas();
-    });
+    }).catch(function(e){ toast('No se pudo eliminar: '+((e&&e.message)||'error'), 'error'); });
   });
 }
 
@@ -5000,10 +5066,10 @@ function renderEfectividadReporte(cidFiltro, rango) {
     return f >= rango.ini && f <= rango.fin;
   });
   var allVFs = Object.values(cache.visitas_fallidas||{}).filter(function(v){
-    var f = new Date(v.fecha); return f >= rango.ini && f <= rango.fin;
+    var f = _bnParseFecha(v.fecha); return f >= rango.ini && f <= rango.fin;
   });
   var allRetiros = retirosListFiltrada().filter(function(r){
-    var f = new Date(r.fecha); return f >= rango.ini && f <= rango.fin;
+    var f = _bnParseFecha(r.fecha); return f >= rango.ini && f <= rango.fin;
   });
 
   var datos = cuads.map(function(cu){
@@ -5289,7 +5355,8 @@ function efecGaugeSVG(pct, color, size) {
   var r = (size - 10) / 2;
   var cx = size/2, cy = size/2;
   var circ = 2 * Math.PI * r;
-  var fill = circ * (pct/100);
+  var fill = circ * (Math.min(Math.max(pct,0),100)/100);
+  if (pct > 0 && fill < circ*0.04) fill = circ*0.04;
   return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" style="transform:rotate(-90deg);">'
     + '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="rgba(30,35,50,.10)" stroke-width="7"/>'
     + '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="7"'
@@ -5386,7 +5453,10 @@ function renderEfectividad() {
     var fillFallida = hasMeta ? circ*(Math.min(d.fallidas/(d.meta||1),1-(d.realizados/(d.meta||1)))) : (d.fallidas>0?circ*(d.fallidas/maxTotal):0);
     // Simplificado: usar SVG doble anillo
     var cx=gaugeSize/2, cy=gaugeSize/2;
-    var startFallida = (d.realizados/(hasMeta?(d.meta||1):maxTotal))*circ;
+    // v2.48: con registros el arco nunca queda invisible (mínimo 4%) ni se pasa del círculo
+    if (d.realizados > 0 && fillReal < circ*0.04) fillReal = circ*0.04;
+    if (fillReal > circ) fillReal = circ;
+    var startFallida = Math.min(fillReal, (d.realizados/(hasMeta?(d.meta||1):maxTotal))*circ);
     var svgDoble = '<svg width="'+gaugeSize+'" height="'+gaugeSize+'" viewBox="0 0 '+gaugeSize+' '+gaugeSize+'" style="transform:rotate(-90deg);">'
       +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="rgba(30,35,50,.10)" stroke-width="7"/>'
       +(d.realizados>0?'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+gaugeColor+'" stroke-width="7"'
@@ -5718,6 +5788,14 @@ function setTefPeriodo(p) {
   });
   renderTiempoEfectivo();
 }
+function _tefHex(pct) { return pct === null ? '#94a3b8' : pct >= 90 ? '#16a34a' : pct >= 75 ? '#d97706' : '#dc2626'; }
+function tefDonaHTML(pct, size) {
+  size = size || 64;
+  var p = pct === null ? 0 : pct;
+  return '<div style="position:relative;width:'+size+'px;height:'+size+'px;flex-shrink:0;">'
+    + efecGaugeSVG(Math.min(p,100), _tefHex(pct), size)
+    + '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:'+Math.round(size*0.22)+'px;color:'+_tefHex(pct)+';">'+(pct===null?'—':pct+'%')+'</div></div>';
+}
 function _tefColor(pct) {
   if (pct === null) return 'var(--ink3)';
   return pct >= 90 ? '#16a34a' : pct >= 75 ? '#d97706' : '#dc2626';
@@ -5764,14 +5842,15 @@ function renderTiempoEfectivo() {
               + f.slice(8,10)+'/'+f.slice(5,7)+'</span><strong style="color:'+_tefColor(pc)+';">'+fmtDuracion(m)+' · '+pc+'%</strong></div>';
           }).join('') + '</div></details>';
     }
-    return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;">'
+      + tefDonaHTML(d.pct, 64) + '<div style="flex:1;min-width:0;">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;">'
       + '<strong style="font-size:13px;">'+esc(d.cu.nombre)+'</strong>'
       + '<span style="font-size:13px;"><strong style="color:'+col+';">'+fmtDuracion(d.total)+'</strong> <span style="color:var(--ink3);font-size:11px;">de '+fmtDuracion(d.jornada)+' · '+(d.pct===null?'—':d.pct+'%')+'</span></span></div>'
       + '<div style="height:7px;background:var(--bg3);border-radius:99px;overflow:hidden;margin:6px 0 4px;"><div style="height:100%;width:'+w+'%;background:'+col+';"></div></div>'
       + '<div style="font-size:11px;color:var(--ink3);">'+d.dias+' día(s) activo(s) · promedio '+fmtDuracion(d.promedio)+'/día · '+d.tareas+' tarea(s)'
       + (d.sinHora ? ' · <span style="color:#d97706;">⚠ '+d.sinHora+' sin hora inicio/fin (no suman)</span>' : '')
-      + '</div>' + desglose + '</div>';
+      + '</div>' + desglose + '</div></div>';
   }).join('')
   + (tSin ? '<p style="font-size:11px;color:var(--ink3);margin-top:8px;">Las tareas sin hora de inicio y fin válidas no se cuentan: completa esos datos para un tiempo efectivo exacto.</p>' : '');
 }
@@ -5786,6 +5865,8 @@ function htmlTiempoEfectivoCuad(cid) {
   var caja = function(n, t, c){ return '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center;"><div style="font-size:20px;font-weight:700;color:'+c+';">'+n+'</div><div style="font-size:11px;color:var(--ink3);">'+t+'</div></div>'; };
   return '<div style="border-top:1px solid var(--border);margin-top:.75rem;padding-top:.75rem;">'
     + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:.5rem;">⏱ Tiempo efectivo</div>'
+    + '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:.5rem;">' + tefDonaHTML(pctHoy, 84)
+    + '<div style="font-size:12px;color:var(--ink3);line-height:1.5;">Hoy llevas <strong style="color:var(--ink);">'+fmtDuracion(d.total)+'</strong> de tiempo efectivo<br>sobre una jornada de 8 h.</div></div>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:.5rem;">'
     + caja(fmtDuracion(d.total), 'Hoy (de 8h)', _tefColor(pctHoy))
     + caja(pctHoy + '%', 'Jornada de hoy', _tefColor(pctHoy))
@@ -6591,7 +6672,7 @@ function initConfigSeccion(){
   if(!currentUser || currentUser.tipo !== 'admin') return;
   var esSuperAdmin = currentUser.rol === 'superadmin';
   // SuperAdmin: ver sectores, passSuper, Firebase rules
-  ['cfg-sectores-card','cfg-pass-super-card','cfg-version-card'].forEach(function(id){
+  ['cfg-sectores-card','cfg-pass-super-card','cfg-version-card','cfg-jornada-card'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = esSuperAdmin ? 'block' : 'none';
   });
@@ -6614,6 +6695,7 @@ function initConfigSeccion(){
   if (frCard) frCard.style.display = esSuperAdmin ? 'block' : 'none';
   var vEl = document.getElementById('cfg-version-actual');
   if (vEl) vEl.textContent = BN_APP_VERSION;
+  if (esSuperAdmin) bnInitJornadaCfgCard(); // v2.49 (va primero: no depende de nada que pueda fallar más abajo)
   if (esSuperAdmin) _bnCargarVersionPublicada();
   actualizarLabelUltimoRespaldo();
   // Pre-llenar nombres de sectores
@@ -7474,6 +7556,7 @@ function _limpiezaRecolectar(filtros, callback){
         })
         .catch(function(){ resultado.logs = []; });
     }
+    if (BN_NODOS_PROTEGIDOS_LIMPIEZA.indexOf(mod) > -1) return Promise.resolve(); // v2.49: jornadas / clientes_visitas / alertas_jornada nunca se limpian
     var def = LIMP_MODULOS_DEF[mod]; if (!def) return Promise.resolve();
     return db.ref(mod).orderByChild('tsRegistro').endAt(filtros.cutoff).once('value')
       .then(function(snap){
@@ -7532,6 +7615,7 @@ function ejecutarLimpieza(){
   if (!resultado) return;
   var updates = {}; var total = 0;
   Object.keys(resultado).forEach(function(mod){
+    if (BN_NODOS_PROTEGIDOS_LIMPIEZA.indexOf(mod) > -1) return; // v2.49: nunca se borran jornadas / clientes_visitas / alertas_jornada
     resultado[mod].forEach(function(id){ updates[mod+'/'+id] = null; total++; }); // null = borra ese nodo en Firebase
   });
   if (!total) return;
@@ -9288,6 +9372,19 @@ function exportarHerramientasCSV() {
 var _respaldoPendiente = null; // datos cargados del JSON antes de confirmar
 
 function exportarRespaldoJSON() {
+  // v2.49: jornadas y clientes_visitas no viven en la caché; se leen de Firebase (máx. 10 s) para
+  // incluirlos. Si no se pueden leer, el respaldo se descarga igual, sin ellos, y se avisa.
+  var extras = { jornadas: null, clientes_visitas: null };
+  Promise.all([
+    _bnConTimeout(db.ref('jornadas').once('value'), 10000).then(function(sn){ extras.jornadas = sn.val() || {}; }).catch(function(){}),
+    _bnConTimeout(db.ref('clientes_visitas').once('value'), 10000).then(function(sn){ extras.clientes_visitas = sn.val() || {}; }).catch(function(){})
+  ]).then(function(){
+    if (extras.jornadas === null || extras.clientes_visitas === null) toast('El respaldo no incluye jornadas / índice de reincidencias: no se pudieron leer ahora', 'info');
+    _exportarRespaldoJSONConExtras(extras);
+  });
+}
+
+function _exportarRespaldoJSONConExtras(extras) {
   var datos = {
     _meta: {
       version: '1.0',
@@ -9315,6 +9412,8 @@ function exportarRespaldoJSON() {
       superPass: SUPER_PASS
     }
   };
+  if (extras && extras.jornadas) datos.jornadas = extras.jornadas;
+  if (extras && extras.clientes_visitas) datos.clientes_visitas = extras.clientes_visitas;
   var json = JSON.stringify(datos, null, 2);
   var blob = new Blob([json], { type: 'application/json' });
   var url = URL.createObjectURL(blob);
@@ -9404,6 +9503,8 @@ function confirmarRestauracion() {
       if (d.sectores)     ops['sectores']     = d.sectores;
       if (d.herramientas) ops['herramientas'] = d.herramientas;
       if (d.redInterna)   ops['redInterna']   = d.redInterna;
+      if (d.jornadas)         ops['jornadas']         = d.jornadas;          // v2.49
+      if (d.clientes_visitas) ops['clientes_visitas'] = d.clientes_visitas;  // v2.49
       if (d.config && d.config.superPass) ops['config/superPass'] = d.config.superPass;
       // Escribir todo en Firebase de una vez
       db.ref('/').update(ops)
@@ -9710,7 +9811,7 @@ function renderDashboard() {
 // ══════════════════════════════════════════════════════
 function _mesClave(d) { d = d || new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function _enMes(fecha, clave) {
-  var d = new Date(fecha); if (isNaN(d)) return false;
+  var d = _bnParseFecha(fecha); if (isNaN(d)) return false;
   return _mesClave(d) === clave;
 }
 function renderRendimientoMesCuad(cid) {
@@ -11210,6 +11311,8 @@ function registrarAsignacion(){
         tiempoEstimadoMin: infoDuracion ? infoDuracion.estimadoMin : null,
         tiempoExcesoMin: infoDuracion ? infoDuracion.excesoMin : null};
       updates['asignaciones/'+aid]=asig;
+      // v2.49: índice de reincidencias por ID de cliente, en el mismo update() plano que la asignación.
+      bnIndexarEnUpdates(updates, asig, 'asignacion');
       // Actualización optimista del cache local: así el resumen de texto
       // (mostrarResumenTextoAsig) puede mostrarse de inmediato después de
       // registrar, sin esperar a que Firebase confirme el round-trip —
@@ -11675,6 +11778,12 @@ function guardarEdicionMateriales() {
       // Auditoría: visible solo para admin (no se muestra en la vista de cuadrilla)
       updates['asignaciones/'+asigId+'/editadoPor'] = currentUser.nombre || currentUser.username || '';
       updates['asignaciones/'+asigId+'/fechaEdicion'] = nowISOLocal();
+      // v2.49: si cambió tipo, OT o ID de cliente, se actualiza la entrada del índice de reincidencias.
+      if (cambioTipo || cambioOT || cambioIdCliente) {
+        var asigDespues = bnClonar(asig); asigDespues.id = asigId;
+        asigDespues.tipo = nuevoTipo; asigDespues.ot = nuevoOT; asigDespues.idCliente = nuevoIdCliente;
+        bnActualizarIndiceEdicion(updates, asig, asigDespues);
+      }
       updates['_lastUpdate'] = Date.now();
 
       // FIX CONECTIVIDAD: mismo respaldo automático que Kardex/Retiros/Asignaciones.
@@ -13182,6 +13291,7 @@ function anularAsignacion(asigId){
       updates['asignaciones/'+asigId+'/anulada']=true;
       updates['asignaciones/'+asigId+'/fechaAnulacion']=nowISO();
       updates['asignaciones/'+asigId+'/reversoKardexRegistrado']=true;
+      bnDesindexarEnUpdates(updates, a, asigId); // v2.49: una asignación anulada ya no cuenta para reincidencias
       updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){
         toast('Asignación anulada, stock restaurado y reverso registrado en Kardex','success');
         renderHistorial();
@@ -13539,7 +13649,8 @@ function deleteCuadrilla(id){
       var updates={};
       updates['cuadrillas/'+id]=null; updates['stocks/'+id]=null;
       kardexList().filter(function(k){return k.cuadrillaId===id;}).forEach(function(k){updates['kardex/'+k.id]=null;});
-      asigList().filter(function(a){return a.cuadrillaId===id;}).forEach(function(a){updates['asignaciones/'+a.id]=null;});
+      asigList().filter(function(a){return a.cuadrillaId===id;}).forEach(function(a){updates['asignaciones/'+a.id]=null; bnDesindexarEnUpdates(updates, a, a.id);});
+      updates['jornadas/'+id]=null; // v2.49: partidas y resúmenes de jornada de esa cuadrilla
       updates['_lastUpdate']=Date.now(); db.ref().update(updates).then(function(){toast('Cuadrilla eliminada','success');});
     }
   );
@@ -14592,12 +14703,1121 @@ document.querySelectorAll('.modal-overlay').forEach(function(ov){
   ov.addEventListener('click',function(e){if(e.target===ov)ov.classList.remove('open');});
 });
 
+// ══════════════════════════════════════════════════════════════════════════
+// BodegaNet v2.49 — JORNADA Y REINCIDENCIAS (3 capas; cada una se puede extraer por separado)
+// ══════════════════════════════════════════════════════════════════════════
+// >>> INICIO CAPA 1 (núcleo puro) <<<
+// ══════════════════════════════════════════════════════════════════════════
+// JORNADA Y REINCIDENCIAS (v2.49) — CAPA 1 de 3: NÚCLEO PURO
+// ══════════════════════════════════════════════════════════════════════════
+// Esta capa NO usa DOM, NO usa Firebase, NO usa Date.now() ni cache. Recibe todo
+// por parámetros (incluida la hora, en ctx.ahoraMs) y devuelve datos simples,
+// para poder migrarla tal cual a la app Android o al servidor.
+//
+// Convenciones: tiempos = minutos desde medianoche (0..1440); fechas = 'YYYY-MM-DD';
+// zona horaria America/Tegucigalpa = UTC−6 fija (sin horario de verano).
+//
+// ── FORMATO JSON DE bnCalcularJornada(eventosDia, partida, cfg, ctx) ──────────
+// ENTRADA
+//   eventosDia : [ { id, ref:'asignacion'|'redInterna'|'visitaFallida', refId,
+//                    tipoEv:'efectivo'|'fallida', ini:<min>, fin:<min>,
+//                    valido:true|false, estimado:true|false,
+//                    cuadrillaId, fecha:'YYYY-MM-DD', tipo, idCliente, ot } ]
+//                (los produce bnNormalizarEventos; un evento sin hora de inicio
+//                 llega con valido:false y se cuenta en eventosSinHora)
+//   partida    : null | { motivo:'cuadre'|'vehiculo'|'otro', texto:'', orden:'',
+//                         hora:'HH:MM', tsRegistro:<ms>, obsoleta:true|false }
+//   cfg        : lo que devuelve bnJornadaCfg()
+//   ctx        : { ahoraMs:<ms epoch del servidor>, fecha:'YYYY-MM-DD', cuadrillaId }
+// SALIDA
+//   { fecha, cuadrillaId, parcial, activo, primerInicio:<min|null>,
+//     efectivoMin, fallidasMin, operativoMin, extraMin, partidaMin,
+//     partidaSinJustificar, almuerzoMin, netoMin,
+//     transporteMin:<min|null (null si parcial)>,
+//     transportePct:<número|null|Infinity>   // null si parcial o sin actividad;
+//                                            // Infinity si activo con operativo 0
+//                                            // (al guardar en JSON se serializa como null + pctInfinito:true)
+//     alerta:true|false, nEventos, inputHash:'n:nEfectivos:sumaIni:sumaFin:motivo',
+//     cfgVersion,
+//     // extras (no están en la especificación, ayudan al reporte):
+//     traslapeMin, eventosEstimados, eventosSinHora, previoActivacion }
+//
+// ── FORMATO JSON DE bnEvaluarReincidencia(idCliente, tipo, fecha, historial, cfg, opts) ──
+// ENTRADA
+//   idCliente : texto tal cual lo escribió la cuadrilla (se normaliza adentro)
+//   tipo      : tipo de trabajo ('Instalaciones', ...) o BN_TIPO_VF para una visita fallida
+//   fecha     : 'YYYY-MM-DD' del registro que se evalúa
+//   historial : [ { ts, fecha, tipo, resultado:'ok'|'fallida', cuadrillaId, sector, ot, refTipo, refId } ]
+//               (entradas de clientes_visitas/{idNormalizado}; pueden incluir el propio registro)
+//   opts      : { excluirRefId:'<id del registro que se está re-evaluando>' }
+// SALIDA
+//   { dispara, aplica, sinId, idNormalizado, categoria:'deficiente'|'sinExito'|null,
+//     categoriaTexto, diasDesdeUltima, cuadrillaPrevia,
+//     previas:[{fecha,tipo,resultado,cuadrillaId,dias,refId,ot}] (más reciente primero),
+//     conteo:{ fallidas, completadas, cuadrillas:[ids] }, requiereDesglose }
+// ══════════════════════════════════════════════════════════════════════════
+
+var BN_TIPO_VF = 'Visita fallida';   // "tipo" que se usa para evaluar/indexar una visita fallida
+var BN_TZ_OFFSET_MIN = -360;         // America/Tegucigalpa = UTC−6 (constante, sin horario de verano)
+
+var BN_JORNADA_DEFAULTS = {
+  version: 1,
+  fechaActivacion: '2026-11-09',     // antes de esta fecha no se exige ni se evalúa nada
+  cuadrillasPiloto: [],              // ids de cuadrilla; vacío = todas
+  zonaHoraria: 'America/Tegucigalpa', // UTC−6
+  ventana: { inicio: '08:00', fin: '17:00' },
+  toleranciaPartida: '08:30',
+  almuerzoMin: 60,
+  umbralTransportePct: 40,           // alerta si transporte / operativo * 100 es mayor
+  contarAntesDeInicioComoExtra: true,
+  motivosPartida: [
+    { id: 'cuadre',   texto: 'Retraso de cuadre y recepción de equipos', pideOrden: false, pideTexto: false },
+    { id: 'vehiculo', texto: 'Retraso por mantenimiento de vehículo',    pideOrden: true,  pideTexto: false },
+    { id: 'otro',     texto: 'Otro',                                     pideOrden: false, pideTexto: true  }
+  ],
+  partidaTextoMinChars: 10,
+  reincidencia: {
+    ventanaDias: 30,
+    tiposQueDisparan:      ['Instalaciones', 'Link Loss', 'Sin Conexión', 'Internet lento', 'Internet Inestable'],
+    tiposPreviosQueCuentan: ['Instalaciones', 'Link Loss', 'Sin Conexión', 'Internet lento', 'Internet Inestable'],
+    contarFallidasPrevias: true,
+    obsMinChars: 40,
+    categorias: { deficiente: 'Reincidente por reparación deficiente', sinExito: 'Reincidente sin éxito' },
+    campoVendedor: false
+  },
+  semaforoMensual: { amarilloPctDias: 20, rojoPctDias: 40 },  // % de días activos con alerta de transporte
+  ranking: { habilitado: true, alcance: 'sector' },
+  traslape: 'advertir'               // 'advertir' | 'bloquear'
+};
+
+// ── Utilidades genéricas ────────────────────────────────────────────────────
+function bnClonar(o) { return JSON.parse(JSON.stringify(o)); }
+
+function bnEsObjeto(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+
+// Mezcla recursiva: los objetos se mezclan clave por clave; arreglos y valores simples se reemplazan.
+function bnMezclar(base, over) {
+  var out = bnClonar(base);
+  if (!bnEsObjeto(over)) return out;
+  Object.keys(over).forEach(function (k) {
+    var v = over[k];
+    if (v === null || v === undefined) return;
+    if (bnEsObjeto(v) && bnEsObjeto(out[k])) out[k] = bnMezclar(out[k], v);
+    else out[k] = bnClonar(v);
+  });
+  return out;
+}
+
+// ── Minutos y formato ───────────────────────────────────────────────────────
+// 'HH:MM' → minutos desde medianoche; null si no es una hora válida.
+function bnMin(hhmm) {
+  if (hhmm === null || hhmm === undefined) return null;
+  var m = /^\s*(\d{1,2}):(\d{2})/.exec(String(hhmm));
+  if (!m) return null;
+  var h = parseInt(m[1], 10), mi = parseInt(m[2], 10);
+  if (h > 23 || mi > 59) return null;
+  return h * 60 + mi;
+}
+
+// minutos → 'HH:MM'
+function bnHHMM(min) {
+  if (min === null || min === undefined || isNaN(min)) return '';
+  var t = Math.max(0, Math.floor(min));
+  var h = Math.floor(t / 60) % 24, m = t % 60;
+  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+}
+
+// minutos → '6 h 20 min' (siempre horas y minutos, p. ej. 45 → '0 h 45 min')
+function bnFmtMin(min) {
+  if (min === null || min === undefined || isNaN(min)) return '—';
+  var t = Math.max(0, Math.round(min));
+  return Math.floor(t / 60) + ' h ' + (t % 60) + ' min';
+}
+
+// Presentación "tiempo operativo + extra": '6 h 20 min + 1 h 10 min extra' (sin extra si es 0).
+function bnFmtOperativoExtra(operativoMin, extraMin) {
+  var s = bnFmtMin(operativoMin);
+  if (extraMin && extraMin > 0) s += ' + ' + bnFmtMin(extraMin) + ' extra';
+  return s;
+}
+
+// Configuración final: defaults + lo guardado en config/jornada. Precalcula los
+// valores en minutos en cfg._m para que las funciones de cálculo no los repitan.
+function bnJornadaCfg(override) {
+  var cfg = bnMezclar(BN_JORNADA_DEFAULTS, override);
+  cfg._m = {
+    ini: bnMin(cfg.ventana.inicio),
+    fin: bnMin(cfg.ventana.fin),
+    tol: bnMin(cfg.toleranciaPartida)
+  };
+  // Si alguien guardó una hora inválida en config/jornada, se vuelve al valor por defecto de esa hora.
+  if (cfg._m.ini === null) cfg._m.ini = bnMin(BN_JORNADA_DEFAULTS.ventana.inicio);
+  if (cfg._m.fin === null) cfg._m.fin = bnMin(BN_JORNADA_DEFAULTS.ventana.fin);
+  if (cfg._m.tol === null) cfg._m.tol = bnMin(BN_JORNADA_DEFAULTS.toleranciaPartida);
+  if (!Array.isArray(cfg.cuadrillasPiloto)) cfg.cuadrillasPiloto = [];
+  return cfg;
+}
+
+// ── Fechas (sin Date.now) ───────────────────────────────────────────────────
+// ms epoch → { fecha:'YYYY-MM-DD', min:<minutos desde medianoche> } en hora de Honduras.
+function bnLocalDeMs(ms, cfg) {
+  var off = BN_TZ_OFFSET_MIN;
+  var d = new Date(ms + off * 60000);
+  var y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1, da = d.getUTCDate();
+  return {
+    fecha: y + '-' + (mo < 10 ? '0' : '') + mo + '-' + (da < 10 ? '0' : '') + da,
+    min: d.getUTCHours() * 60 + d.getUTCMinutes()
+  };
+}
+
+function bnFechaAMs(fecha) {   // 'YYYY-MM-DD' → ms UTC de esa medianoche (solo para restar días)
+  var p = String(fecha).slice(0, 10).split('-');
+  return Date.UTC(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+}
+
+// Días de calendario entre dos fechas (b − a). bnDiffDias('2026-11-02','2026-11-20') = 18.
+function bnDiffDias(a, b) {
+  return Math.round((bnFechaAMs(b) - bnFechaAMs(a)) / 86400000);
+}
+
+// Suma n días a una fecha 'YYYY-MM-DD'.
+function bnSumarDias(fecha, n) {
+  var d = new Date(bnFechaAMs(fecha) + n * 86400000);
+  var y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1, da = d.getUTCDate();
+  return y + '-' + (mo < 10 ? '0' : '') + mo + '-' + (da < 10 ? '0' : '') + da;
+}
+
+// ¿Aplican las exigencias nuevas (modales, campos, evaluación) a esta fecha y cuadrilla?
+// Antes de fechaActivacion nunca; durante el piloto, solo a las cuadrillas de cuadrillasPiloto.
+function bnRequiereJornada(fecha, cuadrillaId, cfg) {
+  if (!fecha || String(fecha).slice(0, 10) < cfg.fechaActivacion) return false;
+  if (cfg.cuadrillasPiloto && cfg.cuadrillasPiloto.length) {
+    return cfg.cuadrillasPiloto.indexOf(cuadrillaId) > -1;
+  }
+  return true;
+}
+
+// ── Normalización ───────────────────────────────────────────────────────────
+// Texto comparable: minúsculas, sin tildes, espacios colapsados. Evita que
+// 'Sin conexión' / 'Sin Conexión' / 'sin conexion' se traten como tipos distintos.
+function bnNormalizarTipo(s) {
+  if (s === null || s === undefined) return '';
+  var t = String(s).toLowerCase();
+  if (t.normalize) t = t.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return t.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+}
+
+// ID de cliente → clave normalizada: sin espacios ni signos, MAYÚSCULAS, sin ceros a la izquierda.
+// '00123' → '123'; ' 123 ' → '123'; 'ab-0045' → 'AB0045'; '000' → '' (se considera vacío).
+function bnNormalizarIdCliente(s) {
+  if (s === null || s === undefined) return '';
+  var t = String(s).toUpperCase();
+  if (t.normalize) t = t.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  t = t.replace(/[^A-Z0-9]/g, '');
+  return t.replace(/^0+/, '');
+}
+
+function _bnMinDeRegistro(h) { return bnMin(h); }
+
+function _bnTiempoDefault(ctx, esRI, cuadId, tipo) {
+  if (!ctx) return null;
+  var tabla = esRI ? ctx.tiemposDefaultRI : ctx.tiemposDefault;
+  var sector = ctx.sectorPorCuad ? ctx.sectorPorCuad[cuadId] : null;
+  if (!tabla || !sector || !tabla[sector]) return null;
+  var v = tabla[sector][tipo || ''];
+  return (v && v > 0) ? v : null;
+}
+
+// Convierte horaInicio/horaFin de un registro en {ini, fin, estimado, valido}.
+// Si falta la hora de fin (o es ≤ inicio) usa el tiempo por defecto del tipo ("Tiempos por
+// defecto"); esa duración estimada es, por construcción, igual al tiempo esperado del tipo, es
+// decir, nunca pasa del tope que ya usa validarDuracionRazonable (esperado + 30 min). Las horas
+// realmente registradas NO se recortan: esa validación solo las marca como sospechosas, igual que hoy. Sin hora de inicio no hay
+// forma de ubicar el evento en el día → valido:false.
+function _bnTiempos(hIni, hFin, esRI, cuadId, tipo, ctx) {
+  var ini = _bnMinDeRegistro(hIni);
+  var fin = _bnMinDeRegistro(hFin);
+  if (ini === null) return { ini: null, fin: null, estimado: false, valido: false };
+  if (fin !== null && fin > ini) return { ini: ini, fin: Math.min(fin, 1440), estimado: false, valido: true };
+  var est = _bnTiempoDefault(ctx, esRI, cuadId, tipo);
+  if (est === null) return { ini: ini, fin: null, estimado: false, valido: false };
+  return { ini: ini, fin: Math.min(ini + est, 1440), estimado: true, valido: true };
+}
+
+// Normaliza asignaciones, Red Interna y visitas fallidas (arreglos de registros con .id) a una
+// lista única de eventos. Evita el doble conteo: cada Red Interna nueva genera además una
+// asignación espejo (tipoRegistro:'redInterna', redInternaId) — se cuenta UNA sola vez (con las
+// horas del registro de Red Interna si existe, porque es el que se edita). Asignaciones anuladas
+// no cuentan, y si el espejo está anulado tampoco cuenta su Red Interna.
+// ctx opcional: { tiemposDefault, tiemposDefaultRI, sectorPorCuad }
+function bnNormalizarEventos(asigs, ris, vfs, ctx) {
+  var out = [];
+  var riPorId = {}, riVistos = {};
+  (ris || []).forEach(function (r) { if (r && r.id) riPorId[r.id] = r; });
+
+  (asigs || []).forEach(function (a) {
+    if (!a) return;
+    var esEspejoRI = a.tipoRegistro === 'redInterna';
+    if (a.anulada) { if (esEspejoRI && a.redInternaId) riVistos[a.redInternaId] = true; return; }
+    var fecha = String(a.fecha || '').slice(0, 10);
+    if (esEspejoRI) {
+      var ri = a.redInternaId ? riPorId[a.redInternaId] : null;
+      if (a.redInternaId) riVistos[a.redInternaId] = true;
+      var hIni = ri ? ri.horaIni : a.horaInicio, hFin = ri ? ri.horaFin : a.horaFin;
+      var tr = _bnTiempos(hIni, hFin, true, a.cuadrillaId, (ri ? ri.tipo : a.tipo), ctx);
+      out.push({ id: a.id, ref: 'redInterna', refId: a.redInternaId || a.id, asigId: a.id, tipoEv: 'efectivo',
+        ini: tr.ini, fin: tr.fin, valido: tr.valido, estimado: tr.estimado,
+        cuadrillaId: a.cuadrillaId, fecha: ri && ri.fecha ? String(ri.fecha).slice(0, 10) : fecha,
+        tipo: ri ? ri.tipo : a.tipo, idCliente: '', ot: ri ? ri.orden : a.ot });
+      return;
+    }
+    var t = _bnTiempos(a.horaInicio, a.horaFin, false, a.cuadrillaId, a.tipo, ctx);
+    out.push({ id: a.id, ref: 'asignacion', refId: a.id, tipoEv: 'efectivo',
+      ini: t.ini, fin: t.fin, valido: t.valido, estimado: t.estimado,
+      cuadrillaId: a.cuadrillaId, fecha: fecha, tipo: a.tipo,
+      idCliente: a.idCliente || '', ot: a.ot || '' });
+  });
+
+  (ris || []).forEach(function (r) {   // Red Interna sin asignación espejo (registros antiguos o espejo ausente)
+    if (!r || riVistos[r.id]) return;
+    var t = _bnTiempos(r.horaIni, r.horaFin, true, r.cuadrillaId, r.tipo, ctx);
+    out.push({ id: r.id, ref: 'redInterna', refId: r.id, tipoEv: 'efectivo',
+      ini: t.ini, fin: t.fin, valido: t.valido, estimado: t.estimado,
+      cuadrillaId: r.cuadrillaId, fecha: String(r.fecha || '').slice(0, 10), tipo: r.tipo,
+      idCliente: '', ot: r.orden || '' });
+  });
+
+  (vfs || []).forEach(function (v) {
+    if (!v) return;
+    var t = _bnTiempos(v.horaIni, v.horaFin, false, v.cuadrillaId, BN_TIPO_VF, ctx);
+    out.push({ id: v.id, ref: 'visitaFallida', refId: v.id, tipoEv: 'fallida',
+      ini: t.ini, fin: t.fin, valido: t.valido, estimado: t.estimado,
+      cuadrillaId: v.cuadrillaId, fecha: String(v.fecha || '').slice(0, 10), tipo: BN_TIPO_VF,
+      idCliente: v.idCliente || '', ot: v.ot || '' });
+  });
+  return out;
+}
+
+// Agrupa eventos por cuadrilla y día: { 'cuadId|YYYY-MM-DD': [eventos] }
+function bnAgruparEventos(eventos) {
+  var g = {};
+  (eventos || []).forEach(function (e) {
+    var k = e.cuadrillaId + '|' + e.fecha;
+    (g[k] = g[k] || []).push(e);
+  });
+  return g;
+}
+
+// ── Partida (llegada tarde justificada) ─────────────────────────────────────
+function _bnEventoUtil(e) {
+  return e && e.valido !== false && e.ini !== null && e.ini !== undefined;
+}
+
+function bnPrimerInicio(eventosDia) {
+  var p = null;
+  (eventosDia || []).forEach(function (e) {
+    if (!_bnEventoUtil(e)) return;
+    if (p === null || e.ini < p) p = e.ini;
+  });
+  return p;
+}
+
+function bnBuscarMotivo(cfg, id) {
+  var lista = cfg.motivosPartida || [];
+  for (var i = 0; i < lista.length; i++) if (lista[i].id === id) return lista[i];
+  return null;
+}
+
+// ¿La justificación guardada es completa y vigente? (motivo válido + orden / texto según el motivo)
+function bnPartidaValida(partida, cfg) {
+  if (!partida || partida.obsoleta) return false;
+  var mot = bnBuscarMotivo(cfg, partida.motivo);
+  if (!mot) return false;
+  if (mot.pideOrden && String(partida.orden || '').replace(/^\s+|\s+$/g, '').length < 3) return false;
+  if (mot.pideTexto && String(partida.texto || '').replace(/^\s+|\s+$/g, '').length < cfg.partidaTextoMinChars) return false;
+  return true;
+}
+
+// Evalúa si el primer evento del día pasa de la tolerancia (08:30).
+// partidaGuardada (opcional): la justificación que ya existe para ese día/cuadrilla.
+// → { primerInicio, horaPrimerInicio, excede, minutosTarde, vigente, requiereJustificacion, obsoleta }
+//   obsoleta = hay justificación guardada pero el primer inicio ya no pasa de 08:30
+//   (captura fuera de orden o edición): se conserva para auditoría y no se usa.
+function bnEvaluarPartida(eventosDia, cfg, partidaGuardada) {
+  var primer = bnPrimerInicio(eventosDia);
+  var excede = primer !== null && primer > cfg._m.tol;
+  var vigente = !!(excede && partidaGuardada && bnPartidaValida(partidaGuardada, cfg));
+  return {
+    primerInicio: primer,
+    horaPrimerInicio: primer === null ? null : bnHHMM(primer),
+    excede: excede,
+    minutosTarde: excede ? primer - cfg._m.tol : 0,
+    vigente: vigente,
+    requiereJustificacion: excede && !vigente,
+    obsoleta: !!(partidaGuardada && !excede)
+  };
+}
+
+// ── Cálculo de la jornada de una cuadrilla en un día ────────────────────────
+function bnCalcularJornada(eventosDia, partida, cfg, ctx) {
+  cfg = cfg || bnJornadaCfg();
+  ctx = ctx || {};
+  var m = cfg._m;
+  var evs = eventosDia || [];
+  var fecha = ctx.fecha || (evs.length ? evs[0].fecha : null);
+  var cuadId = ctx.cuadrillaId || (evs.length ? evs[0].cuadrillaId : null);
+
+  // Cobertura minuto a minuto: 0 nada, 1 solo fallida, 2 trabajo efectivo (el efectivo gana).
+  var cover = [], cnt = [], i;
+  for (i = 0; i < 1440; i++) { cover.push(0); cnt.push(0); }
+  var n = 0, nEf = 0, sumIni = 0, sumFin = 0, sinHora = 0, estimados = 0, primer = null;
+
+  evs.forEach(function (e) {
+    if (!e || e.valido === false || e.ini === null || e.ini === undefined || e.fin === null || e.fin === undefined) { sinHora++; return; }
+    var ini = Math.max(0, Math.min(1440, e.ini)), fin = Math.max(0, Math.min(1440, e.fin));
+    if (fin <= ini) { sinHora++; return; }
+    n++;
+    if (e.tipoEv === 'efectivo') nEf++;
+    if (e.estimado) estimados++;
+    sumIni += ini; sumFin += fin;
+    if (primer === null || ini < primer) primer = ini;
+    var val = e.tipoEv === 'efectivo' ? 2 : 1;
+    for (var t = ini; t < fin; t++) { if (val > cover[t]) cover[t] = val; cnt[t]++; }
+  });
+
+  var ef = 0, fa = 0, ex = 0, tras = 0;
+  for (i = 0; i < 1440; i++) {
+    if (cover[i] === 0) continue;
+    if (cnt[i] > 1) tras++;
+    if (i >= m.ini && i < m.fin) { if (cover[i] === 2) ef++; else fa++; }
+    else if (i >= m.fin) ex++;
+    else if (cfg.contarAntesDeInicioComoExtra) ex++;
+  }
+
+  var vigente = bnPartidaValida(partida, cfg);
+  var partidaMin = 0, sinJust = false;
+  if (primer !== null && primer > m.tol) {
+    if (vigente) partidaMin = primer - m.tol; else sinJust = true;
+  }
+
+  // ¿Día cerrado? Anterior a hoy, o es hoy y la hora del servidor es 17:00 o más.
+  var parcial = true;
+  if (ctx.ahoraMs !== undefined && ctx.ahoraMs !== null && fecha) {
+    var loc = bnLocalDeMs(ctx.ahoraMs, cfg);
+    parcial = !(fecha < loc.fecha || (fecha === loc.fecha && loc.min >= m.fin));
+  }
+
+  var activo = n > 0;
+  var neto = (m.fin - m.ini) - cfg.almuerzoMin;
+  var operativo = ef + fa;
+  var transporte = null, pct = null, alerta = false;
+  var previo = !!(fecha && fecha < cfg.fechaActivacion);
+
+  if (activo && !parcial) {
+    transporte = Math.max(0, neto - operativo - partidaMin);
+    if (operativo === 0) pct = Infinity;
+    else pct = transporte / operativo * 100;
+    // Comparación en enteros (evita errores de redondeo justo en el umbral): estrictamente mayor.
+    alerta = !previo && (operativo === 0 || transporte * 100 > cfg.umbralTransportePct * operativo);
+  }
+
+  return {
+    fecha: fecha, cuadrillaId: cuadId, parcial: parcial, activo: activo,
+    primerInicio: primer,
+    efectivoMin: ef, fallidasMin: fa, operativoMin: operativo, extraMin: ex,
+    partidaMin: partidaMin, partidaSinJustificar: sinJust,
+    almuerzoMin: cfg.almuerzoMin, netoMin: neto,
+    transporteMin: transporte, transportePct: pct, alerta: alerta,
+    nEventos: n,
+    inputHash: n + ':' + nEf + ':' + sumIni + ':' + sumFin + ':' + (vigente ? partida.motivo : ''),
+    cfgVersion: cfg.version,
+    traslapeMin: tras, eventosEstimados: estimados, eventosSinHora: sinHora, previoActivacion: previo
+  };
+}
+
+// Prepara el resumen para guardarlo en Firebase (JSON no admite Infinity ni undefined).
+function bnResumenParaGuardar(r) {
+  var o = {};
+  Object.keys(r).forEach(function (k) {
+    var v = r[k];
+    if (v === undefined) return;
+    if (v === Infinity) { o[k] = null; o.pctInfinito = true; return; }
+    o[k] = v;
+  });
+  return o;
+}
+
+// ── Reincidencia por ID de cliente ──────────────────────────────────────────
+function _bnEnLista(lista, tipo) {
+  var t = bnNormalizarTipo(tipo);
+  for (var i = 0; i < (lista || []).length; i++) if (bnNormalizarTipo(lista[i]) === t) return true;
+  return false;
+}
+
+function bnEvaluarReincidencia(idCliente, tipo, fecha, historial, cfg, opts) {
+  cfg = cfg || bnJornadaCfg();
+  opts = opts || {};
+  var rc = cfg.reincidencia;
+  var idN = bnNormalizarIdCliente(idCliente);
+  var res = { dispara: false, aplica: false, sinId: false, idNormalizado: idN, categoria: null,
+    categoriaTexto: '', diasDesdeUltima: null, cuadrillaPrevia: null, previas: [],
+    conteo: { fallidas: 0, completadas: 0, cuadrillas: [] }, requiereDesglose: false };
+
+  // Una visita fallida siempre dispara; un trabajo solo si su tipo está en tiposQueDisparan.
+  res.dispara = (tipo === BN_TIPO_VF) || _bnEnLista(rc.tiposQueDisparan, tipo);
+  if (!res.dispara) return res;
+  if (!idN) { res.sinId = true; return res; }
+
+  var f = String(fecha).slice(0, 10);
+  var previas = [];
+  (historial || []).forEach(function (h) {
+    if (!h) return;
+    if (opts.excluirRefId && h.refId === opts.excluirRefId) return;
+    var hf = String(h.fecha || '').slice(0, 10);
+    if (!hf) return;
+    var dias = bnDiffDias(hf, f);
+    if (dias < 0 || dias >= rc.ventanaDias) return;       // "menos de" ventanaDias: 29 dispara, 30 no
+    var cuenta = (h.resultado === 'fallida') ? !!rc.contarFallidasPrevias : _bnEnLista(rc.tiposPreviosQueCuentan, h.tipo);
+    if (!cuenta) return;
+    previas.push({ fecha: hf, tipo: h.tipo, resultado: h.resultado, cuadrillaId: h.cuadrillaId,
+      dias: dias, refId: h.refId, ot: h.ot || '', ts: h.ts || 0 });
+  });
+  if (!previas.length) return res;
+
+  previas.sort(function (a, b) {                          // la más reciente primero
+    if (a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
+    return (b.ts || 0) - (a.ts || 0);
+  });
+  var ultima = previas[0];
+  res.aplica = true;
+  res.requiereDesglose = true;
+  res.categoria = ultima.resultado === 'fallida' ? 'sinExito' : 'deficiente';
+  res.categoriaTexto = rc.categorias[res.categoria];
+  res.diasDesdeUltima = ultima.dias;
+  res.cuadrillaPrevia = ultima.cuadrillaId;               // atribuida a la cuadrilla de la visita previa más reciente
+  previas.forEach(function (p) {
+    if (p.resultado === 'fallida') res.conteo.fallidas++; else res.conteo.completadas++;
+    if (p.cuadrillaId && res.conteo.cuadrillas.indexOf(p.cuadrillaId) === -1) res.conteo.cuadrillas.push(p.cuadrillaId);
+  });
+  res.previas = previas;
+  return res;
+}
+
+// ── Resumen mensual por cuadrilla ───────────────────────────────────────────
+// resumenesDia: resúmenes diarios (salida de bnCalcularJornada) de UNA cuadrilla en el período.
+// Los días parciales (en curso) y sin actividad no entran a los porcentajes.
+// Semáforo: % de días cerrados con alerta; < amarilloPctDias verde, < rojoPctDias amarillo, si no rojo.
+function bnResumenMensual(resumenesDia, cfg) {
+  cfg = cfg || bnJornadaCfg();
+  var r = { diasActivos: 0, diasCerrados: 0, diasParciales: 0, diasAlerta: 0, pctDiasAlerta: null,
+    efectivoMin: 0, fallidasMin: 0, operativoMin: 0, extraMin: 0, partidaMin: 0, transporteMin: 0,
+    transportePct: null, alertaMensual: false, semaforo: null,
+    diasConPartida: 0, partidasSinJustificar: 0 };
+  (resumenesDia || []).forEach(function (d) {
+    if (!d || d.activo === false || !d.nEventos) return;
+    r.diasActivos++;
+    if (d.parcial) { r.diasParciales++; return; }
+    r.diasCerrados++;
+    r.efectivoMin += d.efectivoMin || 0;
+    r.fallidasMin += d.fallidasMin || 0;
+    r.operativoMin += d.operativoMin || 0;
+    r.extraMin += d.extraMin || 0;
+    r.partidaMin += d.partidaMin || 0;
+    r.transporteMin += d.transporteMin || 0;
+    if (d.alerta) r.diasAlerta++;
+    if (d.partidaMin > 0) r.diasConPartida++;
+    if (d.partidaSinJustificar) r.partidasSinJustificar++;
+  });
+  if (r.diasCerrados > 0) {
+    r.pctDiasAlerta = r.diasAlerta / r.diasCerrados * 100;
+    r.transportePct = r.operativoMin > 0 ? r.transporteMin / r.operativoMin * 100 : Infinity;
+    r.alertaMensual = r.operativoMin === 0 || r.transporteMin * 100 > cfg.umbralTransportePct * r.operativoMin;
+    var sm = cfg.semaforoMensual;
+    r.semaforo = r.pctDiasAlerta < sm.amarilloPctDias ? 'verde' : (r.pctDiasAlerta < sm.rojoPctDias ? 'amarillo' : 'rojo');
+  }
+  return r;
+}
+
+// ── Ranking por sector ──────────────────────────────────────────────────────
+// resumenes : resúmenes diarios (de todas las cuadrillas del sector en el período).
+// cuadrillas: [{ id, nombre, trabajos, meta, visitasFallidas, efectividadPct }] — trabajos, meta y %
+//             de efectividad los calcula quien llama con la fórmula de efectividad que ya existe
+//             en la app (no se duplica aquí).
+// Orden: mayor efectividad; desempate menor % de transporte; luego menos visitas fallidas;
+// luego nombre. Empates exactos comparten posición. Si ranking.habilitado es falso → [].
+function bnRankingSector(resumenes, cuadrillas, cfg) {
+  cfg = cfg || bnJornadaCfg();
+  if (!cfg.ranking || !cfg.ranking.habilitado) return [];
+  var porCuad = {};
+  (resumenes || []).forEach(function (d) {
+    if (!d || d.parcial || !d.activo) return;
+    var a = porCuad[d.cuadrillaId] = porCuad[d.cuadrillaId] || { op: 0, tr: 0, dias: 0 };
+    a.op += d.operativoMin || 0; a.tr += d.transporteMin || 0; a.dias++;
+  });
+  var filas = (cuadrillas || []).map(function (c) {
+    var a = porCuad[c.id];
+    var tp = null;
+    if (a && a.dias > 0) tp = a.op > 0 ? a.tr / a.op * 100 : Infinity;
+    return { id: c.id, nombre: c.nombre || '', trabajos: c.trabajos || 0, meta: c.meta || 0,
+      visitasFallidas: c.visitasFallidas || 0,
+      efectividadPct: (c.efectividadPct === undefined ? null : c.efectividadPct), transportePct: tp };
+  });
+  function clave(v, vacio) { return (v === null || v === undefined) ? vacio : v; }
+  function cmp(a, b) {
+    var ea = clave(a.efectividadPct, -1), eb = clave(b.efectividadPct, -1);
+    if (ea !== eb) return eb - ea;
+    var ta = clave(a.transportePct, Infinity), tb = clave(b.transportePct, Infinity);
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    if (a.visitasFallidas !== b.visitasFallidas) return a.visitasFallidas - b.visitasFallidas;
+    return 0;
+  }
+  filas.sort(function (a, b) { var c = cmp(a, b); return c !== 0 ? c : (a.nombre < b.nombre ? -1 : (a.nombre > b.nombre ? 1 : 0)); });
+  filas.forEach(function (f, idx) {
+    f.posicion = (idx > 0 && cmp(filas[idx - 1], f) === 0) ? filas[idx - 1].posicion : idx + 1;
+  });
+  return filas;
+}
+// >>> FIN CAPA 1 <<<
+
+// >>> INICIO CAPA 2 y 3 (repositorio Firebase + interfaz) <<<
+// ══════════════════════════════════════════════════════════════════════════
+// JORNADA Y REINCIDENCIAS (v2.49) — CAPA 2 de 3: REPOSITORIO DE DATOS
+// ══════════════════════════════════════════════════════════════════════════
+// Aquí vive TODO lo que toca Firebase, la caché o la hora del dispositivo. Hoy
+// implementa Firebase; en la versión Android la misma interfaz (bnJornadaRepo)
+// llamará a la API del servidor Ubuntu:
+//   getRegistrosDia / getRegistrosRango  → GET  /jornadas?cuadrilla&desde&hasta
+//   getResumenes / getJornadaDia         → GET  /jornadas?cuadrilla&desde&hasta
+//   guardarPartida                       → POST /jornadas/partida
+//   getHistorialCliente                  → GET  /clientes/{id}/visitas
+//   getAlertas / setAlerta               → GET  /alertas
+// Reglas de esta capa: lecturas periódicas con .once() (sin listeners nuevos),
+// escrituras en un update() plano y reflejadas en la caché al instante.
+//
+// DECISIONES v2.49 (para confirmar):
+//  · La clave de cada entrada de clientes_visitas/{idNormalizado}/ es el id del propio registro
+//    (asignación o visita fallida) en lugar de un pushId nuevo: así reintentar una escritura
+//    pendiente nunca duplica la entrada, y borrar/anular/editar sabe exactamente cuál tocar.
+//  · El resumen diario (derivado, se puede recalcular) se escribe en segundo plano con update()
+//    directo y sin cola (bnEscribirResumen): si falla no se pierde ningún dato, se recalcula la
+//    próxima vez. Todo registro de captura (partida, índice de reincidencias) sí viaja por
+//    bnGuardarBlindado, la cola con respaldo que ya existe.
+
+// ── Hora confiable (grieta 13.1): una sola fuente, basada en el reloj del servidor ──────────
+var _bnOffsetServidor = 0, _bnOffsetOk = false, _bnOffsetIntentos = 0;
+function bnAhora() { return Date.now() + _bnOffsetServidor; }
+function bnAhoraConfiable() { return _bnOffsetOk; }
+function bnHoy() { return bnLocalDeMs(bnAhora()).fecha; }
+function bnSincronizarHora() {
+  try {
+    db.ref('.info/serverTimeOffset').once('value').then(function (snap) {
+      var v = snap.val();
+      // Con conexión establecida el desfase nunca es exactamente 0 ms; un 0 exacto significa que
+      // Firebase todavía no conectó, así que se reintenta en unos segundos.
+      if (typeof v === 'number' && v !== 0) { _bnOffsetServidor = v; _bnOffsetOk = true; _bnOffsetIntentos = 0; return; }
+      if (!_bnOffsetOk && _bnOffsetIntentos < 6) { _bnOffsetIntentos++; setTimeout(bnSincronizarHora, 3000); }
+    }).catch(function () {
+      if (!_bnOffsetOk && _bnOffsetIntentos < 6) { _bnOffsetIntentos++; setTimeout(bnSincronizarHora, 5000); }
+    });
+  } catch (e) {}
+}
+window.addEventListener('online', function () { _bnOffsetIntentos = 0; setTimeout(bnSincronizarHora, 2000); });
+setInterval(bnSincronizarHora, 5 * 60 * 1000);
+
+// ── Configuración efectiva (defaults + config/jornada) ──────────────────────────────────────
+function bnCfg() { return bnJornadaCfg(cache.config_jornada); }
+
+// ── Utilidades de datos ─────────────────────────────────────────────────────────────────────
+function bnSectorDeCuad(cid) {
+  var c = cache.cuadrillas ? cache.cuadrillas[cid] : null;
+  return c ? (c.sectorId || c.sector || '') : '';
+}
+
+// Contexto de "Tiempos por defecto" para bnNormalizarEventos.
+function bnCtxTiempos() {
+  var mapa = {};
+  Object.keys(cache.cuadrillas || {}).forEach(function (k) { mapa[k] = bnSectorDeCuad(k); });
+  return { tiemposDefault: cache.tiemposDefault || {}, tiemposDefaultRI: cache.tiemposDefaultRI || {}, sectorPorCuad: mapa };
+}
+
+// {id: registro} → [registro con .id] (la clave manda: algunos registros antiguos no guardan su id)
+function bnListaConId(mapa) {
+  return Object.keys(mapa || {}).map(function (k) {
+    var o = {}, v = mapa[k] || {};
+    Object.keys(v).forEach(function (p) { o[p] = v[p]; });
+    o.id = k;
+    return o;
+  });
+}
+
+// "Sin ID aún" (Fase 2) no es un ID real: nunca se indexa.
+function _bnIdIndexable(raw) {
+  var n = bnNormalizarTipo(raw);
+  if (n === 'sin id aun') return '';
+  return bnNormalizarIdCliente(raw);
+}
+
+// ── Índice de reincidencias: clientes_visitas/{idNormalizado}/{idDelRegistro} ───────────────
+// Devuelve {idNorm, refId, datos} o null si el registro no se indexa (sin ID, anulado, Red Interna).
+function bnEntradaIndice(reg, refTipo) {
+  if (!reg || !reg.id) return null;
+  if (refTipo === 'asignacion' && (reg.anulada || reg.tipoRegistro === 'redInterna')) return null;
+  var idN = _bnIdIndexable(reg.idCliente);
+  var fecha = String(reg.fecha || '').slice(0, 10);
+  if (!idN || !fecha) return null;
+  var esVF = refTipo === 'visitaFallida';
+  return { idNorm: idN, refId: reg.id, datos: {
+    ts: reg.tsRegistro || bnFechaAMs(fecha), fecha: fecha,
+    tipo: esVF ? BN_TIPO_VF : (reg.tipo || ''),
+    resultado: esVF ? 'fallida' : 'ok',
+    cuadrillaId: reg.cuadrillaId || '', sector: bnSectorDeCuad(reg.cuadrillaId),
+    ot: reg.ot || '', refTipo: refTipo, refId: reg.id } };
+}
+
+// Agrega la entrada al mismo update() plano que guarda el registro, y la refleja en la caché.
+function bnIndexarEnUpdates(updates, reg, refTipo) {
+  var e = bnEntradaIndice(reg, refTipo);
+  if (!e) return null;
+  updates['clientes_visitas/' + e.idNorm + '/' + e.refId] = e.datos;
+  if (!cache.clientes_visitas) cache.clientes_visitas = {};
+  if (!cache.clientes_visitas[e.idNorm]) cache.clientes_visitas[e.idNorm] = {};
+  cache.clientes_visitas[e.idNorm][e.refId] = e.datos;
+  return e;
+}
+
+// Quita la entrada del índice (borrado, anulación).
+function bnDesindexarEnUpdates(updates, reg, refId) {
+  var rid = refId || (reg && reg.id);
+  var idN = reg ? _bnIdIndexable(reg.idCliente) : '';
+  if (!idN || !rid) return;
+  updates['clientes_visitas/' + idN + '/' + rid] = null;
+  if (cache.clientes_visitas && cache.clientes_visitas[idN]) delete cache.clientes_visitas[idN][rid];
+}
+
+// Edición de una asignación (tipo, OT o ID): si cambió el ID se quita la entrada vieja; luego se
+// reescribe la entrada con los datos nuevos.
+function bnActualizarIndiceEdicion(updates, antes, despues) {
+  if (!antes || antes.tipoRegistro === 'redInterna') return;
+  var idAntes = _bnIdIndexable(antes.idCliente), idDespues = _bnIdIndexable(despues.idCliente);
+  if (idAntes && idAntes !== idDespues) bnDesindexarEnUpdates(updates, antes, despues.id);
+  bnIndexarEnUpdates(updates, despues, 'asignacion');
+}
+
+// Registro (de la caché o, si es antiguo, de Firebase) para poder sacarlo del índice al borrarlo.
+function bnRegistroParaIndice(col, id) {
+  var r = cache[col] ? cache[col][id] : null;
+  if (r) { var o = {}; Object.keys(r).forEach(function (p) { o[p] = r[p]; }); o.id = id; return Promise.resolve(o); }
+  return db.ref(col + '/' + id).once('value').then(function (s) {
+    var v = s.val(); if (!v) return null;
+    v.id = id; return v;
+  }).catch(function () { return null; });
+}
+
+// Historial de un ID construido solo con lo que ya está cargado (30 días) + entradas pendientes.
+function bnHistorialLocal(idN) {
+  var out = [], vistos = {};
+  var cols = [['asignaciones', 'asignacion'], ['visitas_fallidas', 'visitaFallida']];
+  cols.forEach(function (c) {
+    var mapa = cache[c[0]] || {};
+    Object.keys(mapa).forEach(function (k) {
+      var r = mapa[k]; if (!r || _bnIdIndexable(r.idCliente) !== idN) return;
+      var o = {}; Object.keys(r).forEach(function (p) { o[p] = r[p]; }); o.id = k;
+      var e = bnEntradaIndice(o, c[1]);
+      if (e) { out.push(e.datos); vistos[e.refId] = true; }
+    });
+  });
+  var op = (cache.clientes_visitas || {})[idN] || {};
+  Object.keys(op).forEach(function (k) { if (!vistos[k]) out.push(op[k]); });
+  return out;
+}
+
+function _bnConTimeout(promesa, ms) {
+  return new Promise(function (resolve, reject) {
+    var t = setTimeout(function () { reject(new Error('timeout')); }, ms);
+    promesa.then(function (v) { clearTimeout(t); resolve(v); }, function (e) { clearTimeout(t); reject(e); });
+  });
+}
+
+// Cola con respaldo (la que ya existe) — nombre estable para la capa de datos.
+function bnGuardarBlindado(updates, resumen, modulo, onExito, onPendiente) {
+  guardarConRespaldo(updates, resumen, modulo, onExito, onPendiente);
+}
+
+var bnJornadaRepo = {
+  // Registros de una cuadrilla en [desde, hasta] ('YYYY-MM-DD'): desde la caché si el rango cae dentro
+  // de la ventana cargada (30 días); si no, consulta Firebase (indexado por tsRegistro).
+  // → Promise<{asigs:[], ris:[], vfs:[]}>
+  getRegistrosRango: function (cuadId, desde, hasta) {
+    var iniMs = _bnParseFecha(desde).getTime();
+    var finMs = _bnParseFecha(hasta).getTime() + 86399999;
+    function filtrar(mapa) {
+      return bnListaConId(mapa).filter(function (r) {
+        if (cuadId && r.cuadrillaId !== cuadId) return false;
+        var f = String(r.fecha || '').slice(0, 10);
+        return f >= desde && f <= hasta;
+      });
+    }
+    function deCache() {
+      return { asigs: filtrar(cache.asignaciones), ris: filtrar(cache.redInterna), vfs: filtrar(cache.visitas_fallidas) };
+    }
+    if (iniMs >= _bnCutoffCarga() + 86400000) return Promise.resolve(deCache());
+    var margen = 86400000;
+    return Promise.all([
+      _bnFetchRangoColeccion('asignaciones', iniMs - margen, finMs + margen),
+      _bnFetchRangoColeccion('redInterna', iniMs - margen, finMs + margen),
+      _bnFetchRangoColeccion('visitas_fallidas', iniMs - margen, finMs + margen)
+    ]).then(function (r) { return { asigs: filtrar(r[0]), ris: filtrar(r[1]), vfs: filtrar(r[2]) }; });
+  },
+  getRegistrosDia: function (cuadId, fecha) { return this.getRegistrosRango(cuadId, fecha, fecha); },
+
+  // jornadas/{cuadId}/{fecha} → { 'YYYY-MM-DD': { partida, resumen } } (lo local pendiente pisa lo remoto)
+  getResumenes: function (cuadId, desde, hasta) {
+    var local = (cache.jornadas || {})[cuadId] || {};
+    var consulta = db.ref('jornadas/' + cuadId).orderByKey().startAt(desde).endAt(hasta).once('value');
+    return _bnConTimeout(consulta, 7000).then(function (snap) { return snap.val() || {}; }).catch(function () { return {}; })
+      .then(function (remoto) {
+        var out = {};
+        Object.keys(remoto).forEach(function (f) { out[f] = remoto[f]; });
+        Object.keys(local).forEach(function (f) {
+          if (f < desde || f > hasta) return;
+          out[f] = out[f] || {};
+          if (local[f].partida) out[f].partida = local[f].partida;
+          if (local[f].resumen && !out[f].resumen) out[f].resumen = local[f].resumen;
+        });
+        return out;
+      });
+  },
+  getJornadaDia: function (cuadId, fecha) {
+    return this.getResumenes(cuadId, fecha, fecha).then(function (m) { return m[fecha] || {}; });
+  },
+
+  // Agrega la justificación de partida al update() plano del registro (misma escritura, grieta 13.7).
+  agregarPartida: function (updates, cuadId, fecha, partida) {
+    updates['jornadas/' + cuadId + '/' + fecha + '/partida'] = partida;
+    if (!cache.jornadas) cache.jornadas = {};
+    if (!cache.jornadas[cuadId]) cache.jornadas[cuadId] = {};
+    if (!cache.jornadas[cuadId][fecha]) cache.jornadas[cuadId][fecha] = {};
+    cache.jornadas[cuadId][fecha].partida = partida;
+  },
+  // Marca la justificación como obsoleta (se conserva para auditoría; el cálculo no la usa).
+  marcarPartidaObsoleta: function (updates, cuadId, fecha) {
+    updates['jornadas/' + cuadId + '/' + fecha + '/partida/obsoleta'] = true;
+    var j = ((cache.jornadas || {})[cuadId] || {})[fecha];
+    if (j && j.partida) j.partida.obsoleta = true;
+  },
+  guardarPartida: function (cuadId, fecha, partida, onExito, onPendiente) {
+    var u = {}; this.agregarPartida(u, cuadId, fecha, partida);
+    bnGuardarBlindado(u, 'Partida justificada ' + fecha, 'jornada-partida', onExito, onPendiente);
+  },
+
+  // Resumen diario (derivado). Solo días cerrados y activos; idempotente: si el inputHash y la versión
+  // de configuración no cambiaron, no escribe. → Promise<'escrito'|'igual'|'omitido'>
+  guardarResumen: function (res, guardado, forzar) {
+    if (!res || res.parcial || !res.activo || !res.cuadrillaId || !res.fecha) return Promise.resolve('omitido');
+    if (!forzar && guardado && guardado.inputHash === res.inputHash && guardado.cfgVersion === res.cfgVersion) return Promise.resolve('igual');
+    var obj = bnResumenParaGuardar(res);
+    obj.calculadoEn = bnAhora();
+    var u = {}; u['jornadas/' + res.cuadrillaId + '/' + res.fecha + '/resumen'] = obj;
+    return db.ref().update(u).then(function () {
+      if (!cache.jornadas) cache.jornadas = {};
+      if (!cache.jornadas[res.cuadrillaId]) cache.jornadas[res.cuadrillaId] = {};
+      if (!cache.jornadas[res.cuadrillaId][res.fecha]) cache.jornadas[res.cuadrillaId][res.fecha] = {};
+      cache.jornadas[res.cuadrillaId][res.fecha].resumen = obj;
+      return 'escrito';
+    });
+  },
+
+  // Historial de un ID (ya normalizado) en la ventana de reincidencia. Consulta primero lo local y
+  // luego Firebase; sin conexión (o sin respuesta en 6 s) devuelve solo lo local y parcial:true.
+  // → Promise<{historial:[], parcial:boolean}>
+  getHistorialCliente: function (idNorm) {
+    var cfg = bnCfg();
+    var local = bnHistorialLocal(idNorm);
+    var corte = bnAhora() - (cfg.reincidencia.ventanaDias + 2) * 86400000;
+    var consulta = db.ref('clientes_visitas/' + idNorm).orderByChild('ts').startAt(corte).once('value');
+    return _bnConTimeout(consulta, 6000).then(function (snap) {
+      var v = snap.val() || {}, porId = {}, out = [];
+      Object.keys(v).forEach(function (k) { porId[k] = v[k]; });
+      local.forEach(function (e) { if (!porId[e.refId]) porId[e.refId] = e; });
+      Object.keys(porId).forEach(function (k) { out.push(porId[k]); });
+      return { historial: out, parcial: false };
+    }).catch(function () { return { historial: local, parcial: true }; });
+  },
+  indexarVisita: function (updates, reg, refTipo) { return bnIndexarEnUpdates(updates, reg, refTipo); },
+
+  // alertas_jornada/{sector}/{cuadId}_{fecha}
+  getAlertas: function (sector, desde) {
+    return _bnConTimeout(db.ref('alertas_jornada/' + sector).once('value'), 7000).then(function (snap) {
+      var v = snap.val() || {}, out = [];
+      Object.keys(v).forEach(function (k) { var a = v[k]; a.clave = k; if (!desde || String(a.fecha || '') >= desde) out.push(a); });
+      return out;
+    }).catch(function () { return []; });
+  },
+  // Escribe campo por campo (update plano) para no pisar el estado/comentario de una alerta existente.
+  setAlerta: function (sector, cuadId, fecha, datos, onExito, onPendiente) {
+    var base = 'alertas_jornada/' + sector + '/' + cuadId + '_' + fecha + '/', u = {};
+    Object.keys(datos).forEach(function (k) { u[base + k] = datos[k]; });
+    bnGuardarBlindado(u, 'Alerta de jornada ' + fecha, 'jornada-alerta', onExito, onPendiente);
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+// JORNADA Y REINCIDENCIAS (v2.49) — CAPA 3 de 3: INTERFAZ (Configuración → SuperAdmin)
+// ══════════════════════════════════════════════════════════════════════════
+// Solo llama a las dos capas anteriores. En esta fase la interfaz es de verificación:
+// reglas, índice de reincidencias y el cálculo de un día real para contrastarlo a mano.
+
+var _jorDiagUltimo = null;
+
+function bnFmtPct(p) {
+  if (p === null || p === undefined) return '—';
+  if (p === Infinity) return '∞';
+  return p.toFixed(2).replace('.', ',') + '%';
+}
+
+function bnEstadoDia(r) {
+  if (!r.activo) return 'Sin actividad';
+  if (r.parcial) return 'Parcial (día en curso)';
+  var partes = [r.alerta ? 'ALERTA' : 'OK'];
+  if (r.partidaSinJustificar) partes.push('partida sin justificar');
+  return partes.join(' · ');
+}
+
+function bnInitJornadaCfgCard() {
+  var cfg = bnCfg();
+  var sel = document.getElementById('jor-diag-cuad');
+  if (sel) {
+    var actual = sel.value;
+    sel.innerHTML = '<option value="">Selecciona cuadrilla</option>';
+    getCuadrillasFiltradas().sort(function (a, b) { return a.nombre.localeCompare(b.nombre); }).forEach(function (c) {
+      var o = document.createElement('option'); o.value = c.id; o.textContent = c.nombre;
+      if (c.id === actual) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+  var f = document.getElementById('jor-diag-fecha');
+  if (f && !f.value) f.value = bnHoy();
+  var piloto = cfg.cuadrillasPiloto.length
+    ? cfg.cuadrillasPiloto.map(function (id) { var c = getCuad(id); return esc(c ? c.nombre : id); }).join(', ')
+    : 'todas las cuadrillas (lista de piloto vacía)';
+  var r = document.getElementById('jor-cfg-resumen');
+  if (r) r.innerHTML =
+    'Exigencias nuevas desde: <strong>' + esc(cfg.fechaActivacion) + '</strong><br>' +
+    'Cuadrillas piloto: <strong>' + piloto + '</strong><br>' +
+    'Ventana ' + esc(cfg.ventana.inicio) + '–' + esc(cfg.ventana.fin) + ' · partida desde ' + esc(cfg.toleranciaPartida) +
+    ' · almuerzo ' + esc(cfg.almuerzoMin) + ' min · alerta si transporte &gt; ' + esc(cfg.umbralTransportePct) + '% del operativo<br>' +
+    'Reincidencia: menos de ' + esc(cfg.reincidencia.ventanaDias) + ' días · versión de configuración ' + esc(cfg.version) +
+    '<br><span style="color:var(--ink3);">Se ajusta en Firebase → <code>config/jornada</code> (solo los campos que quieras cambiar).</span><br>' +
+    'Hora usada para cerrar el día: <strong>' + (bnAhoraConfiable() ? 'reloj del servidor' : 'reloj de este dispositivo (aún sin sincronizar con el servidor)') + '</strong>';
+}
+
+// Prueba que Firebase acepta escrituras en los tres nodos nuevos (si no están en las reglas, el bloque
+// "$other" las rechaza en silencio). Escribe y borra una clave de prueba en cada uno.
+function bnVerificarReglasJornada() {
+  var out = document.getElementById('jor-verif-out');
+  if (!out) return;
+  out.innerHTML = '<span style="color:var(--ink3);">Probando…</span>';
+  var pruebas = [
+    ['jornadas', 'jornadas/_prueba'],
+    ['clientes_visitas', 'clientes_visitas/_prueba/_t'],
+    ['alertas_jornada', 'alertas_jornada/_prueba']
+  ];
+  var lineas = [], fallo = false;
+  (function siguiente(i) {
+    if (i >= pruebas.length) {
+      out.innerHTML = lineas.join('<br>') + (fallo
+        ? '<br><br><strong>Faltan reglas.</strong> Copia las reglas de producción de la tarjeta "Reglas de seguridad Firebase" (más abajo), pégalas en Firebase Console → Realtime Database → Rules y publícalas.'
+        : '<br><br>Las reglas están publicadas correctamente ✅');
+      return;
+    }
+    var nodo = pruebas[i][0], ruta = pruebas[i][1];
+    db.ref(ruta).set({ ts: bnAhora() }).then(function () {
+      return db.ref(ruta).remove();
+    }).then(function () {
+      lineas.push('✅ <code>' + esc(nodo) + '</code> acepta escrituras');
+      siguiente(i + 1);
+    }).catch(function (e) {
+      fallo = true;
+      lineas.push('❌ <code>' + esc(nodo) + '</code>: ' + esc((e && (e.code || e.message)) || 'error'));
+      siguiente(i + 1);
+    });
+  })(0);
+}
+
+// Reconstruye clientes_visitas desde las asignaciones y visitas fallidas disponibles. Solo SuperAdmin.
+// Lee Firebase directamente (no la caché), escribe solo las diferencias en lotes de update() plano
+// y quita lo que ya no corresponde (anuladas, borradas, más antiguas que la ventana + margen).
+function bnReconstruirIndiceReincidencias() {
+  if (!currentUser || currentUser.rol !== 'superadmin') { toast('Solo el SuperAdmin puede reconstruir el índice', 'error'); return; }
+  showConfirm('Reconstruir índice de reincidencias',
+    'Se vuelve a calcular el índice a partir de las asignaciones y visitas fallidas de los últimos ' + (bnCfg().reincidencia.ventanaDias + 5) +
+    ' días. Las entradas que ya no correspondan se eliminan. No modifica asignaciones ni visitas fallidas. ¿Continuar?',
+    function () {
+      var out = document.getElementById('jor-indice-out');
+      var estado = function (t) { if (out) out.innerHTML = t; };
+      estado('<span style="color:var(--ink3);">Leyendo datos…</span>');
+      var corte = bnAhora() - (bnCfg().reincidencia.ventanaDias + 5) * 86400000;
+      Promise.all([
+        db.ref('asignaciones').orderByChild('tsRegistro').startAt(corte).once('value'),
+        db.ref('visitas_fallidas').orderByChild('tsRegistro').startAt(corte).once('value'),
+        db.ref('clientes_visitas').once('value')
+      ]).then(function (r) {
+        var asigs = bnListaConId(r[0].val()), vfs = bnListaConId(r[1].val()), actual = r[2].val() || {};
+        var nuevo = {}, sinId = 0, total = 0;
+        asigs.forEach(function (a) {
+          if (a.anulada || a.tipoRegistro === 'redInterna') return;
+          var e = bnEntradaIndice(a, 'asignacion');
+          if (!e) { sinId++; return; }
+          nuevo['clientes_visitas/' + e.idNorm + '/' + e.refId] = e.datos; total++;
+        });
+        vfs.forEach(function (v) {
+          var e = bnEntradaIndice(v, 'visitaFallida');
+          if (!e) { sinId++; return; }
+          nuevo['clientes_visitas/' + e.idNorm + '/' + e.refId] = e.datos; total++;
+        });
+        var existentes = {};
+        Object.keys(actual).forEach(function (idN) {
+          Object.keys(actual[idN] || {}).forEach(function (k) { existentes['clientes_visitas/' + idN + '/' + k] = actual[idN][k]; });
+        });
+        var cambios = {}, nuevas = 0, actualizadas = 0, eliminadas = 0;
+        Object.keys(nuevo).forEach(function (ruta) {
+          if (!existentes[ruta]) { cambios[ruta] = nuevo[ruta]; nuevas++; }
+          else if (JSON.stringify(existentes[ruta]) !== JSON.stringify(nuevo[ruta])) { cambios[ruta] = nuevo[ruta]; actualizadas++; }
+        });
+        Object.keys(existentes).forEach(function (ruta) {
+          if (!nuevo[ruta]) { cambios[ruta] = null; eliminadas++; }
+        });
+        var rutas = Object.keys(cambios), LOTE = 300, hechos = 0;
+        var resumen = 'Entradas calculadas: <strong>' + total + '</strong> · nuevas ' + nuevas + ' · actualizadas ' + actualizadas +
+          ' · eliminadas ' + eliminadas + ' · registros sin ID de cliente (no se indexan): ' + sinId;
+        if (!rutas.length) { estado('✅ El índice ya estaba al día.<br>' + resumen); toast('El índice ya estaba al día', 'success'); return; }
+        (function lote() {
+          if (hechos >= rutas.length) {
+            cache.clientes_visitas = {};
+            estado('✅ Índice reconstruido.<br>' + resumen);
+            toast('Índice de reincidencias reconstruido', 'success');
+            return;
+          }
+          var u = {};
+          rutas.slice(hechos, hechos + LOTE).forEach(function (p) { u[p] = cambios[p]; });
+          estado('<span style="color:var(--ink3);">Escribiendo ' + Math.min(hechos + LOTE, rutas.length) + ' de ' + rutas.length + '…</span>');
+          db.ref().update(u).then(function () { hechos += LOTE; lote(); }).catch(function (e) {
+            estado('❌ Se detuvo tras ' + hechos + ' de ' + rutas.length + ' cambios: ' + esc((e && (e.code || e.message)) || 'error') +
+              (e && e.code === 'PERMISSION_DENIED' ? '<br>Falta publicar las reglas de <code>clientes_visitas</code> (usa "Verificar reglas").' : '') +
+              '<br>Puedes volver a pulsar el botón: solo escribe lo que falta.');
+          });
+        })();
+      }).catch(function (e) {
+        estado('❌ No se pudo leer: ' + esc((e && (e.code || e.message)) || 'error'));
+      });
+    });
+}
+
+function _jorFilaMetrica(etq, val) {
+  return '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;"><div style="font-size:11px;color:var(--ink3);">' + etq +
+    '</div><div style="font-size:15px;font-weight:700;color:var(--ink);">' + val + '</div></div>';
+}
+
+// Calcula la jornada de una cuadrilla en un día con los datos reales y muestra el detalle.
+function bnJornadaDiagnostico() {
+  var cuadId = (document.getElementById('jor-diag-cuad') || {}).value;
+  var fecha = (document.getElementById('jor-diag-fecha') || {}).value;
+  var out = document.getElementById('jor-diag-out');
+  if (!out) return;
+  if (!cuadId) { toast('Selecciona una cuadrilla', 'error'); return; }
+  if (!fecha) { toast('Elige la fecha', 'error'); return; }
+  out.innerHTML = '<span style="color:var(--ink3);">Calculando…</span>';
+  var cfg = bnCfg();
+  Promise.all([bnJornadaRepo.getRegistrosDia(cuadId, fecha), bnJornadaRepo.getJornadaDia(cuadId, fecha)]).then(function (r) {
+    var jd = r[1] || {};
+    var evs = bnNormalizarEventos(r[0].asigs, r[0].ris, r[0].vfs, bnCtxTiempos())
+      .filter(function (e) { return e.cuadrillaId === cuadId && e.fecha === fecha; })
+      .sort(function (a, b) { return (a.ini === null ? 9999 : a.ini) - (b.ini === null ? 9999 : b.ini); });
+    var ep = bnEvaluarPartida(evs, cfg, jd.partida);
+    var res = bnCalcularJornada(evs, jd.partida, cfg, { ahoraMs: bnAhora(), fecha: fecha, cuadrillaId: cuadId });
+    _jorDiagUltimo = { res: res, guardado: jd.resumen || null };
+    var cu = getCuad(cuadId);
+    var ORIGEN = { asignacion: 'Asignación a cliente', redInterna: 'Red Interna', visitaFallida: 'Visita fallida' };
+    var filas = evs.map(function (e) {
+      var nota = !e.valido ? '<span style="color:var(--red);">sin hora válida: no cuenta</span>' : (e.estimado ? 'fin estimado con "Tiempos por defecto"' : '');
+      return '<tr><td>' + (e.valido ? esc(bnHHMM(e.ini)) + ' – ' + esc(bnHHMM(e.fin)) : (e.ini === null ? '—' : esc(bnHHMM(e.ini)) + ' – ?')) + '</td>' +
+        '<td>' + (e.tipoEv === 'efectivo' ? 'Efectivo' : 'Fallida') + '</td>' +
+        '<td>' + esc(ORIGEN[e.ref] || e.ref) + '</td><td>' + esc(e.tipo || '') + '</td><td>' + esc(e.ot || '') + '</td><td>' + nota + '</td></tr>';
+    }).join('');
+    var p = jd.partida;
+    var partidaTxt = !p ? 'ninguna registrada' :
+      esc((bnBuscarMotivo(cfg, p.motivo) || { texto: p.motivo }).texto) + (p.orden ? ' · orden ' + esc(p.orden) : '') + (p.texto ? ' · ' + esc(p.texto) : '') +
+      (p.obsoleta ? ' <strong>(obsoleta)</strong>' : (bnPartidaValida(p, cfg) ? '' : ' <strong>(incompleta)</strong>'));
+    var g = jd.resumen;
+    var guardadoTxt = !g ? 'no hay resumen guardado' :
+      (g.inputHash === res.inputHash && g.cfgVersion === res.cfgVersion ? 'guardado y vigente ✅' : 'guardado pero distinto al cálculo actual (se reescribe al guardar)');
+    out.innerHTML =
+      '<div style="font-size:13px;margin-bottom:8px;"><strong>' + esc(cu ? cu.nombre : cuadId) + '</strong> · ' + esc(fecha) +
+      ' · estado: <strong>' + esc(bnEstadoDia(res)) + '</strong></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;">' +
+      _jorFilaMetrica('Primer inicio', res.primerInicio === null ? '—' : esc(bnHHMM(res.primerInicio))) +
+      _jorFilaMetrica('Efectivo', esc(bnFmtMin(res.efectivoMin))) +
+      _jorFilaMetrica('Visitas fallidas', esc(bnFmtMin(res.fallidasMin))) +
+      _jorFilaMetrica('Operativo + extra', esc(bnFmtOperativoExtra(res.operativoMin, res.extraMin))) +
+      _jorFilaMetrica('Partida justificada', esc(bnFmtMin(res.partidaMin))) +
+      _jorFilaMetrica('Jornada neta', esc(bnFmtMin(res.netoMin))) +
+      _jorFilaMetrica('Transporte', res.transporteMin === null ? '—' : esc(bnFmtMin(res.transporteMin))) +
+      _jorFilaMetrica('% transporte', esc(bnFmtPct(res.transportePct))) +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--ink2);line-height:1.7;margin-bottom:8px;">' +
+      'En minutos: efectivo ' + res.efectivoMin + ' · fallidas ' + res.fallidasMin + ' · operativo ' + res.operativoMin + ' · extra ' + res.extraMin +
+      ' · partida ' + res.partidaMin + ' · transporte ' + (res.transporteMin === null ? '—' : res.transporteMin) + '<br>' +
+      'Partida: ' + partidaTxt + (ep.excede ? ' · primer inicio pasa ' + ep.minutosTarde + ' min de ' + esc(cfg.toleranciaPartida) : '') + '<br>' +
+      'Traslapes: ' + res.traslapeMin + ' min · eventos estimados: ' + res.eventosEstimados + ' · eventos sin hora válida: ' + res.eventosSinHora + '<br>' +
+      'Exigencias nuevas aplican a este día/cuadrilla: <strong>' + (bnRequiereJornada(fecha, cuadId, cfg) ? 'sí' : 'no') + '</strong> · ' +
+      'resumen en Firebase: ' + guardadoTxt + '</div>' +
+      (evs.length ? '<div class="table-wrap"><table style="font-size:12px;"><thead><tr><th>Horario</th><th>Clase</th><th>Origen</th><th>Tipo</th><th>OT / Orden</th><th>Nota</th></tr></thead><tbody>' + filas + '</tbody></table></div>'
+        : '<p style="color:var(--ink3);font-size:13px;">Sin registros ese día.</p>') +
+      '<div style="margin-top:10px;"><button class="btn btn-sm btn-accent" data-cuad="' + esc(cuadId) + '" data-fecha="' + esc(fecha) + '" onclick="bnJornadaDiagGuardar(this)"' +
+      ((res.parcial || !res.activo) ? ' disabled title="Solo se guardan días cerrados con actividad"' : '') + '>💾 Guardar resumen en Firebase</button>' +
+      '<span id="jor-diag-guardar-out" style="font-size:12px;margin-left:8px;"></span></div>';
+  }).catch(function (e) {
+    out.innerHTML = '<span style="color:var(--red);">No se pudo calcular: ' + esc((e && (e.code || e.message)) || 'error') + '</span>';
+  });
+}
+
+function bnJornadaDiagGuardar(btn) {
+  var u = _jorDiagUltimo;
+  var msg = document.getElementById('jor-diag-guardar-out');
+  if (!u || !btn || u.res.cuadrillaId !== btn.dataset.cuad || u.res.fecha !== btn.dataset.fecha) { toast('Vuelve a calcular el día antes de guardar', 'error'); return; }
+  btn.disabled = true;
+  bnJornadaRepo.guardarResumen(u.res, u.guardado, true).then(function (estado) {
+    if (msg) msg.innerHTML = estado === 'escrito' ? '✅ Guardado en <code>jornadas/' + esc(u.res.cuadrillaId) + '/' + esc(u.res.fecha) + '/resumen</code>' : 'Nada que guardar (' + esc(estado) + ')';
+    if (estado === 'escrito') toast('Resumen guardado', 'success');
+    btn.disabled = false;
+  }).catch(function (e) {
+    if (msg) msg.innerHTML = '❌ ' + esc((e && (e.code || e.message)) || 'error') + (e && e.code === 'PERMISSION_DENIED' ? ' — falta publicar las reglas de <code>jornadas</code>' : '');
+    btn.disabled = false;
+  });
+}
+
+// Respaldo de seguridad: estos nodos jamás los toca la limpieza de datos antiguos (grieta 13.6).
+var BN_NODOS_PROTEGIDOS_LIMPIEZA = ['jornadas', 'clientes_visitas', 'alertas_jornada'];
+
+bnSincronizarHora();
+// >>> FIN CAPA 2 y 3 <<<
+
 // ══════════════════════════════════════════════════════
 // INIT — conectar Firebase y mostrar login
 // DOMContentLoaded garantiza que los scripts defer (Firebase SDK)
 // ya terminaron de cargar antes de ejecutar cualquier firebase.* / db.*
 // ══════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', function() {
+
+// v2.49 (corrección): estas 4 funciones se declaran aquí adentro, pero se llaman desde afuera:
+// onclick="publicarActualizacion()" / "probarRecargaLocal()" (Configuración), el enlace "reintentar" y el botón
+// "Reintentar" de la pantalla de error, e initConfigSeccion() → _bnCargarVersionPublicada().
+// Fuera de este bloque no existían (ReferenceError); se exponen en window. Las funciones se elevan
+// (hoisting), así que ya existen en este punto.
+window.publicarActualizacion = publicarActualizacion;
+window._bnCargarVersionPublicada = _bnCargarVersionPublicada;
+window.probarRecargaLocal = probarRecargaLocal;
+window.cargarDatosIniciales = cargarDatosIniciales;
 
 // Llenar los <select> Hora/Minuto de todos los selectores de hora personalizados
 // (reemplazo de <input type="time">, ver función timePickerHTML más arriba)
@@ -14707,7 +15927,8 @@ function cargarDatosIniciales() {
     safeOnce(db.ref('config/admin2Pass')),
     safeOnce(db.ref('config/superPass')),
     safeOnce(db.ref('config/sector1Nombre')),
-    safeOnce(db.ref('config/sector2Nombre'))
+    safeOnce(db.ref('config/sector2Nombre')),
+    safeOnce(db.ref('config/jornada'))   // v2.49
   ]).then(function(snaps) {
     clearTimeout(timeoutId);
     if (timedOut) return;
@@ -14767,6 +15988,7 @@ function cargarDatosIniciales() {
     if (snaps[14].val()) SUPER_PASS     = snaps[14].val();
     if (snaps[15].val()) SECTOR1_NOMBRE = snaps[15].val();
     if (snaps[16].val()) SECTOR2_NOMBRE = snaps[16].val();
+    cache.config_jornada = (snaps[17] && snaps[17].val && snaps[17].val()) || {}; // v2.49
 
     // Si no hay sectores, migrar legado
     if (Object.keys(cache.sectores).length === 0) {
